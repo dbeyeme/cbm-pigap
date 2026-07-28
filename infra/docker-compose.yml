@@ -1,0 +1,41 @@
+# CBM-PIGAP — environnement de développement local
+# Usage : docker compose -f infra/docker-compose.yml up -d
+
+services:
+  db:
+    # Image officielle PostGIS 15 ; platform explicite pour Apple Silicon (émulation)
+    image: postgis/postgis:15-3.4
+    platform: linux/amd64
+    container_name: pigap-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pigap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pigap_dev_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-pigap}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pigap_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pigap} -d ${POSTGRES_DB:-pigap}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: pigap-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pigap}:${POSTGRES_PASSWORD:-pigap_dev_change_me}@db:5432/${POSTGRES_DB:-pigap}
+      APP_ENV: development
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pigap_pgdata:
