@@ -5,7 +5,6 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -13,7 +12,9 @@ import { login } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
-import { colors, fonts, space } from '../theme';
+import { ShipIcon } from '../components/ShipIcon';
+import { friendlyApiError } from '../lib/apiErrors';
+import { colors, fonts, motion, radii, space } from '../theme';
 
 type Props = {
   onLoggedIn: (token: string) => void;
@@ -25,20 +26,17 @@ export function LoginScreen({ onLoggedIn }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const brandY = useSharedValue(24);
-  const brandOpacity = useSharedValue(0);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
-    brandOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
-    brandY.value = withDelay(
-      80,
-      withTiming(0, { duration: 700, easing: Easing.out(Easing.cubic) }),
-    );
-  }, [brandOpacity, brandY]);
+    opacity.value = withTiming(1, {
+      duration: motion.slow,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [opacity]);
 
   const brandStyle = useAnimatedStyle(() => ({
-    opacity: brandOpacity.value,
-    transform: [{ translateY: brandY.value }],
+    opacity: opacity.value,
   }));
 
   async function onSubmit() {
@@ -48,7 +46,7 @@ export function LoginScreen({ onLoggedIn }: Props) {
       const result = await login(email.trim(), password);
       onLoggedIn(result.access_token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connexion impossible');
+      setError(friendlyApiError(err));
     } finally {
       setLoading(false);
     }
@@ -62,22 +60,22 @@ export function LoginScreen({ onLoggedIn }: Props) {
       <View style={styles.content}>
         <Animated.View style={[styles.hero, brandStyle]}>
           <View style={styles.badge}>
-            <Ionicons name="boat-outline" size={22} color={colors.abyss} />
+            <ShipIcon size={28} />
           </View>
           <Text style={styles.brand}>CBM-PIGAP</Text>
-          <Text style={styles.tagline}>La marée des données de pêche</Text>
-          <Text style={styles.subtitle}>Espace agent · enregistrement terrain</Text>
+          <Text style={styles.tagline}>Suivi de la pêche artisanale</Text>
+          <Text style={styles.subtitle}>Connexion agent de terrain</Text>
         </Animated.View>
 
         <GlassPanel style={styles.panel}>
           <GlassField
-            label="E-mail"
+            label="Votre e-mail"
             icon="mail-outline"
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
-            placeholder="agent@example.com"
+            placeholder="ex. agent@exemple.ga"
           />
           <GlassField
             label="Mot de passe"
@@ -85,16 +83,16 @@ export function LoginScreen({ onLoggedIn }: Props) {
             secureTextEntry
             value={password}
             onChangeText={setPassword}
-            placeholder="••••••••"
+            placeholder="Votre mot de passe"
           />
           {error ? (
-            <View style={styles.errorRow}>
-              <Ionicons name="alert-circle" size={16} color={colors.danger} />
+            <View style={styles.errorRow} accessibilityLiveRegion="polite">
+              <Ionicons name="alert-circle" size={18} color={colors.danger} />
               <Text style={styles.error}>{error}</Text>
             </View>
           ) : null}
           <GlowButton
-            label="Entrer dans la plateforme"
+            label="Se connecter"
             icon="arrow-forward"
             onPress={onSubmit}
             loading={loading}
@@ -116,31 +114,33 @@ const styles = StyleSheet.create({
   },
   hero: { marginBottom: space.lg },
   badge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: colors.accent,
+    width: 56,
+    height: 56,
+    borderRadius: radii.md,
+    backgroundColor: colors.glassStrong,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: space.md,
   },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 40,
-    color: colors.ink,
-    letterSpacing: -0.5,
+    fontSize: 36,
+    color: colors.abyss,
+    letterSpacing: -0.4,
   },
   tagline: {
-    fontFamily: fonts.displayItalic,
-    fontSize: 18,
-    color: colors.foam,
-    marginTop: 6,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 17,
+    color: colors.tide,
+    marginTop: 8,
   },
   subtitle: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: 6,
+    fontSize: 15,
   },
   panel: { marginTop: space.sm },
   errorRow: {
@@ -148,11 +148,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: space.md,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(185, 28, 28, 0.08)',
   },
   error: {
     flex: 1,
     color: colors.danger,
-    fontFamily: fonts.body,
-    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

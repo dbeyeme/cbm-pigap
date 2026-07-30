@@ -1,3 +1,5 @@
+import { parseApiError } from './lib/apiErrors';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
 
 export type TokenResponse = { access_token: string; token_type: string };
@@ -44,7 +46,7 @@ async function request<T>(
   });
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `HTTP ${response.status}`);
+    throw new Error(parseApiError(body || `HTTP ${response.status}`));
   }
   if (response.status === 204) {
     return undefined as T;

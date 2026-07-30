@@ -25,6 +25,14 @@ import { MODULE_VISUALS } from '../media';
 
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
 /** Presets ciblés (alignés seed backend) — pas un pavage côte / intérieur. */
 const ZONE_PRESETS: Array<{
   id: string;
@@ -172,7 +180,12 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
     mapObj.current = map;
-    popup.current = new maplibregl.Popup({ closeButton: true, maxWidth: '240px' });
+    popup.current = new maplibregl.Popup({
+      closeButton: true,
+      maxWidth: '280px',
+      className: 'pigap-popup',
+      offset: 12,
+    });
 
     map.on('click', (e) => {
       const features = map.queryRenderedFeatures(e.point, {
@@ -203,9 +216,12 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
         popup.current
           ?.setLngLat(e.lngLat)
           .setHTML(
-            `<strong>${feat.properties.nom ?? 'Zone'}</strong><br/><span>${feat.properties.type}${
-              Number(feat.properties.actif) === 1 ? '' : ' · inactive'
-            }</span>`,
+            `<div class="pigap-map-popup">
+              <strong class="pigap-map-popup-title">${escapeHtml(String(feat.properties.nom ?? 'Zone'))}</strong>
+              <span class="pigap-map-popup-meta">${escapeHtml(String(feat.properties.type))}${
+                Number(feat.properties.actif) === 1 ? ' · active' : ' · inactive'
+              }</span>
+            </div>`,
           )
           .addTo(map);
         return;

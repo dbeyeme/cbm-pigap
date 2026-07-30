@@ -54,3 +54,7 @@ data/open-data/gabon/rivers_overpass.json
 mobile/ios/Pods/
 mobile/android/.gradle/
 *.jks
+
+# Justificatifs FO (local)
+uploads/
+backend/uploads/

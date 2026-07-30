@@ -191,6 +191,10 @@ async def _emit_threshold_alerts(db: AsyncSession, quota: Quota) -> list[Alerte]
 
     if created:
         await db.flush()
+        from app.modules.notifications.hub import hub
+
+        for alerte in created:
+            await hub.publish({"kind": "alerte", "id": str(alerte.id)})
     return created
 
 

@@ -43,3 +43,14 @@ class StatutAlerte(enum.StrEnum):
     nouvelle = "nouvelle"
     traitee = "traitee"
     ignoree = "ignoree"
+
+
+class TypeDemandeLicence(enum.StrEnum):
+    personne_physique = "personne_physique"
+    personne_morale = "personne_morale"
+
+
+class StatutDemandeLicence(enum.StrEnum):
+    en_attente = "en_attente"
+    approuvee = "approuvee"
+    refusee = "refusee"

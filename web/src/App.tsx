@@ -3,6 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  fetchMe,
   listTrajectories,
   listZones,
   login,
@@ -10,28 +11,42 @@ import {
   ZoneReglementee,
 } from './api';
 import { GABON_COAST_BOUNDS } from './geo/gabonMaritimeRoutes';
+import {
+  clearMarkers,
+  FlowAnimHandle,
+  placeShipMarkers,
+  startLineFlowAnimation,
+} from './geo/mapEffects';
 import { removeZonesFromMap, syncZonesOnMap, zoneColor } from './geo/zoneMap';
 import CompactList from './components/CompactList';
+import HomeCarousel from './components/HomeCarousel';
+import NotificationBell, { RailBadge } from './components/NotificationBell';
+import { useToast } from './components/ToastProvider';
 import AlertesPage from './pages/AlertesPage';
 import CapturesPage from './pages/CapturesPage';
 import DashboardPage from './pages/DashboardPage';
+import DemandesPage from './pages/DemandesPage';
 import LandingPage from './pages/LandingPage';
 import LicencesPage from './pages/LicencesPage';
+import OrganisationsPage from './pages/OrganisationsPage';
 import QuotasPage from './pages/QuotasPage';
+import UsersPage from './pages/UsersPage';
 import ZonesPage from './pages/ZonesPage';
+import { useNotifications } from './hooks/useNotifications';
+import { friendlyApiError } from './lib/apiErrors';
 import { MODULE_VISUALS } from './media';
 
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 const PALETTE = [
-  '#7FE0D3',
-  '#F0C75E',
-  '#7EB6FF',
-  '#FF9B7A',
-  '#C5A3FF',
-  '#9BE15D',
-  '#FFB4E0',
-  '#5EEAD4',
+  '#1B6CA8',
+  '#0D9488',
+  '#C2410C',
+  '#0369A1',
+  '#7C3AED',
+  '#059669',
+  '#B45309',
+  '#0284C7',
 ];
 
 type Page =
@@ -42,7 +57,10 @@ type Page =
   | 'captures'
   | 'quotas'
   | 'dashboard'
-  | 'alertes';
+  | 'alertes'
+  | 'demandes'
+  | 'organisations'
+  | 'users';
 
 function colorFor(id: string): string {
   let h = 0;
@@ -51,12 +69,19 @@ function colorFor(id: string): string {
 }
 
 export default function App() {
+  const toast = useToast();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<maplibregl.Map | null>(null);
-  const [email, setEmail] = useState('agent@example.com');
-  const [password, setPassword] = useState('AgentPass123!');
+  const flowAnim = useRef<FlowAnimHandle | null>(null);
+  const shipMarkers = useRef<maplibregl.Marker[]>([]);
+  const [email, setEmail] = useState('admin@example.com');
+  const [password, setPassword] = useState('AdminPass123!');
   const [token, setToken] = useState<string | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [meRole, setMeRole] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('home');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { summary: notifSummary, connected: notifConnected } = useNotifications(token);
   const [segments, setSegments] = useState<TrajectorySegment[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [boatFilter, setBoatFilter] = useState('');
@@ -105,9 +130,12 @@ export default function App() {
         [GABON_COAST_BOUNDS.east + 1.5, GABON_COAST_BOUNDS.north + 1],
       ],
     });
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     mapObj.current = map;
     return () => {
+      flowAnim.current?.stop();
+      flowAnim.current = null;
+      clearMarkers(shipMarkers.current);
       map.remove();
       mapObj.current = null;
     };
@@ -119,8 +147,13 @@ export default function App() {
 
     const draw = () => {
       const sourceId = 'all-trajectories';
+      const glowId = 'all-traj-glow';
       const lineId = 'all-traj-lines';
       const pointsId = 'all-traj-points';
+      flowAnim.current?.stop();
+      flowAnim.current = null;
+      clearMarkers(shipMarkers.current);
+      if (map.getLayer(glowId)) map.removeLayer(glowId);
       if (map.getLayer(lineId)) map.removeLayer(lineId);
       if (map.getLayer(pointsId)) map.removeLayer(pointsId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
@@ -142,6 +175,7 @@ export default function App() {
             | { type: 'Point'; coordinates: [number, number] };
         }> = [];
         const allCoords: [number, number][] = [];
+        const ends: Array<{ lng: number; lat: number }> = [];
 
         for (const seg of visible) {
           const color = colorFor(seg.id);
@@ -155,15 +189,13 @@ export default function App() {
             });
           }
           coords.forEach((c, i) => {
+            const isEnd = i === 0 || i === coords.length - 1;
             features.push({
               type: 'Feature',
-              properties: {
-                id: seg.id,
-                color,
-                isEnd: i === 0 || i === coords.length - 1,
-              },
+              properties: { id: seg.id, color, isEnd },
               geometry: { type: 'Point', coordinates: c },
             });
+            if (i === coords.length - 1) ends.push({ lng: c[0], lat: c[1] });
           });
         }
 
@@ -172,15 +204,30 @@ export default function App() {
           data: { type: 'FeatureCollection', features },
         });
         map.addLayer({
+          id: glowId,
+          type: 'line',
+          source: sourceId,
+          filter: ['==', ['geometry-type'], 'LineString'],
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': selectedId ? 14 : 10,
+            'line-opacity': 0.22,
+            'line-blur': 4,
+          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        });
+        map.addLayer({
           id: lineId,
           type: 'line',
           source: sourceId,
           filter: ['==', ['geometry-type'], 'LineString'],
           paint: {
             'line-color': ['get', 'color'],
-            'line-width': selectedId ? 6 : 4,
-            'line-opacity': 0.92,
+            'line-width': selectedId ? 5 : 3.5,
+            'line-opacity': 0.95,
+            'line-dasharray': [0, 4],
           },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
         map.addLayer({
           id: pointsId,
@@ -188,12 +235,16 @@ export default function App() {
           source: sourceId,
           filter: ['==', ['geometry-type'], 'Point'],
           paint: {
-            'circle-radius': ['case', ['get', 'isEnd'], 7, 4],
+            'circle-radius': ['case', ['get', 'isEnd'], 5, 3],
             'circle-color': ['get', 'color'],
             'circle-stroke-width': 1.5,
-            'circle-stroke-color': '#021A22',
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': ['case', ['get', 'isEnd'], 0.35, 0.85],
           },
         });
+
+        placeShipMarkers(map, ends.slice(0, 24), shipMarkers.current);
+        flowAnim.current = startLineFlowAnimation(map, lineId);
 
         if (allCoords.length) {
           const bounds = allCoords.reduce(
@@ -204,7 +255,6 @@ export default function App() {
         }
       }
 
-      // Zones overlay au-dessus des trajectoires
       removeZonesFromMap(map);
       if (showZonesOverlay) {
         syncZonesOnMap(map, zones, { visible: true });
@@ -213,6 +263,11 @@ export default function App() {
 
     if (map.isStyleLoaded()) draw();
     else map.once('load', draw);
+
+    return () => {
+      flowAnim.current?.stop();
+      flowAnim.current = null;
+    };
   }, [visible, page, selectedId, zones, showZonesOverlay]);
 
   async function loadTrajectories(accessToken: string) {
@@ -244,10 +299,21 @@ export default function App() {
     try {
       const res = await login(email, password);
       setToken(res.access_token);
+      try {
+        const me = await fetchMe(res.access_token);
+        setMeId(me.id);
+        setMeRole(me.role);
+      } catch {
+        setMeId(null);
+        setMeRole(null);
+      }
       setPage('home');
       await loadTrajectories(res.access_token);
+      toast.success('Connexion réussie', 'Bienvenue sur le portail des autorités.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connexion impossible');
+      const msg = friendlyApiError(err);
+      setError(msg);
+      toast.error('Connexion impossible', msg);
     } finally {
       setLoading(false);
     }
@@ -284,6 +350,8 @@ export default function App() {
 
   function logout() {
     setToken(null);
+    setMeId(null);
+    setMeRole(null);
     setSegments([]);
     setZones([]);
     setShowZonesOverlay(false);
@@ -307,25 +375,29 @@ export default function App() {
 
   return (
     <div className="app app-cmd">
-      <aside className="icon-rail" aria-label="Navigation modules">
+      <aside className="icon-rail" aria-label="Navigation">
         <button
           type="button"
           className={`rail-btn ${page === 'home' ? 'rail-on' : ''}`}
           title="Accueil"
           onClick={() => setPage('home')}
         >
-          <span className="rail-glyph">⌂</span>
+          <span className="rail-glyph" aria-hidden>
+            ⌂
+          </span>
+          <span className="rail-label">Accueil</span>
         </button>
         <button
           type="button"
           className={`rail-btn ${page === 'dashboard' ? 'rail-on' : ''}`}
-          title="Pilotage"
+          title="Tableau de bord"
           onClick={() => {
             setPage('dashboard');
             setError(null);
           }}
         >
           <img src={MODULE_VISUALS.dashboard.src} alt="" />
+          <span className="rail-label">Pilotage</span>
         </button>
         <button
           type="button"
@@ -334,6 +406,7 @@ export default function App() {
           onClick={() => void goMap()}
         >
           <img src={MODULE_VISUALS.trajectories.src} alt="" />
+          <span className="rail-label">Carte</span>
         </button>
         <button
           type="button"
@@ -345,6 +418,7 @@ export default function App() {
           }}
         >
           <img src={MODULE_VISUALS.licences.src} alt="" />
+          <span className="rail-label">Licences</span>
         </button>
         <button
           type="button"
@@ -356,6 +430,7 @@ export default function App() {
           }}
         >
           <img src={MODULE_VISUALS.zones.src} alt="" />
+          <span className="rail-label">Zones</span>
         </button>
         <button
           type="button"
@@ -367,6 +442,7 @@ export default function App() {
           }}
         >
           <img src={MODULE_VISUALS.captures.src} alt="" />
+          <span className="rail-label">Captures</span>
         </button>
         <button
           type="button"
@@ -378,32 +454,95 @@ export default function App() {
           }}
         >
           <img src={MODULE_VISUALS.quotas.src} alt="" />
+          <span className="rail-label">Quotas</span>
         </button>
         <button
           type="button"
-          className={`rail-btn ${page === 'alertes' ? 'rail-on' : ''}`}
+          className={`rail-btn ${page === 'alertes' ? 'rail-on' : ''}${notifSummary.alertes_nouvelles > 0 ? ' rail-attention' : ''}`}
           title="Alertes"
           onClick={() => {
             setPage('alertes');
             setError(null);
+            setNotifOpen(false);
           }}
         >
           <img src={MODULE_VISUALS.alertes.src} alt="" />
+          <span className="rail-label">Alertes</span>
+          <RailBadge count={notifSummary.alertes_nouvelles} />
         </button>
+        <button
+          type="button"
+          className={`rail-btn ${page === 'demandes' ? 'rail-on' : ''}${notifSummary.demandes_en_attente > 0 ? ' rail-attention' : ''}`}
+          title="Demandes licence"
+          onClick={() => {
+            setPage('demandes');
+            setError(null);
+            setNotifOpen(false);
+          }}
+        >
+          <img src={MODULE_VISUALS.licences.src} alt="" />
+          <span className="rail-label">Demandes</span>
+          <RailBadge count={notifSummary.demandes_en_attente} />
+        </button>
+        <button
+          type="button"
+          className={`rail-btn ${page === 'organisations' ? 'rail-on' : ''}`}
+          title="Organisations"
+          onClick={() => {
+            setPage('organisations');
+            setError(null);
+          }}
+        >
+          <img src={MODULE_VISUALS.quotas.src} alt="" />
+          <span className="rail-label">Organis.</span>
+        </button>
+        {meRole === 'admin' ? (
+          <button
+            type="button"
+            className={`rail-btn ${page === 'users' ? 'rail-on' : ''}`}
+            title="Équipe"
+            onClick={() => {
+              setPage('users');
+              setError(null);
+            }}
+          >
+            <img src={MODULE_VISUALS.users.src} alt="" />
+            <span className="rail-label">Équipe</span>
+          </button>
+        ) : null}
         <button type="button" className="rail-btn rail-logout" title="Déconnexion" onClick={logout}>
-          ⎋
+          <span className="rail-glyph" aria-hidden>
+            ⎋
+          </span>
+          <span className="rail-label">Sortir</span>
         </button>
       </aside>
 
       <div className="cmd-main">
         <header className="cmd-top">
-          <div className="brand">
-            <strong>CBM-PIGAP</strong>
-            <span>Portail des autorités · Gabon</span>
+          <div className="brand brand-with-logo">
+            <img src="/logo-cbm-pigap.png" alt="" className="brand-logo brand-logo-sm" />
+            <div>
+              <strong>CBM-PIGAP</strong>
+              <span>Portail des autorités · Gabon</span>
+            </div>
           </div>
-          <button type="button" className="ghost logout cmd-logout-wide" onClick={logout}>
-            Déconnexion
-          </button>
+          <div className="cmd-top-actions">
+            <NotificationBell
+              summary={notifSummary}
+              connected={notifConnected}
+              open={notifOpen}
+              onToggle={() => setNotifOpen((v) => !v)}
+              onNavigate={(p) => {
+                setPage(p);
+                setNotifOpen(false);
+                setError(null);
+              }}
+            />
+            <button type="button" className="ghost logout cmd-logout-wide" onClick={logout}>
+              Déconnexion
+            </button>
+          </div>
         </header>
 
         <div className="cmd-content">
@@ -413,7 +552,10 @@ export default function App() {
       page !== 'captures' &&
       page !== 'quotas' &&
       page !== 'dashboard' &&
-      page !== 'alertes' ? (
+      page !== 'alertes' &&
+      page !== 'demandes' &&
+      page !== 'organisations' &&
+      page !== 'users' ? (
         <p className="error pad" style={{ paddingInline: 22 }}>
           {error}
         </p>
@@ -421,115 +563,171 @@ export default function App() {
 
       {page === 'home' ? (
         <section className="stage home-stage">
-          <div className="home-intro stage-head">
+          <div className="home-intro stage-head glass-block home-intro-anim">
             <p className="eyebrow">Zone pilote · Estuaire / Gabon</p>
             <h1>Portail des autorités</h1>
             <p>
-              Modules pour le contrôle de la pêche artisanale — licences,
-              trajectoires, zones, captures et quotas. Listes courtes, actions
-              claires.
+              Bienvenue. Utilisez le diaporama ou choisissez une action ci-dessous —
+              grands boutons, textes simples.
             </p>
             <p className="status-line">
-              {status || 'Ouvrez Trajectoires pour charger le résumé des sorties.'}
+              {status || 'Astuce : commencez par le Tableau de bord ou les Alertes.'}
             </p>
           </div>
-          <div className="home-module-grid" role="list">
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => setPage('search')}
-            >
-              <img src={MODULE_VISUALS.licences.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M1 · Livré</span>
-              <strong>Licences</strong>
-              <span>{MODULE_VISUALS.licences.short}</span>
-            </button>
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => void goMap()}
-            >
-              <img src={MODULE_VISUALS.trajectories.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M2 · Livré</span>
-              <strong>Trajectoires</strong>
-              <span>{MODULE_VISUALS.trajectories.short}</span>
-            </button>
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => {
-                setPage('zones');
-                setError(null);
-              }}
-            >
-              <img src={MODULE_VISUALS.zones.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M3 · Livré</span>
-              <strong>Zones</strong>
-              <span>{MODULE_VISUALS.zones.short}</span>
-            </button>
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => {
-                setPage('captures');
-                setError(null);
-              }}
-            >
-              <img src={MODULE_VISUALS.captures.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M4 · Livré</span>
-              <strong>Captures</strong>
-              <span>{MODULE_VISUALS.captures.short}</span>
-            </button>
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => {
-                setPage('quotas');
-                setError(null);
-              }}
-            >
-              <img src={MODULE_VISUALS.quotas.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M5 · Livré</span>
-              <strong>Quotas</strong>
-              <span>{MODULE_VISUALS.quotas.short}</span>
-            </button>
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => {
-                setPage('dashboard');
-                setError(null);
-              }}
-            >
-              <img src={MODULE_VISUALS.dashboard.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M6 · Livré</span>
-              <strong>Pilotage</strong>
-              <span>{MODULE_VISUALS.dashboard.short}</span>
-            </button>
-            <button
-              type="button"
-              className="home-module-card"
-              role="listitem"
-              onClick={() => {
-                setPage('alertes');
-                setError(null);
-              }}
-            >
-              <img src={MODULE_VISUALS.alertes.src} alt="" className="home-module-icon" />
-              <span className="mod-kicker">M7 · Livré</span>
-              <strong>Alertes</strong>
-              <span>{MODULE_VISUALS.alertes.short}</span>
-            </button>
+
+          <HomeCarousel
+            onAction={(action) => {
+              setError(null);
+              if (action === 'map') void goMap();
+              else setPage(action);
+            }}
+          />
+
+          <div className="home-groups">
+            <div className="home-group home-group-anim" style={{ animationDelay: '80ms' }}>
+              <h2>Voir l’essentiel</h2>
+              <p className="home-group-lede">
+                Vue d’ensemble et alertes — le premier écran pour les autorités.
+              </p>
+              <div className="home-module-grid" role="list">
+                <button
+                  type="button"
+                  className="home-module-card home-module-primary home-card-anim"
+                  style={{ animationDelay: '120ms' }}
+                  role="listitem"
+                  onClick={() => {
+                    setPage('dashboard');
+                    setError(null);
+                  }}
+                >
+                  <img src={MODULE_VISUALS.dashboard.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Recommandé</span>
+                  <strong>Tableau de bord</strong>
+                  <span>Chiffres clés et carte d’activité</span>
+                </button>
+                <button
+                  type="button"
+                  className="home-module-card home-module-alert home-card-anim"
+                  style={{ animationDelay: '180ms' }}
+                  role="listitem"
+                  onClick={() => {
+                    setPage('alertes');
+                    setError(null);
+                  }}
+                >
+                  <img src={MODULE_VISUALS.alertes.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Prioritaire</span>
+                  <strong>Alertes</strong>
+                  <span>Situations à traiter en premier</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="home-group home-group-anim" style={{ animationDelay: '160ms' }}>
+              <h2>Surveiller</h2>
+              <p className="home-group-lede">
+                Trajectoires des embarcations et zones réglementées sur la carte.
+              </p>
+              <div className="home-module-grid" role="list">
+                <button
+                  type="button"
+                  className="home-module-card home-card-anim"
+                  style={{ animationDelay: '200ms' }}
+                  role="listitem"
+                  onClick={() => void goMap()}
+                >
+                  <img src={MODULE_VISUALS.trajectories.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Carte</span>
+                  <strong>Trajectoires</strong>
+                  <span>Suivi des sorties en mer et fleuves</span>
+                </button>
+                <button
+                  type="button"
+                  className="home-module-card home-card-anim"
+                  style={{ animationDelay: '260ms' }}
+                  role="listitem"
+                  onClick={() => {
+                    setPage('zones');
+                    setError(null);
+                  }}
+                >
+                  <img src={MODULE_VISUALS.zones.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Carte</span>
+                  <strong>Zones</strong>
+                  <span>Zones interdites, protégées, sensibles</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="home-group home-group-anim" style={{ animationDelay: '240ms' }}>
+              <h2>Gérer</h2>
+              <p className="home-group-lede">Licences, captures déclarées et quotas.</p>
+              <div className="home-module-grid" role="list">
+                <button
+                  type="button"
+                  className="home-module-card home-card-anim"
+                  style={{ animationDelay: '280ms' }}
+                  role="listitem"
+                  onClick={() => {
+                    setPage('search');
+                    setError(null);
+                  }}
+                >
+                  <img src={MODULE_VISUALS.licences.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Dossiers</span>
+                  <strong>Licences</strong>
+                  <span>Pêcheurs et embarcations</span>
+                </button>
+                <button
+                  type="button"
+                  className="home-module-card home-card-anim"
+                  style={{ animationDelay: '340ms' }}
+                  role="listitem"
+                  onClick={() => {
+                    setPage('captures');
+                    setError(null);
+                  }}
+                >
+                  <img src={MODULE_VISUALS.captures.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Déclarations</span>
+                  <strong>Captures</strong>
+                  <span>Volumes déclarés par espèce</span>
+                </button>
+                <button
+                  type="button"
+                  className="home-module-card home-card-anim"
+                  style={{ animationDelay: '400ms' }}
+                  role="listitem"
+                  onClick={() => {
+                    setPage('quotas');
+                    setError(null);
+                  }}
+                >
+                  <img src={MODULE_VISUALS.quotas.src} alt="" className="home-module-icon" />
+                  <span className="mod-kicker">Limites</span>
+                  <strong>Quotas</strong>
+                  <span>Consommation et seuils</span>
+                </button>
+                {meRole === 'admin' ? (
+                  <button
+                    type="button"
+                    className="home-module-card home-card-anim"
+                    style={{ animationDelay: '460ms' }}
+                    role="listitem"
+                    onClick={() => {
+                      setPage('users');
+                      setError(null);
+                    }}
+                  >
+                    <img src={MODULE_VISUALS.users.src} alt="" className="home-module-icon" />
+                    <span className="mod-kicker">Admin</span>
+                    <strong>Équipe</strong>
+                    <span>Agents et administrateurs</span>
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <p className="home-next">
-            <span className="mod-kicker">Phase 2</span> Prototype M1–M7 — zone pilote Estuaire
-          </p>
         </section>
       ) : null}
 
@@ -701,6 +899,39 @@ export default function App() {
             </p>
           ) : null}
           <AlertesPage token={token} onError={setError} />
+        </>
+      ) : null}
+
+      {page === 'demandes' ? (
+        <>
+          {error ? (
+            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+              {error}
+            </p>
+          ) : null}
+          <DemandesPage token={token} onError={setError} />
+        </>
+      ) : null}
+
+      {page === 'organisations' ? (
+        <>
+          {error ? (
+            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+              {error}
+            </p>
+          ) : null}
+          <OrganisationsPage token={token} onError={setError} />
+        </>
+      ) : null}
+
+      {page === 'users' && meRole === 'admin' ? (
+        <>
+          {error ? (
+            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+              {error}
+            </p>
+          ) : null}
+          <UsersPage token={token} currentUserId={meId} onError={setError} />
         </>
       ) : null}
         </div>

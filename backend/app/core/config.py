@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
     # M2 — intervalle d'envoi GPS (minutes), paramétrable §5.2
     gps_interval_minutes: int = 5
+    # Justificatifs demandes licence (FO)
+    upload_dir: str = "uploads"
+    upload_max_mb: int = 5
+    upload_max_files: int = 5
 
     @field_validator("database_url", mode="before")
     @classmethod

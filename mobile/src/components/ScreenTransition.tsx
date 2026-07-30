@@ -1,18 +1,20 @@
 import { PropsWithChildren } from 'react';
 import { StyleSheet } from 'react-native';
-import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+
+import { motion } from '../theme';
 
 type Props = PropsWithChildren<{
   screenKey: string;
 }>;
 
-/** Entrée / sortie douce entre écrans. */
+/** Transition douce — fade simple, sans bounce qui déroute. */
 export function ScreenTransition({ children, screenKey }: Props) {
   return (
     <Animated.View
       key={screenKey}
-      entering={FadeInDown.duration(420).springify().damping(18)}
-      exiting={FadeOutUp.duration(220)}
+      entering={FadeIn.duration(motion.base)}
+      exiting={FadeOut.duration(motion.fast)}
       style={styles.fill}
     >
       {children}

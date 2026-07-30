@@ -41,7 +41,7 @@ export function GlowButton({
         <Ionicons
           name={icon}
           size={18}
-          color={variant === 'ghost' ? colors.foam : colors.abyss}
+          color={variant === 'ghost' ? colors.tide : '#F8FAFC'}
           style={{ marginRight: 8 }}
         />
       ) : null}
@@ -74,9 +74,7 @@ export function GlowButton({
       ) : (
         <LinearGradient
           colors={
-            variant === 'accent'
-              ? [...gradients.accent]
-              : [...gradients.button]
+            variant === 'accent' ? [...gradients.accent] : [...gradients.button]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -91,33 +89,38 @@ export function GlowButton({
 
 const styles = StyleSheet.create({
   primary: {
-    minHeight: 54,
+    minHeight: 58,
     borderRadius: radii.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
+    shadowColor: colors.abyss,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
   },
   ghost: {
-    minHeight: 54,
+    minHeight: 58,
     borderRadius: radii.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     borderWidth: 1.5,
     borderColor: colors.glassBorder,
-    backgroundColor: colors.glass,
+    backgroundColor: colors.glassStrong,
   },
   label: {
     fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    color: colors.ink,
+    fontSize: 17,
+    color: '#F8FAFC',
   },
   labelGhost: {
-    color: colors.foam,
+    color: colors.tide,
   },
   labelAccent: {
-    color: colors.abyss,
+    color: '#F8FAFC',
   },
 });

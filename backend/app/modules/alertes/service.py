@@ -50,6 +50,9 @@ async def update_statut(
     row.statut = data.statut
     await db.commit()
     await db.refresh(row)
+    from app.modules.notifications.hub import hub
+
+    await hub.publish({"kind": "alerte_statut", "id": str(row.id)})
     return to_read(row)
 
 
@@ -100,6 +103,9 @@ async def _create(
     )
     db.add(row)
     await db.flush()
+    from app.modules.notifications.hub import hub
+
+    await hub.publish({"kind": "alerte", "id": str(row.id)})
     return row
 
 

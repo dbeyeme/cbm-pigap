@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { GlassPanel } from '../components/GlassPanel';
-import { colors, fonts, radii, space } from '../theme';
+import { GlowButton } from '../components/GlowButton';
+import { ShipIcon } from '../components/ShipIcon';
+import { colors, fonts, motion, radii, space } from '../theme';
 
 const ILLU = {
   licences: require('../../assets/illustrations/icon-licences.png'),
@@ -30,58 +32,61 @@ export function HomeScreen({
   return (
     <View style={styles.container}>
       <View style={styles.top}>
-        <View>
-          <Text style={styles.kicker}>Agent de contrôle</Text>
-          <Text style={styles.title}>Accueil</Text>
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text style={styles.kicker}>Espace agent</Text>
+          <Text style={styles.title}>Bonjour</Text>
         </View>
-        <Pressable onPress={onLogout} style={styles.logoutBtn} hitSlop={12}>
-          <Ionicons name="log-out-outline" size={22} color={colors.ink} />
+        <Pressable
+          onPress={onLogout}
+          style={styles.logoutBtn}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel="Se déconnecter"
+        >
+          <Ionicons name="log-out-outline" size={24} color={colors.tide} />
+          <Text style={styles.logoutText}>Sortir</Text>
         </Pressable>
       </View>
 
-      <GlassPanel style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Mission du jour</Text>
-        <Text style={styles.heroBody}>
-          Enregistre un pêcheur, déclare les captures hors-ligne, suis le GPS, retrouve le
-          dossier par licence.
-        </Text>
-      </GlassPanel>
-
-      <Animated.View entering={FadeInRight.delay(120).duration(450)}>
-        <ActionTile
-          illustration={ILLU.licences}
-          title="Nouveau dossier"
-          subtitle="Pêcheur + embarcation"
-          onPress={onCreate}
-        />
+      <Animated.View entering={FadeInDown.duration(motion.base)}>
+        <GlassPanel style={styles.heroCard} contentStyle={styles.heroInner}>
+          <View style={styles.heroBadge}>
+            <ShipIcon size={36} />
+          </View>
+          <Text style={styles.heroTitle}>Commencer ici</Text>
+          <Text style={styles.heroBody}>
+            Enregistrez une capture. Ça marche même sans internet — l’envoi se fera
+            automatiquement plus tard.
+          </Text>
+          <GlowButton
+            label="Enregistrer une capture"
+            icon="fish-outline"
+            onPress={onCaptures}
+            style={styles.heroCta}
+          />
+        </GlassPanel>
       </Animated.View>
 
-      <Animated.View entering={FadeInRight.delay(160).duration(450)}>
-        <ActionTile
-          illustration={ILLU.captures}
-          title="Captures"
-          subtitle="Déclaration offline → sync"
-          onPress={onCaptures}
-        />
-      </Animated.View>
+      <Text style={styles.sectionLabel}>Autres actions</Text>
 
-      <Animated.View entering={FadeInRight.delay(200).duration(450)}>
-        <ActionTile
-          illustration={ILLU.trajectories}
-          title="Suivi GPS"
-          subtitle="Envoi périodique + historique"
-          onPress={onTracking}
-        />
-      </Animated.View>
-
-      <Animated.View entering={FadeInRight.delay(240).duration(450)}>
-        <ActionTile
-          illustration={ILLU.search}
-          title="Recherche"
-          subtitle="Nom ou n° de licence"
-          onPress={onSearch}
-        />
-      </Animated.View>
+      <ActionTile
+        illustration={ILLU.licences}
+        title="Nouveau dossier"
+        subtitle="Ajouter un pêcheur et son bateau"
+        onPress={onCreate}
+      />
+      <ActionTile
+        illustration={ILLU.trajectories}
+        title="Suivi GPS"
+        subtitle="Voir la position en mer ou sur le fleuve"
+        onPress={onTracking}
+      />
+      <ActionTile
+        illustration={ILLU.search}
+        title="Chercher une licence"
+        subtitle="Par nom ou numéro"
+        onPress={onSearch}
+      />
     </View>
   );
 }
@@ -98,14 +103,21 @@ function ActionTile({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.tilePress}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.tilePress, pressed && styles.tilePressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${subtitle}`}
+    >
       <GlassPanel contentStyle={styles.tile}>
         <Image source={illustration} style={styles.tileArt} accessibilityIgnoresInvertColors />
         <View style={styles.tileText}>
           <Text style={styles.tileTitle}>{title}</Text>
           <Text style={styles.tileSub}>{subtitle}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.inkMuted} />
+        <View style={styles.chevronWrap}>
+          <Ionicons name="chevron-forward" size={22} color={colors.tide} />
+        </View>
       </GlassPanel>
     </Pressable>
   );
@@ -115,7 +127,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: space.lg,
-    paddingTop: space.xxl,
+    paddingTop: space.xl,
   },
   top: {
     flexDirection: 'row',
@@ -125,59 +137,110 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontFamily: fonts.bodyMedium,
-    color: colors.foam,
-    fontSize: 13,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    color: colors.tide,
+    marginBottom: 2,
   },
   title: {
     fontFamily: fonts.display,
-    fontSize: 36,
-    color: colors.ink,
-    marginTop: 2,
+    fontSize: 30,
+    color: colors.abyss,
+    letterSpacing: -0.3,
   },
   logoutBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
+    minWidth: 64,
+    minHeight: 56,
+    paddingHorizontal: 10,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.glass,
+    backgroundColor: colors.glassStrong,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  heroCard: { marginBottom: space.lg },
+  logoutText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    color: colors.tide,
+    marginTop: 2,
+  },
+  heroCard: {
+    marginBottom: space.lg,
+  },
+  heroInner: {
+    gap: 10,
+  },
+  heroBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(37, 99, 168, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
   heroTitle: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    fontSize: 16,
-    marginBottom: 6,
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.abyss,
   },
   heroBody: {
     fontFamily: fonts.body,
+    fontSize: 16,
+    lineHeight: 24,
     color: colors.inkMuted,
-    lineHeight: 22,
+    marginBottom: 6,
   },
-  tilePress: { marginBottom: space.md },
+  heroCta: {
+    marginTop: 4,
+  },
+  sectionLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    color: colors.inkMuted,
+    marginBottom: space.sm,
+  },
+  tilePress: {
+    marginBottom: 12,
+  },
+  tilePressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
   tile: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    minHeight: 72,
   },
   tileArt: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    marginRight: 14,
   },
-  tileText: { flex: 1 },
+  tileText: {
+    flex: 1,
+    minWidth: 0,
+  },
   tileTitle: {
     fontFamily: fonts.bodyBold,
-    color: colors.ink,
     fontSize: 17,
+    color: colors.ink,
   },
   tileSub: {
     fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.inkMuted,
-    marginTop: 2,
+    marginTop: 3,
+  },
+  chevronWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 99, 168, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

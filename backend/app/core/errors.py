@@ -20,3 +20,7 @@ def conflict(detail: str, code: str = "CONFLICT") -> ApiError:
 
 def bad_request(detail: str, code: str = "BAD_REQUEST") -> ApiError:
     return ApiError(status.HTTP_400_BAD_REQUEST, detail, code)
+
+
+def forbidden(detail: str, code: str = "FORBIDDEN") -> ApiError:
+    return ApiError(status.HTTP_403_FORBIDDEN, detail, code)

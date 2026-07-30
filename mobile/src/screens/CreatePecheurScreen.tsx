@@ -14,6 +14,7 @@ import { createEmbarcation, createPecheur } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
+import { friendlyApiError } from '../lib/apiErrors';
 import { colors, fonts, space } from '../theme';
 
 type Props = {
@@ -37,6 +38,26 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   async function onSubmit() {
     setLoading(true);
     setError(null);
+    if (!nom.trim() || !prenom.trim()) {
+      setError('Indiquez le nom et le prénom du pêcheur.');
+      setLoading(false);
+      return;
+    }
+    if (!licence.trim()) {
+      setError('Le numéro de licence est obligatoire.');
+      setLoading(false);
+      return;
+    }
+    if (password.length < 8) {
+      setError('Mot de passe : saisissez au moins 8 caractères.');
+      setLoading(false);
+      return;
+    }
+    if (!immat.trim()) {
+      setError('L’immatriculation de l’embarcation est obligatoire.');
+      setLoading(false);
+      return;
+    }
     try {
       const pecheur = await createPecheur(token, {
         nom: nom.trim(),
@@ -54,7 +75,7 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       setDoneFlash(true);
       setTimeout(onDone, 700);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de création');
+      setError(friendlyApiError(err));
     } finally {
       setLoading(false);
     }

@@ -29,8 +29,10 @@ from app.db.enums import (
     RoleUtilisateur,
     SourcePosition,
     StatutAlerte,
+    StatutDemandeLicence,
     StatutPecheur,
     TypeAlerte,
+    TypeDemandeLicence,
     TypeZone,
 )
 
@@ -268,6 +270,62 @@ class Alerte(Base):
     )
 
     embarcation: Mapped[Embarcation | None] = relationship(back_populates="alertes")
+
+
+class DemandeLicence(Base):
+    """Demande d'inscription / licence depuis le front office public."""
+
+    __tablename__ = "demandes_licence"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type_demande: Mapped[TypeDemandeLicence] = mapped_column(
+        Enum(TypeDemandeLicence, name="type_demande_licence", native_enum=True),
+        nullable=False,
+    )
+    statut: Mapped[StatutDemandeLicence] = mapped_column(
+        Enum(StatutDemandeLicence, name="statut_demande_licence", native_enum=True),
+        nullable=False,
+        default=StatutDemandeLicence.en_attente,
+        index=True,
+    )
+    # Personne physique (pêcheur)
+    nom: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    prenom: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telephone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    # Personne morale (organisation)
+    org_nom: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    org_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    numero_registre: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    org_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    org_telephone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    org_ville: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    org_adresse: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Commun
+    zone_activite: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    embarcation_nom: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    embarcation_immatriculation: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    embarcation_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Justificatifs FO — [{id, type_piece, nom_original, chemin, content_type, taille}]
+    pieces_jointes: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # Traitement back-office
+    motif_refus: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pecheur_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pecheurs.id", ondelete="SET NULL"), nullable=True
+    )
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organisations.id", ondelete="SET NULL"), nullable=True
+    )
+    traite_par_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    date_traitement: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class LogAcces(Base):

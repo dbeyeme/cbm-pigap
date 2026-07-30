@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -11,6 +12,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.errors import ApiError
 from app.core.logging import configure_logging
+from app.core.validation_messages import format_validation_errors
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -44,6 +46,18 @@ async def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail, "code": exc.code},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    _request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Transforme les erreurs Pydantic en message français unique."""
+    detail = format_validation_errors(list(exc.errors()))
+    return JSONResponse(
+        status_code=422,
+        content={"detail": detail, "code": "VALIDATION_ERROR"},
     )
 
 

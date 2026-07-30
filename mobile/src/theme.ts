@@ -1,24 +1,28 @@
-/** Identité visuelle CBM-PIGAP — « Marée » (Atlantique gabonais). */
+/** Identité CBM-PIGAP — maritime claire, public terrain peu digital. */
 export const colors = {
-  abyss: '#021A22',
-  deep: '#043544',
-  tide: '#0A5C6E',
-  lagoon: '#1A8A9A',
-  foam: '#7FE0D3',
-  mist: 'rgba(232, 244, 242, 0.92)',
-  glass: 'rgba(255, 255, 255, 0.12)',
-  glassBorder: 'rgba(255, 255, 255, 0.28)',
-  glassStrong: 'rgba(255, 255, 255, 0.18)',
-  ink: '#E8F4F2',
-  inkMuted: 'rgba(232, 244, 242, 0.65)',
-  inkSoft: 'rgba(232, 244, 242, 0.45)',
-  accent: '#F0C75E',
-  accentDeep: '#D4A017',
-  accentGlow: 'rgba(240, 199, 94, 0.28)',
-  commandGlass: 'rgba(8, 14, 20, 0.82)',
-  danger: '#FF8A7A',
-  success: '#5EEAD4',
-  overlay: 'rgba(2, 26, 34, 0.45)',
+  abyss: '#0B1F3A',
+  deep: '#14365C',
+  tide: '#1E4D7B',
+  lagoon: '#2563A8',
+  foam: '#2563A8',
+  mist: '#EEF3F8',
+  glass: 'rgba(255, 255, 255, 0.82)',
+  glassBorder: 'rgba(15, 40, 70, 0.14)',
+  glassStrong: 'rgba(255, 255, 255, 0.94)',
+  ink: '#0F172A',
+  inkMuted: '#475569',
+  inkSoft: '#64748B',
+  accent: '#1E4D7B',
+  accentDeep: '#0B1F3A',
+  accentGlow: 'rgba(37, 99, 168, 0.18)',
+  commandGlass: 'rgba(255, 255, 255, 0.9)',
+  danger: '#B91C1C',
+  success: '#047857',
+  warn: '#B45309',
+  overlay: 'rgba(238, 243, 248, 0.94)',
+  card: '#FFFFFF',
+  surface: '#EEF3F8',
+  shine: 'rgba(255, 255, 255, 0.95)',
 } as const;
 
 export const space = {
@@ -32,8 +36,8 @@ export const space = {
 
 export const radii = {
   sm: 12,
-  md: 18,
-  lg: 28,
+  md: 16,
+  lg: 22,
   pill: 999,
 } as const;
 
@@ -45,9 +49,17 @@ export const fonts = {
   bodyBold: 'DMSans_700Bold',
 } as const;
 
+/** Durées calmes — éviter le “gadget”. */
+export const motion = {
+  fast: 180,
+  base: 320,
+  slow: 480,
+} as const;
+
 export const gradients = {
-  ocean: ['#021A22', '#043544', '#0A5C6E', '#126B7A'] as const,
-  dawn: ['#043544', '#0A5C6E', '#1A8A9A'] as const,
-  button: ['#1A8A9A', '#0A5C6E'] as const,
-  accent: ['#F0C75E', '#D4A017'] as const,
+  ocean: ['#F7FAFC', '#EEF3F8', '#E0EAF3'] as const,
+  dawn: ['#14365C', '#1E4D7B', '#2563A8'] as const,
+  button: ['#1E4D7B', '#0B1F3A'] as const,
+  accent: ['#2563A8', '#1E4D7B'] as const,
+  glass: ['rgba(255,255,255,0.92)', 'rgba(248,250,252,0.78)'] as const,
 };

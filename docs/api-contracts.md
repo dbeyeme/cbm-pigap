@@ -6,7 +6,7 @@ Voir le détail dans ce fichier — index des modules :
 
 | Module | Fichier | Préfixe prévu (§6) |
 |--------|---------|-------------------|
-| Auth / utilisateurs | `app/schemas/auth.py` | `/api/v1/auth`, `/api/v1/utilisateurs` |
+| Auth / utilisateurs | `app/schemas/auth.py` + `modules/utilisateurs/` | `/api/v1/auth`, `/api/v1/utilisateurs` |
 | M1 Pêcheurs | `app/modules/pecheurs/schemas.py` | `/api/v1/pecheurs`, `/api/v1/embarcations` |
 | M2 Géoloc | `app/modules/geolocalisation/schemas.py` | `/api/v1/positions`, `/api/v1/geoloc` |
 | M3 Zones | `app/modules/zones/schemas.py` | `/api/v1/zones` |
@@ -14,6 +14,7 @@ Voir le détail dans ce fichier — index des modules :
 | M5 Quotas | `app/modules/quotas/schemas.py` | `/api/v1/quotas` |
 | M6 Dashboard | `app/modules/dashboard/schemas.py` | `/api/v1/dashboard` |
 | M7 Alertes | `app/modules/alertes/schemas.py` | `/api/v1/alertes` |
+| Demandes licence (FO) | `app/modules/demandes_licence/schemas.py` | `/api/v1/demandes-licence` |
 | Commun | `app/schemas/common.py` | erreurs `{detail, code}`, GeoJSON |
 
 ## Conventions
@@ -23,6 +24,18 @@ Voir le détail dans ce fichier — index des modules :
 - Géométries : GeoJSON Point / Polygon, SRID 4326.
 - Rôles : déclarés via `Depends(require_role(...))` dès le premier endpoint métier.
 - Sync offline (M4) : `CaptureCreate.id` optionnel (UUID client) pour idempotence.
+
+## Staff — Agents & admins (`/api/v1/utilisateurs`)
+
+| Méthode | Chemin | Auth | Notes |
+|---------|--------|------|-------|
+| POST | `/utilisateurs` | admin | Créer `agent_controle` ou `admin` |
+| GET | `/utilisateurs` | admin | Filtres `role`, `q` |
+| GET | `/utilisateurs/{id}` | admin | |
+| PATCH | `/utilisateurs/{id}` | admin | Nom, rôle, contact, mot de passe |
+| DELETE | `/utilisateurs/{id}` | admin | Interdit soi / dernier admin |
+
+Pêcheurs : CRUD via M1 (`/pecheurs`), pas via cet endpoint.
 
 ## M3 — Zones (`/api/v1/zones`)
 
@@ -81,6 +94,29 @@ Réponse exacte : `pecheurs_actifs`, `volume_total_kg`, `repartition_especes`, `
 | PATCH | `/alertes/{id}` | autorité, agent, admin | Statut `nouvelle\|traitee\|ignoree` |
 
 Règles auto : intrusion zone interdite (positions/captures), dépassement quota (M5), tendance 7j > 2× moyenne hist. `declencheur` obligatoire.
+
+## Demandes de licence FO (`/api/v1/demandes-licence`)
+
+| Méthode | Chemin | Auth | Notes |
+|---------|--------|------|-------|
+| POST | `/demandes-licence` | **public** | Inscription FO (physique / morale) |
+| POST | `/demandes-licence/with-files` | **public** | Multipart + justificatifs (PDF/JPG/PNG) |
+| GET | `/demandes-licence` | agent, admin, autorité | Filtres `statut`, `type_demande`, `q` |
+| GET | `/demandes-licence/{id}` | idem | |
+| GET | `/demandes-licence/{id}/pieces/{piece_id}` | idem | Téléchargement pièce |
+| PATCH | `/demandes-licence/{id}` | idem | Seulement `en_attente` |
+| DELETE | `/demandes-licence/{id}` | idem | Interdit si déjà `approuvee` |
+| POST | `/demandes-licence/{id}/approve` | idem | Crée pêcheur (+ org / embarcation) |
+| POST | `/demandes-licence/{id}/refuse` | idem | Motif obligatoire |
+
+Personnes morales : CRUD aussi via M1 `/api/v1/organisations`.
+
+## Notifications portail (`/api/v1/notifications`)
+
+| Méthode | Chemin | Auth | Notes |
+|---------|--------|------|-------|
+| GET | `/notifications/summary` | agent, admin, autorité | Compteurs demandes en attente + alertes nouvelles |
+| GET | `/notifications/stream` | idem | SSE `event: summary` (temps réel + ping) |
 
 ## Hors Phase 1
 

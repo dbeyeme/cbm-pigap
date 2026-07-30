@@ -15,6 +15,7 @@ import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
 import { ESPECES_MVP, METHODES_MVP } from '../offline/catalog';
 import {
+  CachedEmbarcation,
   LocalCapture,
   cacheEmbarcations,
   countByStatus,
@@ -23,6 +24,7 @@ import {
   listLocalCaptures,
 } from '../offline/db';
 import { syncPendingCaptures } from '../offline/syncCaptures';
+import { friendlyApiError } from '../lib/apiErrors';
 import { colors, fonts, radii, space } from '../theme';
 
 type Props = {
@@ -34,12 +36,21 @@ function newClientId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  // Fallback MVP (hors crypto) — toujours unique pour la file locale
   return `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function asBoats(cached: CachedEmbarcation[]): Embarcation[] {
+  return cached.map((b) => ({
+    id: b.id,
+    pecheur_id: b.pecheur_id,
+    nom: b.nom,
+    immatriculation: b.immatriculation,
+    type: b.type ?? null,
+  }));
 }
 
 export function CapturesScreen({ token, onBack }: Props) {
@@ -66,15 +77,14 @@ export function CapturesScreen({ token, onBack }: Props) {
 
   useEffect(() => {
     void (async () => {
-      // Offline-first : cache SQLite d'abord (déclaration possible à froid)
       try {
         const cached = await listCachedEmbarcations();
         if (cached.length) {
-          setBoats(cached);
+          setBoats(asBoats(cached));
           if (!boatId && cached[0]) setBoatId(cached[0].id);
         }
       } catch {
-        /* cache vide / première install */
+        /* cache vide */
       }
       try {
         const emb = await listTrackedEmbarcations(token);
@@ -93,14 +103,13 @@ export function CapturesScreen({ token, onBack }: Props) {
       } catch (err) {
         const cached = await listCachedEmbarcations();
         if (cached.length) {
-          setBoats(cached);
+          setBoats(asBoats(cached));
           if (!boatId && cached[0]) setBoatId(cached[0].id);
-          setStatus('Hors-ligne — embarcations depuis le cache local');
+          setStatus('Pas de réseau — bateaux lus depuis le téléphone');
         } else {
           setError(
-            err instanceof Error
-              ? err.message
-              : 'Embarcations indisponibles — reconnecte-toi une fois pour les mettre en cache',
+            friendlyApiError(err) ||
+              'Impossible de charger les bateaux. Connectez-vous une fois avec internet.',
           );
         }
       }
@@ -115,16 +124,16 @@ export function CapturesScreen({ token, onBack }: Props) {
     setError(null);
     setStatus(null);
     if (!selectedBoat) {
-      setError('Choisis une embarcation');
+      setError('Choisissez un bateau ci-dessus');
       return;
     }
     const qty = Number(quantite.replace(',', '.'));
     if (!Number.isFinite(qty) || qty <= 0) {
-      setError('Quantité (kg) invalide');
+      setError('Indiquez une quantité en kg (ex. 5 ou 12,5)');
       return;
     }
     if (!debarquement.trim()) {
-      setError('Point de débarquement requis');
+      setError('Indiquez le lieu de débarquement (ex. Owendo)');
       return;
     }
     const isoDate = dateCapture.includes('T')
@@ -133,7 +142,6 @@ export function CapturesScreen({ token, onBack }: Props) {
 
     setBusy(true);
     try {
-      // Offline-first : écriture locale immédiate (même sans réseau)
       await enqueueCapture({
         id: newClientId(),
         pecheur_id: selectedBoat.pecheur_id ?? '',
@@ -145,9 +153,9 @@ export function CapturesScreen({ token, onBack }: Props) {
         date_capture: isoDate,
       });
       await refresh();
-      setStatus('Enregistré localement — en attente de synchronisation');
+      setStatus('Enregistré sur le téléphone. Vous pourrez l’envoyer plus tard.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec enregistrement local');
+      setError(friendlyApiError(err));
     } finally {
       setBusy(false);
     }
@@ -162,12 +170,14 @@ export function CapturesScreen({ token, onBack }: Props) {
       await refresh();
       if (report.error) {
         setError(report.error);
-        setStatus('Réseau indisponible — les déclarations restent en attente');
+        setStatus('Pas de réseau — vos déclarations restent sur le téléphone');
       } else if (report.pushed === 0) {
-        setStatus('Rien à synchroniser');
+        setStatus('Rien à envoyer pour le moment');
       } else {
         setStatus(
-          `Sync OK — ${report.accepted} acceptée(s), ${report.duplicates} déjà connue(s), ${report.rejected} rejetée(s)`,
+          `Envoi terminé — ${report.accepted} acceptée(s)${
+            report.rejected ? `, ${report.rejected} refusée(s)` : ''
+          }`,
         );
       }
     } finally {
@@ -178,44 +188,70 @@ export function CapturesScreen({ token, onBack }: Props) {
   return (
     <View style={styles.root}>
       <View style={styles.top}>
-        <Pressable onPress={onBack} style={styles.backBtn} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={colors.ink} />
+        <Pressable
+          onPress={onBack}
+          style={styles.backBtn}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.tide} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>M4 · Offline-first</Text>
+          <Text style={styles.kicker}>Déclaration</Text>
           <Text style={styles.title}>Captures</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <GlassPanel style={styles.banner}>
-          <Text style={styles.bannerTitle}>
-            {counts.pending > 0
-              ? `${counts.pending} en attente de synchronisation`
-              : 'Toutes les déclarations locales sont synchronisées'}
-          </Text>
-          <Text style={styles.bannerSub}>
-            {counts.synced} synchronisée(s) · saisie toujours locale d'abord
-          </Text>
+        <GlassPanel
+          style={styles.banner}
+          contentStyle={counts.pending > 0 ? styles.bannerWait : styles.bannerOk}
+        >
+          <View style={styles.bannerRow}>
+            <Ionicons
+              name={counts.pending > 0 ? 'cloud-upload-outline' : 'checkmark-circle'}
+              size={22}
+              color={counts.pending > 0 ? colors.warn : colors.success}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bannerTitle}>
+                {counts.pending > 0
+                  ? `${counts.pending} déclaration(s) à envoyer`
+                  : 'Tout est à jour'}
+              </Text>
+              <Text style={styles.bannerSub}>
+                {counts.synced > 0
+                  ? `${counts.synced} déjà envoyée(s) au serveur`
+                  : 'Remplissez le formulaire puis appuyez sur Enregistrer'}
+              </Text>
+            </View>
+          </View>
         </GlassPanel>
 
-        <Text style={styles.section}>Embarcation</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
-          {boats.map((b) => {
-            const on = b.id === boatId;
-            return (
-              <Pressable
-                key={b.id}
-                onPress={() => setBoatId(b.id)}
-                style={[styles.chip, on && styles.chipOn]}
-              >
-                <Text style={[styles.chipText, on && styles.chipTextOn]}>{b.nom}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <Text style={styles.section}>1. Quel bateau ?</Text>
+        {boats.length === 0 ? (
+          <Text style={styles.empty}>Aucun bateau — créez d’abord un dossier pêcheur.</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
+            {boats.map((b) => {
+              const on = b.id === boatId;
+              return (
+                <Pressable
+                  key={b.id}
+                  onPress={() => setBoatId(b.id)}
+                  style={[styles.chip, on && styles.chipOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{b.nom}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
-        <Text style={styles.section}>Espèce</Text>
+        <Text style={styles.section}>2. Quelle espèce ?</Text>
         <View style={styles.wrapChips}>
           {ESPECES_MVP.map((e) => {
             const on = e === espece;
@@ -231,7 +267,7 @@ export function CapturesScreen({ token, onBack }: Props) {
           })}
         </View>
 
-        <Text style={styles.section}>Méthode</Text>
+        <Text style={styles.section}>3. Quelle méthode ?</Text>
         <View style={styles.wrapChips}>
           {METHODES_MVP.map((m) => {
             const on = m === methode;
@@ -247,50 +283,66 @@ export function CapturesScreen({ token, onBack }: Props) {
           })}
         </View>
 
+        <Text style={styles.section}>4. Détails</Text>
         <GlassField
-          label="Quantité (kg)"
+          label="Quantité (kilogrammes)"
           icon="scale-outline"
           value={quantite}
           onChangeText={setQuantite}
           keyboardType="decimal-pad"
+          placeholder="Ex. 5"
         />
         <GlassField
-          label="Point de débarquement"
+          label="Lieu de débarquement"
           icon="boat-outline"
           value={debarquement}
           onChangeText={setDebarquement}
+          placeholder="Ex. Owendo"
         />
         <GlassField
-          label="Date (AAAA-MM-JJTHH:mm)"
+          label="Date et heure"
           icon="calendar-outline"
           value={dateCapture}
           onChangeText={setDateCapture}
           autoCapitalize="none"
+          placeholder="AAAA-MM-JJTHH:mm"
         />
 
         <GlowButton
-          label={busy ? '…' : 'Enregistrer hors-ligne'}
+          label={busy ? '…' : 'Enregistrer'}
+          icon="save-outline"
           onPress={() => void onSaveLocal()}
           disabled={busy}
         />
         <View style={{ height: space.sm }} />
         <GlowButton
-          label={busy ? '…' : 'Synchroniser maintenant'}
+          label={busy ? '…' : 'Envoyer au serveur'}
+          icon="cloud-upload-outline"
           onPress={() => void onSync()}
           disabled={busy}
           variant="ghost"
         />
 
-        {status ? <Text style={styles.statusOk}>{status}</Text> : null}
-        {error ? <Text style={styles.statusErr}>{error}</Text> : null}
+        {status ? (
+          <View style={styles.msgOk}>
+            <Ionicons name="information-circle" size={18} color={colors.success} />
+            <Text style={styles.statusOk}>{status}</Text>
+          </View>
+        ) : null}
+        {error ? (
+          <View style={styles.msgErr}>
+            <Ionicons name="alert-circle" size={18} color={colors.danger} />
+            <Text style={styles.statusErr}>{error}</Text>
+          </View>
+        ) : null}
 
-        <Text style={[styles.section, { marginTop: space.lg }]}>File locale</Text>
+        <Text style={[styles.section, { marginTop: space.lg }]}>Mes déclarations</Text>
         <FlatList
           data={localRows}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           ListEmptyComponent={
-            <Text style={styles.empty}>Aucune déclaration locale pour l’instant.</Text>
+            <Text style={styles.empty}>Aucune déclaration pour l’instant.</Text>
           }
           renderItem={({ item }) => (
             <GlassPanel style={styles.row} contentStyle={styles.rowInner}>
@@ -302,7 +354,7 @@ export function CapturesScreen({ token, onBack }: Props) {
                   {item.methode} · {item.point_debarquement}
                 </Text>
                 <Text style={styles.rowMeta}>
-                  {new Date(item.date_capture).toLocaleString()}
+                  {new Date(item.date_capture).toLocaleString('fr-FR')}
                 </Text>
               </View>
               <View
@@ -311,8 +363,13 @@ export function CapturesScreen({ token, onBack }: Props) {
                   item.sync_status === 'synced' ? styles.badgeOk : styles.badgeWait,
                 ]}
               >
-                <Text style={styles.badgeText}>
-                  {item.sync_status === 'synced' ? 'synchronisé' : 'en attente'}
+                <Text
+                  style={[
+                    styles.badgeText,
+                    item.sync_status === 'synced' ? styles.badgeTextOk : styles.badgeTextWait,
+                  ]}
+                >
+                  {item.sync_status === 'synced' ? 'Envoyé' : 'Sur le téléphone'}
                 </Text>
               </View>
             </GlassPanel>
@@ -330,112 +387,145 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: space.lg,
     paddingTop: space.xl,
-    gap: 8,
+    gap: 10,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.pill,
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.glass,
+    backgroundColor: colors.glassStrong,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
   kicker: {
     fontFamily: fonts.bodyMedium,
-    color: colors.foam,
-    fontSize: 12,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    color: colors.tide,
+    fontSize: 14,
   },
   title: {
     fontFamily: fonts.display,
-    fontSize: 30,
-    color: colors.ink,
+    fontSize: 28,
+    color: colors.abyss,
   },
-  scroll: { paddingHorizontal: space.lg, paddingBottom: 48 },
+  scroll: { paddingHorizontal: space.lg, paddingBottom: 56 },
   banner: { marginTop: space.md, marginBottom: space.md },
+  bannerWait: {},
+  bannerOk: {},
+  bannerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   bannerTitle: {
     fontFamily: fonts.bodyBold,
     color: colors.ink,
-    fontSize: 15,
+    fontSize: 16,
   },
   bannerSub: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
     marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
   },
   section: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMuted,
-    marginBottom: 8,
-    marginTop: 4,
+    fontFamily: fonts.bodyBold,
+    color: colors.abyss,
+    fontSize: 15,
+    marginBottom: 10,
+    marginTop: 8,
   },
   chips: { marginBottom: space.md },
   wrapChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
     marginBottom: space.md,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radii.pill,
-    backgroundColor: colors.glass,
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
     borderColor: colors.glassBorder,
     marginRight: 8,
+    justifyContent: 'center',
   },
   chipOn: {
-    backgroundColor: colors.foam,
-    borderColor: colors.foam,
+    backgroundColor: colors.tide,
+    borderColor: colors.tide,
   },
   chipText: {
     fontFamily: fonts.bodyMedium,
     color: colors.ink,
-    fontSize: 13,
+    fontSize: 15,
   },
-  chipTextOn: { color: colors.abyss },
-  statusOk: {
+  chipTextOn: { color: '#F8FAFC', fontFamily: fonts.bodyBold },
+  msgOk: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     marginTop: space.md,
-    fontFamily: fonts.body,
-    color: colors.foam,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(4, 120, 87, 0.08)',
+  },
+  msgErr: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: space.sm,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(185, 28, 28, 0.08)',
+  },
+  statusOk: {
+    flex: 1,
+    fontFamily: fonts.bodyMedium,
+    color: colors.success,
+    fontSize: 14,
+    lineHeight: 20,
   },
   statusErr: {
-    marginTop: space.sm,
-    fontFamily: fonts.body,
-    color: '#FF9B7A',
+    flex: 1,
+    fontFamily: fonts.bodyMedium,
+    color: colors.danger,
+    fontSize: 14,
+    lineHeight: 20,
   },
   empty: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
     marginBottom: space.md,
+    fontSize: 15,
+    lineHeight: 22,
   },
   row: { marginBottom: space.sm },
   rowInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowTitle: {
     fontFamily: fonts.bodyBold,
     color: colors.ink,
-    fontSize: 15,
+    fontSize: 16,
   },
   rowMeta: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 3,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: radii.pill,
+    maxWidth: 120,
   },
-  badgeWait: { backgroundColor: 'rgba(240,199,94,0.25)' },
-  badgeOk: { backgroundColor: 'rgba(127,224,211,0.25)' },
+  badgeWait: { backgroundColor: 'rgba(180, 83, 9, 0.14)' },
+  badgeOk: { backgroundColor: 'rgba(4, 120, 87, 0.14)' },
   badgeText: {
     fontFamily: fonts.bodyMedium,
-    color: colors.ink,
-    fontSize: 11,
+    fontSize: 12,
+    textAlign: 'center',
   },
+  badgeTextWait: { color: colors.warn },
+  badgeTextOk: { color: colors.success },
 });

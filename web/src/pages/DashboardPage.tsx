@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { DashboardRead, getDashboard } from '../api';
 import CompactList from '../components/CompactList';
 import { GABON_COAST_BOUNDS } from '../geo/gabonMaritimeRoutes';
+import { clearMarkers, placeShipMarkers } from '../geo/mapEffects';
 import { MODULE_VISUALS } from '../media';
 
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
@@ -31,6 +32,7 @@ export default function DashboardPage({ token, onError }: Props) {
   const [loading, setLoading] = useState(false);
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapObj = useRef<maplibregl.Map | null>(null);
+  const shipMarkers = useRef<maplibregl.Marker[]>([]);
 
   async function load(d = debut, f = fin) {
     setLoading(true);
@@ -67,6 +69,7 @@ export default function DashboardPage({ token, onError }: Props) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     mapObj.current = map;
     return () => {
+      clearMarkers(shipMarkers.current);
       map.remove();
       mapObj.current = null;
     };
@@ -79,8 +82,11 @@ export default function DashboardPage({ token, onError }: Props) {
     const draw = () => {
       const src = 'dash-activity';
       const layer = 'dash-activity-circles';
+      const glow = 'dash-activity-glow';
+      if (map.getLayer(glow)) map.removeLayer(glow);
       if (map.getLayer(layer)) map.removeLayer(layer);
       if (map.getSource(src)) map.removeSource(src);
+      clearMarkers(shipMarkers.current);
 
       const features = data.zones_forte_activite.map((z) => ({
         type: 'Feature' as const,
@@ -97,6 +103,25 @@ export default function DashboardPage({ token, onError }: Props) {
         data: { type: 'FeatureCollection', features },
       });
       map.addLayer({
+        id: glow,
+        type: 'circle',
+        source: src,
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['get', 'nb'],
+            1,
+            18,
+            10,
+            42,
+          ],
+          'circle-color': '#2b8cde',
+          'circle-opacity': 0.18,
+          'circle-blur': 0.6,
+        },
+      });
+      map.addLayer({
         id: layer,
         type: 'circle',
         source: src,
@@ -106,16 +131,25 @@ export default function DashboardPage({ token, onError }: Props) {
             ['linear'],
             ['get', 'nb'],
             1,
+            8,
             10,
-            10,
-            28,
+            22,
           ],
-          'circle-color': '#c9921a',
-          'circle-opacity': 0.78,
+          'circle-color': '#1e4d7b',
+          'circle-opacity': 0.72,
           'circle-stroke-width': 2,
-          'circle-stroke-color': '#5ee4d4',
+          'circle-stroke-color': '#ffffff',
         },
       });
+
+      placeShipMarkers(
+        map,
+        features.map((f) => {
+          const c = f.geometry.coordinates as [number, number];
+          return { lng: c[0], lat: c[1] };
+        }),
+        shipMarkers.current,
+      );
 
       if (features.length) {
         const bounds = new maplibregl.LngLatBounds();
@@ -137,17 +171,18 @@ export default function DashboardPage({ token, onError }: Props) {
   }
 
   const maxEspece = data?.repartition_especes[0]?.volume_kg || 1;
+  const alertCount = data?.alertes_actives.length ?? 0;
 
   return (
     <section className="stage stage-wide dashboard-stage">
       <div className="stage-head page-head-with-icon">
         <img src={MODULE_VISUALS.dashboard.src} alt="" className="page-module-icon" />
         <div>
-          <p className="eyebrow">Module M6 · Zone pilote Estuaire</p>
+          <p className="eyebrow">Pilotage · Estuaire</p>
           <h1>Tableau de bord</h1>
           <p>
-            Vue autorités — pêcheurs actifs, captures, alertes et foyers d’activité sur le
-            littoral gabonais.
+            Quatre indicateurs, une carte, les alertes — tout ce qu’il faut pour décider
+            rapidement.
           </p>
         </div>
       </div>
@@ -175,12 +210,14 @@ export default function DashboardPage({ token, onError }: Props) {
           <span>Volume capturé (kg)</span>
           <strong>{data ? data.volume_total_kg : '—'}</strong>
         </div>
-        <div className="dashboard-stat">
+        <div className={`dashboard-stat${alertCount > 0 ? ' home-module-alert' : ''}`}>
           <span>Alertes actives</span>
-          <strong>{data?.alertes_actives.length ?? '—'}</strong>
+          <strong style={alertCount > 0 ? { color: 'var(--danger)' } : undefined}>
+            {alertCount || '—'}
+          </strong>
         </div>
         <div className="dashboard-stat">
-          <span>Zones actives</span>
+          <span>Foyers d’activité</span>
           <strong>{data?.zones_forte_activite.length ?? '—'}</strong>
         </div>
       </div>
@@ -196,7 +233,7 @@ export default function DashboardPage({ token, onError }: Props) {
               getKey={(r) => r.espece}
               initial={8}
               renderItem={(r) => (
-                <div className="traj-item" style={{ borderLeftColor: 'var(--okoume, #c4a574)' }}>
+                <div className="traj-item" style={{ borderLeftColor: 'var(--foam)' }}>
                   <span className="traj-title">
                     {r.espece} · {r.volume_kg} kg
                   </span>
@@ -208,13 +245,13 @@ export default function DashboardPage({ token, onError }: Props) {
             />
           )}
 
-          <h2 style={{ marginTop: 24 }}>Alertes actives</h2>
+          <h2 style={{ marginTop: 24 }}>Alertes à traiter</h2>
           <div className="dashboard-alerts">
             <CompactList
               items={data?.alertes_actives ?? []}
               getKey={(a) => a.id}
               initial={5}
-              empty={<p className="empty-list">Aucune alerte nouvelle.</p>}
+              empty={<p className="empty-list">Aucune alerte — situation calme.</p>}
               renderItem={(a) => (
                 <div
                   className={`dashboard-alert ${a.niveau_gravite === 'critique' ? 'danger' : 'warn'}`}
@@ -233,10 +270,9 @@ export default function DashboardPage({ token, onError }: Props) {
         </div>
 
         <div className="dashboard-panel">
-          <h2>Zones à forte activité</h2>
+          <h2>Carte d’activité</h2>
           <p className="landing-section-lede" style={{ marginBottom: 12 }}>
-            Captures géolocalisées intersectant les polygones réglementés (Estuaire &amp;
-            littoral).
+            Foyers de captures sur le littoral — icônes navire avec signal radar.
           </p>
           <div className="dashboard-map-slot" ref={mapRef} />
           <CompactList
@@ -245,7 +281,7 @@ export default function DashboardPage({ token, onError }: Props) {
             initial={5}
             empty={<p className="empty-list">Pas encore de foyer cartographié sur la période.</p>}
             renderItem={(z) => (
-              <div className="traj-item" style={{ borderLeftColor: 'var(--sun)' }}>
+              <div className="traj-item" style={{ borderLeftColor: 'var(--tide)' }}>
                 <span className="traj-title">{z.label ?? 'Zone'}</span>
                 <span className="traj-meta">
                   {z.nb_captures} capture(s) · {z.volume_kg} kg

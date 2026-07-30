@@ -3,6 +3,7 @@
  * Idempotent : le serveur dédoublonne via l'UUID client.
  */
 import { syncCapturesBatch } from '../api';
+import { parseApiError } from '../lib/apiErrors';
 import { listPendingCaptures, markSynced, markSyncError } from './db';
 
 export type SyncReport = {
@@ -51,7 +52,9 @@ export async function syncPendingCaptures(token: string): Promise<SyncReport> {
       error: null,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Sync réseau impossible';
+    const message = parseApiError(
+      err instanceof Error ? err.message : 'Sync réseau impossible',
+    );
     for (const c of pending) {
       await markSyncError(c.id, message);
     }

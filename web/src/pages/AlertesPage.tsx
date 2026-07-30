@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { listAlertes, patchAlerteStatut, QuotaAlerte } from '../api';
+import { listAlertes, patchAlerteStatut, QuotaAlerte, refreshNotifications } from '../api';
 import CompactList from '../components/CompactList';
+import { useToast } from '../components/ToastProvider';
+import { friendlyApiError } from '../lib/apiErrors';
 import { MODULE_VISUALS } from '../media';
 
 type Props = {
@@ -10,9 +12,19 @@ type Props = {
 };
 
 export default function AlertesPage({ token, onError }: Props) {
+  const toast = useToast();
   const [rows, setRows] = useState<QuotaAlerte[]>([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const fail = useCallback(
+    (err: unknown, title: string) => {
+      const msg = friendlyApiError(err);
+      onError(msg);
+      toast.error(title, msg);
+    },
+    [onError, toast],
+  );
 
   const refresh = useCallback(async () => {
     const list = await listAlertes(token, { statut: 'nouvelle' });
@@ -21,10 +33,8 @@ export default function AlertesPage({ token, onError }: Props) {
   }, [token]);
 
   useEffect(() => {
-    void refresh().catch((err) =>
-      onError(err instanceof Error ? err.message : 'Chargement alertes impossible'),
-    );
-  }, [refresh, onError]);
+    void refresh().catch((err) => fail(err, 'Chargement des alertes impossible'));
+  }, [refresh, fail]);
 
   async function setStatut(id: string, statut: 'traitee' | 'ignoree') {
     setLoading(true);
@@ -32,8 +42,13 @@ export default function AlertesPage({ token, onError }: Props) {
     try {
       await patchAlerteStatut(token, id, statut);
       await refresh();
+      refreshNotifications();
+      toast.success(
+        statut === 'traitee' ? 'Alerte traitée' : 'Alerte ignorée',
+        'Le compteur de notifications a été mis à jour.',
+      );
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Mise à jour impossible');
+      fail(err, 'Mise à jour de l’alerte impossible');
     } finally {
       setLoading(false);
     }
@@ -47,8 +62,8 @@ export default function AlertesPage({ token, onError }: Props) {
           <p className="eyebrow">Module M7 · Règles explicites</p>
           <h1>Alertes</h1>
           <p>
-            Zone interdite · dépassement quota · activité inhabituelle — chaque alerte
-            porte son déclencheur.
+            Zone interdite · dépassement quota · activité inhabituelle — chaque alerte porte son
+            déclencheur.
           </p>
           <p className="status-line">{status}</p>
         </div>
@@ -61,7 +76,7 @@ export default function AlertesPage({ token, onError }: Props) {
         empty={<p className="empty-list">Aucune alerte nouvelle.</p>}
         renderItem={(a) => (
           <div
-            className={`dashboard-alert ${a.niveau_gravite === 'critique' ? 'danger' : 'warn'}`}
+            className={`dashboard-alert pending-pulse ${a.niveau_gravite === 'critique' ? 'danger' : 'warn'}`}
           >
             <strong>
               {a.type.replaceAll('_', ' ')} · {a.niveau_gravite}

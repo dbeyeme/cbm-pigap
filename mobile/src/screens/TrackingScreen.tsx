@@ -1,13 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   Embarcation,
@@ -27,6 +21,7 @@ import {
   MaritimeRouteId,
   isOnWater,
 } from '../geo/gabonMaritimeRoutes';
+import { friendlyApiError } from '../lib/apiErrors';
 import { colors, fonts, radii, space } from '../theme';
 
 type Props = {
@@ -34,7 +29,6 @@ type Props = {
   onBack: () => void;
 };
 
-/** Intervalle démo mobile (secondes) — le serveur reste en minutes §5.2. */
 const DEMO_INTERVAL_SEC = 30;
 
 export function TrackingScreen({ token, onBack }: Props) {
@@ -48,6 +42,7 @@ export function TrackingScreen({ token, onBack }: Props) {
   const [points, setPoints] = useState<PositionPoint[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDemoHelp, setShowDemoHelp] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const boatIdRef = useRef<string | null>(null);
 
@@ -75,7 +70,7 @@ export function TrackingScreen({ token, onBack }: Props) {
         await loadTrajectory(id);
       } catch (err) {
         setPoints([]);
-        setError(err instanceof Error ? err.message : 'Trajectoire indisponible');
+        setError(friendlyApiError(err));
       }
     },
     [loadTrajectory],
@@ -88,7 +83,7 @@ export function TrackingScreen({ token, onBack }: Props) {
         setIntervalMin(cfg.gps_interval_minutes);
         if (emb[0]) await selectBoat(emb[0].id);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Chargement impossible');
+        setError(friendlyApiError(err));
       }
     })();
     return () => {
@@ -99,7 +94,7 @@ export function TrackingScreen({ token, onBack }: Props) {
   async function ensurePermission() {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      throw new Error('Permission localisation refusée');
+      throw new Error('Autorisez la localisation dans les réglages du téléphone');
     }
   }
 
@@ -112,8 +107,7 @@ export function TrackingScreen({ token, onBack }: Props) {
     const lat = loc.coords.latitude;
     if (!isOnWater(lon, lat)) {
       throw new Error(
-        'GPS hors zone d’eau gabonaise (ville ou simulateur). ' +
-          'Utilise « Remplacer par trajet » (Côte→mer, Ogooué, navire étranger).',
+        'Position hors mer / fleuve gabonais. Sur simulateur, utilisez « Afficher un parcours d’exemple ».',
       );
     }
     await postPosition(token, {
@@ -125,7 +119,7 @@ export function TrackingScreen({ token, onBack }: Props) {
       horodatage: new Date(loc.timestamp).toISOString(),
       source: 'mobile',
     });
-    setLast(new Date().toLocaleTimeString());
+    setLast(new Date().toLocaleTimeString('fr-FR'));
     await loadTrajectory(targetBoat);
     await refreshBoats();
   }
@@ -137,7 +131,7 @@ export function TrackingScreen({ token, onBack }: Props) {
     try {
       await sendOnce(boatId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Envoi GPS impossible');
+      setError(friendlyApiError(err));
     } finally {
       setBusy(false);
     }
@@ -149,7 +143,6 @@ export function TrackingScreen({ token, onBack }: Props) {
     setError(null);
     try {
       const route = GABON_MARITIME_ROUTES.find((r) => r.id === routeId)!;
-      // Remplace l'historique anomal (terre / SF) par un corridor en eau
       await clearTrajectory(token, boatId);
       const now = Date.now();
       const batch = route.path.map((coordinates, i) => {
@@ -165,11 +158,11 @@ export function TrackingScreen({ token, onBack }: Props) {
         };
       });
       await postPositionsBatch(token, batch);
-      setLast(new Date().toLocaleTimeString());
+      setLast(new Date().toLocaleTimeString('fr-FR'));
       await loadTrajectory(boatId);
       await refreshBoats();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Simulation impossible');
+      setError(friendlyApiError(err));
     } finally {
       setBusy(false);
     }
@@ -196,7 +189,7 @@ export function TrackingScreen({ token, onBack }: Props) {
       }, ms);
       setActive(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Envoi GPS impossible');
+      setError(friendlyApiError(err));
     } finally {
       setBusy(false);
     }
@@ -211,19 +204,25 @@ export function TrackingScreen({ token, onBack }: Props) {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View>
-            <Pressable onPress={onBack} style={styles.backRow}>
-              <Ionicons name="chevron-back" size={22} color={colors.foam} />
+            <Pressable
+              onPress={onBack}
+              style={styles.backRow}
+              accessibilityRole="button"
+              accessibilityLabel="Retour"
+            >
+              <Ionicons name="chevron-back" size={24} color={colors.tide} />
               <Text style={styles.backText}>Retour</Text>
             </Pressable>
+            <Text style={styles.kicker}>Localisation</Text>
             <Text style={styles.title}>Suivi GPS</Text>
             <Text style={styles.lead}>
-              1) Choisis la pirogue · 2) Envoie une position · 3) Vois la trajectoire.
+              Choisissez le bateau, regardez la carte, puis envoyez la position.
             </Text>
 
-            <Text style={styles.label}>Quelle pirogue suivre ?</Text>
+            <Text style={styles.label}>1. Quel bateau suivre ?</Text>
             {boats.length === 0 ? (
               <Text style={styles.empty}>
-                Aucune embarcation — crée d’abord un dossier pêcheur.
+                Aucun bateau — créez d’abord un dossier pêcheur.
               </Text>
             ) : (
               boats.map((b) => {
@@ -234,12 +233,16 @@ export function TrackingScreen({ token, onBack }: Props) {
                     key={b.id}
                     onPress={() => void selectBoat(b.id)}
                     style={[styles.boat, activeBoat && styles.boatActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activeBoat }}
                   >
-                    <Ionicons
-                      name="boat-outline"
-                      size={18}
-                      color={activeBoat ? colors.abyss : colors.foam}
-                    />
+                    <View style={[styles.boatIcon, activeBoat && styles.boatIconOn]}>
+                      <Ionicons
+                        name="boat-outline"
+                        size={20}
+                        color={activeBoat ? '#F8FAFC' : colors.tide}
+                      />
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text
                         style={[styles.boatText, activeBoat && styles.boatTextActive]}
@@ -250,11 +253,11 @@ export function TrackingScreen({ token, onBack }: Props) {
                       <Text
                         style={[styles.boatMeta, activeBoat && styles.boatMetaActive]}
                       >
-                        {b.immatriculation} · {count} point{count === 1 ? '' : 's'} GPS
+                        {b.immatriculation} · {count} point{count === 1 ? '' : 's'} sur la carte
                       </Text>
                     </View>
                     {activeBoat ? (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.abyss} />
+                      <Ionicons name="checkmark-circle" size={22} color="#F8FAFC" />
                     ) : null}
                   </Pressable>
                 );
@@ -263,49 +266,27 @@ export function TrackingScreen({ token, onBack }: Props) {
 
             <GlassPanel style={styles.panel}>
               <Text style={styles.panelTitle}>
-                {selected ? selected.nom : 'Aucune pirogue'}
+                {selected ? `Carte — ${selected.nom}` : 'Carte'}
+              </Text>
+              <Text style={styles.mapHint}>
+                La ligne bleue montre le parcours. Le navire indique la dernière
+                position.
               </Text>
               <TrajectoryNativeMap points={points} />
-              <Text style={styles.routeLabel}>Scénario de trajectoire</Text>
-              {GABON_MARITIME_ROUTES.map((r) => {
-                const on = routeId === r.id;
-                return (
-                  <Pressable
-                    key={r.id}
-                    onPress={() => setRouteId(r.id)}
-                    style={[styles.routeChip, on && styles.routeChipOn]}
-                  >
-                    <Text style={[styles.routeChipTitle, on && styles.routeChipTitleOn]}>
-                      {r.label}
-                    </Text>
-                    <Text style={[styles.routeChipSub, on && styles.routeChipSubOn]}>
-                      {r.subtitle}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+
               <GlowButton
-                label={busy ? 'Envoi…' : 'Envoyer ma position réelle'}
+                label={busy ? 'Envoi…' : 'Envoyer ma position'}
                 icon="locate-outline"
                 onPress={onSendNow}
-                variant="ghost"
                 disabled={!boatId || busy}
-              />
-              <GlowButton
-                label="Appliquer ce scénario (10 pts)"
-                icon="boat-outline"
-                onPress={onSimulateTrip}
-                variant="accent"
-                disabled={!boatId || busy}
-                style={{ marginTop: 10 }}
               />
               <GlowButton
                 label={
                   active
-                    ? 'Arrêter le suivi auto'
+                    ? 'Arrêter le suivi automatique'
                     : useDemoInterval
-                      ? `Suivi auto (${DEMO_INTERVAL_SEC}s démo)`
-                      : `Suivi auto (${intervalMin} min)`
+                      ? `Suivi auto (toutes les ${DEMO_INTERVAL_SEC} s)`
+                      : `Suivi auto (toutes les ${intervalMin} min)`
                 }
                 icon={active ? 'stop-circle-outline' : 'navigate-outline'}
                 onPress={toggleTracking}
@@ -313,27 +294,87 @@ export function TrackingScreen({ token, onBack }: Props) {
                 disabled={!boatId || busy}
                 style={{ marginTop: 10 }}
               />
-              <Pressable
-                onPress={() => setUseDemoInterval((v) => !v)}
-                style={styles.demoToggle}
-                disabled={active}
-              >
-                <Ionicons
-                  name={useDemoInterval ? 'flask' : 'timer-outline'}
-                  size={16}
-                  color={colors.foam}
-                />
-                <Text style={styles.demoText}>
-                  {useDemoInterval
-                    ? `Mode démo : envoi toutes les ${DEMO_INTERVAL_SEC}s`
-                    : `Mode terrain : envoi toutes les ${intervalMin} min`}
-                </Text>
-              </Pressable>
-              {last ? <Text style={styles.meta}>Dernier envoi : {last}</Text> : null}
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+
+              {last ? (
+                <Text style={styles.meta}>Dernier envoi : {last}</Text>
+              ) : null}
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle" size={18} color={colors.danger} />
+                  <Text style={styles.error}>{error}</Text>
+                </View>
+              ) : null}
             </GlassPanel>
 
-            <Text style={styles.section}>Historique ({points.length})</Text>
+            <Pressable
+              onPress={() => setShowDemoHelp((v) => !v)}
+              style={styles.helpToggle}
+              accessibilityRole="button"
+            >
+              <Ionicons
+                name={showDemoHelp ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.tide}
+              />
+              <Text style={styles.helpToggleText}>
+                {showDemoHelp ? 'Masquer les exemples' : 'Parcours d’exemple (démo)'}
+              </Text>
+            </Pressable>
+
+            {showDemoHelp ? (
+              <GlassPanel style={styles.demoPanel}>
+                <Text style={styles.demoLead}>
+                  Utile sur simulateur ou pour former un agent — remplace le parcours
+                  actuel par un trajet en eau gabonaise.
+                </Text>
+                {GABON_MARITIME_ROUTES.map((r) => {
+                  const on = routeId === r.id;
+                  return (
+                    <Pressable
+                      key={r.id}
+                      onPress={() => setRouteId(r.id)}
+                      style={[styles.routeChip, on && styles.routeChipOn]}
+                    >
+                      <Text
+                        style={[styles.routeChipTitle, on && styles.routeChipTitleOn]}
+                      >
+                        {r.label}
+                      </Text>
+                      <Text style={[styles.routeChipSub, on && styles.routeChipSubOn]}>
+                        {r.subtitle}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <GlowButton
+                  label="Afficher ce parcours d’exemple"
+                  icon="boat-outline"
+                  onPress={onSimulateTrip}
+                  variant="accent"
+                  disabled={!boatId || busy}
+                />
+                <Pressable
+                  onPress={() => setUseDemoInterval((v) => !v)}
+                  style={styles.demoToggle}
+                  disabled={active}
+                >
+                  <Ionicons
+                    name={useDemoInterval ? 'flask-outline' : 'timer-outline'}
+                    size={18}
+                    color={colors.tide}
+                  />
+                  <Text style={styles.demoText}>
+                    {useDemoInterval
+                      ? `Envoi rapide (démo) : toutes les ${DEMO_INTERVAL_SEC} s`
+                      : `Envoi terrain : toutes les ${intervalMin} min`}
+                  </Text>
+                </Pressable>
+              </GlassPanel>
+            ) : null}
+
+            <Text style={styles.section}>
+              Historique ({points.length} point{points.length === 1 ? '' : 's'})
+            </Text>
           </View>
         }
         renderItem={({ item, index }) => (
@@ -343,11 +384,10 @@ export function TrackingScreen({ token, onBack }: Props) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>
-                {item.position.coordinates[1].toFixed(5)},{' '}
-                {item.position.coordinates[0].toFixed(5)}
+                Point {points.length - index}
               </Text>
               <Text style={styles.rowMeta}>
-                {new Date(item.horodatage).toLocaleString()} · {item.source}
+                {new Date(item.horodatage).toLocaleString('fr-FR')}
               </Text>
             </View>
           </GlassPanel>
@@ -355,12 +395,12 @@ export function TrackingScreen({ token, onBack }: Props) {
         ListEmptyComponent={
           points.length === 0 ? (
             <Text style={styles.emptyList}>
-              Aucun point — choisis un scénario (Côte→mer, Ogooué, navire étranger)
-              puis « Appliquer ce scénario ».
+              Aucun point sur la carte. Envoyez une position, ou ouvrez « Parcours
+              d’exemple ».
             </Text>
           ) : null
         }
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 48 }}
       />
     </View>
   );
@@ -370,102 +410,210 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: space.lg,
-    paddingTop: space.xxl,
+    paddingTop: space.xl,
   },
-  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: space.md },
-  backText: { fontFamily: fonts.bodyMedium, color: colors.foam, marginLeft: 2 },
-  title: { fontFamily: fonts.display, fontSize: 32, color: colors.ink },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: space.md,
+    alignSelf: 'flex-start',
+    minHeight: 44,
+  },
+  backText: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.tide,
+    marginLeft: 2,
+    fontSize: 16,
+  },
+  kicker: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.tide,
+    fontSize: 14,
+  },
+  title: {
+    fontFamily: fonts.display,
+    fontSize: 28,
+    color: colors.abyss,
+  },
   lead: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
     marginBottom: space.md,
-    marginTop: 4,
-    lineHeight: 22,
+    marginTop: 6,
+    lineHeight: 24,
+    fontSize: 16,
   },
   label: {
     fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    marginBottom: 8,
+    color: colors.abyss,
+    marginBottom: 10,
+    fontSize: 15,
   },
   boat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: radii.sm,
-    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+    minHeight: 72,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
     borderColor: colors.glassBorder,
-    marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginBottom: 10,
+    backgroundColor: colors.card,
   },
-  boatActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  boatText: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
-  boatTextActive: { color: colors.abyss },
-  boatMeta: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 12, marginTop: 2 },
-  boatMetaActive: { color: 'rgba(2,26,34,0.7)' },
+  boatActive: {
+    backgroundColor: colors.tide,
+    borderColor: colors.tide,
+  },
+  boatIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(37, 99, 168, 0.1)',
+  },
+  boatIconOn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  boatText: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 16 },
+  boatTextActive: { color: '#F8FAFC' },
+  boatMeta: {
+    fontFamily: fonts.body,
+    color: colors.inkMuted,
+    fontSize: 13,
+    marginTop: 3,
+  },
+  boatMetaActive: { color: 'rgba(248,250,252,0.85)' },
   panel: { marginTop: space.sm, marginBottom: space.md },
   panelTitle: {
     fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    marginBottom: 10,
-    fontSize: 16,
+    color: colors.abyss,
+    marginBottom: 6,
+    fontSize: 17,
   },
-  routeLabel: {
+  mapHint: {
+    fontFamily: fonts.body,
+    color: colors.inkMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  helpToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: space.sm,
+    paddingVertical: 8,
+  },
+  helpToggleText: {
     fontFamily: fonts.bodyMedium,
-    color: colors.foam,
-    fontSize: 12,
-    marginBottom: 8,
+    color: colors.tide,
+    fontSize: 15,
+  },
+  demoPanel: { marginBottom: space.md },
+  demoLead: {
+    fontFamily: fonts.body,
+    color: colors.inkMuted,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 12,
   },
   routeChip: {
-    padding: 10,
-    borderRadius: radii.sm,
-    borderWidth: 1,
+    padding: 14,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
     borderColor: colors.glassBorder,
     marginBottom: 8,
+    backgroundColor: colors.card,
   },
   routeChipOn: {
-    backgroundColor: 'rgba(127, 224, 211, 0.18)',
+    backgroundColor: 'rgba(37, 99, 168, 0.1)',
     borderColor: colors.foam,
   },
   routeChipTitle: {
     fontFamily: fonts.bodyBold,
     color: colors.ink,
-    fontSize: 14,
+    fontSize: 15,
   },
-  routeChipTitleOn: { color: colors.foam },
+  routeChipTitleOn: { color: colors.tide },
   routeChipSub: {
     fontFamily: fonts.body,
     color: colors.inkMuted,
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  routeChipSubOn: { color: 'rgba(232, 244, 242, 0.85)' },
+  routeChipSubOn: { color: colors.inkMuted },
   demoToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
+    marginTop: 14,
   },
-  demoText: { fontFamily: fonts.body, color: colors.foam, fontSize: 12, flex: 1 },
-  meta: { marginTop: 12, color: colors.foam, fontFamily: fonts.body },
-  error: { marginTop: 8, color: colors.danger, fontFamily: fonts.body },
+  demoText: {
+    fontFamily: fonts.body,
+    color: colors.tide,
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  meta: {
+    marginTop: 14,
+    color: colors.success,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(185, 28, 28, 0.08)',
+  },
+  error: {
+    flex: 1,
+    color: colors.danger,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   section: {
     fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    marginBottom: 8,
+    color: colors.abyss,
+    marginBottom: 10,
+    fontSize: 15,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   badge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: colors.tide,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
-  rowTitle: { fontFamily: fonts.bodyBold, color: colors.ink },
-  rowMeta: { fontFamily: fonts.body, color: colors.inkMuted, marginTop: 2, fontSize: 12 },
-  empty: { color: colors.inkMuted, fontFamily: fonts.body, marginBottom: 12 },
-  emptyList: { color: colors.inkMuted, fontFamily: fonts.body, marginTop: 4 },
+  badgeText: { color: '#F8FAFC', fontFamily: fonts.bodyBold, fontSize: 13 },
+  rowTitle: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
+  rowMeta: {
+    fontFamily: fonts.body,
+    color: colors.inkMuted,
+    marginTop: 2,
+    fontSize: 13,
+  },
+  empty: {
+    color: colors.inkMuted,
+    fontFamily: fonts.body,
+    marginBottom: 12,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  emptyList: {
+    color: colors.inkMuted,
+    fontFamily: fonts.body,
+    marginTop: 4,
+    fontSize: 15,
+    lineHeight: 22,
+  },
 });

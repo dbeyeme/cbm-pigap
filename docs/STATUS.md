@@ -7,14 +7,14 @@
 
 | Champ | Valeur |
 |-------|--------|
-| **Phase** | Phase 2 — Prototype |
+| **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-07-28 |
-| **Prochain jalon** | Phase 2 clôturée (M1–M7) · préparation Phase 3 |
+| **Dernière mise à jour** | 2026-07-30 |
+| **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | Gate M1–M7 : GO Phase 3 avec réserves (sécu ops + métier) |
+| **Note récente** | Gate experts GO réserves · messages FR + toasts · prêt publish |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

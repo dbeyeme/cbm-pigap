@@ -1,5 +1,8 @@
 const API = import.meta.env.VITE_API_URL ?? '';
 
+export { friendlyApiError, parseApiError, refreshNotifications } from './lib/apiErrors';
+import { parseApiError } from './lib/apiErrors';
+
 export type Embarcation = {
   id: string;
   nom: string;
@@ -87,7 +90,7 @@ async function request<T>(path: string, token?: string, init?: RequestInit): Pro
     },
   });
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw new Error(parseApiError(await res.text()));
   }
   if (res.status === 204) {
     return undefined as T;
@@ -104,6 +107,63 @@ export function login(email: string, password: string) {
     method: 'POST',
     body: JSON.stringify({ email, mot_de_passe: password }),
   });
+}
+
+export type StaffRole = 'agent_controle' | 'admin';
+
+export type StaffUser = {
+  id: string;
+  nom: string;
+  role: StaffRole | string;
+  telephone: string | null;
+  email: string | null;
+  date_creation: string;
+};
+
+export type StaffCreate = {
+  nom: string;
+  role: StaffRole;
+  email?: string | null;
+  telephone?: string | null;
+  mot_de_passe: string;
+};
+
+export type StaffUpdate = {
+  nom?: string;
+  role?: StaffRole;
+  email?: string | null;
+  telephone?: string | null;
+  mot_de_passe?: string;
+};
+
+export function fetchMe(token: string) {
+  return request<StaffUser>('/api/v1/auth/me', token);
+}
+
+export function listStaff(token: string, params?: { role?: StaffRole; q?: string }) {
+  const q = new URLSearchParams();
+  if (params?.role) q.set('role', params.role);
+  if (params?.q?.trim()) q.set('q', params.q.trim());
+  const qs = q.toString();
+  return request<StaffUser[]>(`/api/v1/utilisateurs${qs ? `?${qs}` : ''}`, token);
+}
+
+export function createStaff(token: string, data: StaffCreate) {
+  return request<StaffUser>('/api/v1/utilisateurs', token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateStaff(token: string, id: string, data: StaffUpdate) {
+  return request<StaffUser>(`/api/v1/utilisateurs/${id}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteStaff(token: string, id: string) {
+  return request<void>(`/api/v1/utilisateurs/${id}`, token, { method: 'DELETE' });
 }
 
 export function listTrajectories(token: string, embarcationId?: string) {
@@ -431,4 +491,265 @@ export function patchAlerteStatut(
     method: 'PATCH',
     body: JSON.stringify({ statut }),
   });
+}
+
+/* ——— Demandes licence FO / BO ——— */
+
+export type DemandeLicence = {
+  id: string;
+  type_demande: 'personne_physique' | 'personne_morale';
+  statut: 'en_attente' | 'approuvee' | 'refusee';
+  nom: string | null;
+  prenom: string | null;
+  telephone: string | null;
+  email: string | null;
+  org_nom: string | null;
+  org_type: string | null;
+  numero_registre: string | null;
+  org_email: string | null;
+  org_telephone: string | null;
+  org_ville: string | null;
+  org_adresse: string | null;
+  zone_activite: string | null;
+  embarcation_nom: string | null;
+  embarcation_immatriculation: string | null;
+  embarcation_type: string | null;
+  message: string | null;
+  pieces_jointes: PieceJointe[];
+  motif_refus: string | null;
+  pecheur_id: string | null;
+  organisation_id: string | null;
+  traite_par_id: string | null;
+  date_creation: string;
+  date_traitement: string | null;
+};
+
+export type PieceJointe = {
+  id: string;
+  type_piece: string;
+  nom_original: string;
+  content_type: string;
+  taille: number;
+};
+
+export type DemandeLicenceCreate = {
+  type_demande: 'personne_physique' | 'personne_morale';
+  nom?: string | null;
+  prenom?: string | null;
+  telephone?: string | null;
+  email?: string | null;
+  org_nom?: string | null;
+  org_type?: string | null;
+  numero_registre?: string | null;
+  org_email?: string | null;
+  org_telephone?: string | null;
+  org_ville?: string | null;
+  org_adresse?: string | null;
+  zone_activite?: string | null;
+  embarcation_nom?: string | null;
+  embarcation_immatriculation?: string | null;
+  embarcation_type?: string | null;
+  message?: string | null;
+};
+
+export type Organisation = {
+  id: string;
+  nom: string;
+  nom_commercial: string | null;
+  type_organisation: string | null;
+  forme_juridique: string | null;
+  numero_registre: string | null;
+  email: string | null;
+  telephone: string | null;
+  ville: string | null;
+  zone_activite: string | null;
+  actif: boolean;
+  date_creation: string;
+};
+
+export function createDemandeLicence(payload: DemandeLicenceCreate) {
+  return request<DemandeLicence>('/api/v1/demandes-licence', undefined, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createDemandeLicenceWithFiles(formData: FormData) {
+  const res = await fetch(`${API}/api/v1/demandes-licence/with-files`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    throw new Error(parseApiError(await res.text()));
+  }
+  return (await res.json()) as DemandeLicence;
+}
+
+export function pieceDemandeUrl(demandeId: string, pieceId: string) {
+  return `${API}/api/v1/demandes-licence/${demandeId}/pieces/${pieceId}`;
+}
+
+export function listDemandesLicence(
+  token: string,
+  params?: { statut?: string; type_demande?: string; q?: string },
+) {
+  const q = new URLSearchParams();
+  if (params?.statut) q.set('statut', params.statut);
+  if (params?.type_demande) q.set('type_demande', params.type_demande);
+  if (params?.q) q.set('q', params.q);
+  const qs = q.toString();
+  return request<DemandeLicence[]>(`/api/v1/demandes-licence${qs ? `?${qs}` : ''}`, token);
+}
+
+export function approveDemandeLicence(
+  token: string,
+  id: string,
+  body: { numero_licence: string; mot_de_passe: string; creer_embarcation?: boolean },
+) {
+  return request<DemandeLicence>(`/api/v1/demandes-licence/${id}/approve`, token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function refuseDemandeLicence(token: string, id: string, motif_refus: string) {
+  return request<DemandeLicence>(`/api/v1/demandes-licence/${id}/refuse`, token, {
+    method: 'POST',
+    body: JSON.stringify({ motif_refus }),
+  });
+}
+
+export function deleteDemandeLicence(token: string, id: string) {
+  return request<void>(`/api/v1/demandes-licence/${id}`, token, { method: 'DELETE' });
+}
+
+export function listOrganisations(token: string, actif?: boolean) {
+  const qs = actif === undefined ? '' : `?actif=${actif}`;
+  return request<Organisation[]>(`/api/v1/organisations${qs}`, token);
+}
+
+export function createOrganisation(
+  token: string,
+  body: {
+    nom: string;
+    type_organisation?: string | null;
+    numero_registre?: string | null;
+    email?: string | null;
+    telephone?: string | null;
+    ville?: string | null;
+    zone_activite?: string | null;
+  },
+) {
+  return request<Organisation>('/api/v1/organisations', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateOrganisation(
+  token: string,
+  id: string,
+  body: Partial<{
+    nom: string;
+    type_organisation: string | null;
+    numero_registre: string | null;
+    email: string | null;
+    telephone: string | null;
+    ville: string | null;
+    zone_activite: string | null;
+    actif: boolean;
+  }>,
+) {
+  return request<Organisation>(`/api/v1/organisations/${id}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+/* ——— Notifications temps réel ——— */
+
+export type NotificationItem = {
+  kind: 'demande' | 'alerte';
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  page: 'demandes' | 'alertes';
+};
+
+export type NotificationSummary = {
+  demandes_en_attente: number;
+  alertes_nouvelles: number;
+  total: number;
+  items: NotificationItem[];
+};
+
+export function fetchNotificationSummary(token: string) {
+  return request<NotificationSummary>('/api/v1/notifications/summary', token);
+}
+
+/**
+ * SSE notifications — retourne une fonction stop.
+ * Utilise fetch (Authorization) plutôt qu’EventSource.
+ */
+export function openNotificationStream(
+  token: string,
+  onSummary: (s: NotificationSummary) => void,
+  onStatus?: (ok: boolean) => void,
+  signal?: AbortSignal,
+): () => void {
+  const ac = new AbortController();
+  const onAbort = () => ac.abort();
+  signal?.addEventListener('abort', onAbort);
+
+  let stopped = false;
+
+  async function run() {
+    try {
+      const res = await fetch(`${API}/api/v1/notifications/stream`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'text/event-stream',
+        },
+        signal: ac.signal,
+      });
+      if (!res.ok || !res.body) {
+        onStatus?.(false);
+        return;
+      }
+      onStatus?.(true);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (!stopped) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() ?? '';
+        for (const chunk of chunks) {
+          const dataLine = chunk
+            .split('\n')
+            .find((l) => l.startsWith('data: '));
+          if (!dataLine) continue;
+          try {
+            const summary = JSON.parse(dataLine.slice(6)) as NotificationSummary;
+            onSummary(summary);
+          } catch {
+            /* ignore malformed */
+          }
+        }
+      }
+    } catch {
+      if (!stopped) onStatus?.(false);
+    }
+  }
+
+  void run();
+
+  return () => {
+    stopped = true;
+    ac.abort();
+    signal?.removeEventListener('abort', onAbort);
+  };
 }

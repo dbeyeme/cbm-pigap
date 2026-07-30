@@ -14,7 +14,7 @@ export function GlassField({ label, icon, style, ...rest }: Props) {
       <Text style={styles.label}>{label}</Text>
       <View style={styles.field}>
         {icon ? (
-          <Ionicons name={icon} size={18} color={colors.inkSoft} style={styles.icon} />
+          <Ionicons name={icon} size={20} color={colors.tide} style={styles.icon} />
         ) : null}
         <TextInput
           placeholderTextColor={colors.inkSoft}
@@ -29,28 +29,27 @@ export function GlassField({ label, icon, style, ...rest }: Props) {
 const styles = StyleSheet.create({
   wrap: { marginBottom: space.md },
   label: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.bodyBold,
     color: colors.inkMuted,
-    fontSize: 13,
-    marginBottom: 6,
-    letterSpacing: 0.3,
+    fontSize: 15,
+    marginBottom: 8,
   },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radii.sm,
-    borderWidth: 1,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
     borderColor: colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 12,
-    minHeight: 52,
+    backgroundColor: colors.card,
+    paddingHorizontal: 14,
+    minHeight: 56,
   },
-  icon: { marginRight: 8 },
+  icon: { marginRight: 10 },
   input: {
     flex: 1,
     color: colors.ink,
     fontFamily: fonts.body,
-    fontSize: 16,
-    paddingVertical: 12,
+    fontSize: 17,
+    paddingVertical: 14,
   },
 });

@@ -9,6 +9,7 @@ export const ILLUSTRATIONS = {
   quotas: '/illustrations/icon-quotas.png',
   dashboard: '/illustrations/icon-dashboard.png',
   alertes: '/illustrations/icon-alertes.png',
+  users: '/illustrations/icon-licences.png',
 } as const;
 
 export type ModuleVisualId =
@@ -18,7 +19,8 @@ export type ModuleVisualId =
   | 'captures'
   | 'quotas'
   | 'dashboard'
-  | 'alertes';
+  | 'alertes'
+  | 'users';
 
 export const MODULE_VISUALS: Record<
   ModuleVisualId,
@@ -58,5 +60,10 @@ export const MODULE_VISUALS: Record<
     src: ILLUSTRATIONS.alertes,
     label: 'Alertes',
     short: 'Règles zone · quota · tendance',
+  },
+  users: {
+    src: ILLUSTRATIONS.users,
+    label: 'Staff',
+    short: 'Agents & administrateurs',
   },
 };

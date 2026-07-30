@@ -4,6 +4,7 @@ import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { PositionPoint } from '../api';
 import { GABON_COAST_BOUNDS, isOnWater } from '../geo/gabonMaritimeRoutes';
 import { colors, fonts, radii } from '../theme';
+import { ShipRadarMarker } from './ShipRadarMarker';
 
 type Props = {
   points: PositionPoint[];
@@ -56,11 +57,12 @@ export function TrajectoryNativeMap({ points }: Props) {
   const midLon = (minLon + maxLon) / 2;
   const latDelta = Math.max((maxLat - minLat) * 1.8, 0.08);
   const lonDelta = Math.max((maxLon - minLon) * 1.8, 0.08);
+  const last = coords[coords.length - 1];
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.caption}>
-        Carte · {local.length} point{local.length > 1 ? 's' : ''} en zone Gabon
+        Parcours · {local.length} point{local.length > 1 ? 's' : ''}
         {skipped > 0 ? ` · ${skipped} hors zone ignoré(s)` : ''}
       </Text>
       <MapView
@@ -75,26 +77,31 @@ export function TrajectoryNativeMap({ points }: Props) {
         mapType="standard"
       >
         {coords.length >= 2 ? (
-          <Polyline
-            coordinates={coords}
-            strokeColor={colors.foam}
-            strokeWidth={4}
-          />
+          <>
+            <Polyline
+              coordinates={coords}
+              strokeColor="rgba(43, 140, 222, 0.28)"
+              strokeWidth={10}
+              lineCap="round"
+              lineJoin="round"
+            />
+            <Polyline
+              coordinates={coords}
+              strokeColor={colors.foam}
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+              lineDashPattern={[8, 10]}
+            />
+          </>
         ) : null}
-        {coords.map((c, i) => (
-          <Marker
-            key={`${c.latitude}-${c.longitude}-${i}`}
-            coordinate={c}
-            pinColor={
-              i === 0 ? '#7FE0D3' : i === coords.length - 1 ? '#F0C75E' : '#3D8A9E'
-            }
-            title={i === 0 ? 'Départ' : i === coords.length - 1 ? 'Dernier' : `Point ${i + 1}`}
-          />
-        ))}
+        <Marker coordinate={last} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+          <ShipRadarMarker size={48} />
+        </Marker>
       </MapView>
       <Text style={styles.hint}>
-        Emprise indicative : lon {GABON_COAST_BOUNDS.west}–{GABON_COAST_BOUNDS.east} ·
-        lat {GABON_COAST_BOUNDS.south}–{GABON_COAST_BOUNDS.north}
+        Emprise : lon {GABON_COAST_BOUNDS.west}–{GABON_COAST_BOUNDS.east} · lat{' '}
+        {GABON_COAST_BOUNDS.south}–{GABON_COAST_BOUNDS.north}
       </Text>
     </View>
   );
@@ -107,11 +114,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     marginBottom: 12,
-    backgroundColor: 'rgba(2, 26, 34, 0.45)',
+    backgroundColor: colors.card,
   },
   caption: {
     fontFamily: fonts.bodyMedium,
-    color: colors.foam,
+    color: colors.tide,
     fontSize: 12,
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -131,7 +138,7 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     padding: 12,
     marginBottom: 12,
-    backgroundColor: 'rgba(2, 26, 34, 0.25)',
+    backgroundColor: colors.card,
   },
   emptyTitle: {
     fontFamily: fonts.bodyBold,

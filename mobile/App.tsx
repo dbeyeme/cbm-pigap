@@ -60,7 +60,7 @@ export default function App() {
     <SafeAreaProvider>
       <OceanBackground>
         <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
           <View style={[styles.body, showNav && styles.bodyWithNav]}>
             <ScreenTransition screenKey={screen}>
               {(!token || screen === 'login') && (
@@ -121,6 +121,6 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   body: { flex: 1 },
-  bodyWithNav: { paddingBottom: 88 },
+  bodyWithNav: { paddingBottom: 96 },
   boot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

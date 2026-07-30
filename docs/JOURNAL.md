@@ -520,3 +520,89 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - Alertes / `declencheur` réservés à M7
 - Filtre période début/fin appliqué après intersection géométrique
 
+
+## [2026-07-30] — Front office : landing + demandes de licence
+
+**Ce qui a été construit :**
+- Landing FO redesignée : hero carousel (3 slides), typo display, fond maritime, structure claire (outils / demande / modules / connexion)
+- Formulaire public demande de licence (personne physique ou morale) → `POST /api/v1/demandes-licence`
+- Back-office : pages Demandes (liste, approuver, refuser, supprimer) et Organisations (CRUD personnes morales)
+- Migration `demandes_licence` ; rail portail « Demandes » / « Organis. »
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Extension M1 (§5.1) : entrée FO pour inscription pêcheurs / orgs avant attribution licence
+- Portail autorités (§5.6) : traitement des dossiers côté agents
+
+**Technologies / principes utilisés :**
+- FastAPI public + JWT staff ; React landing glass ; CSS FO dédié
+
+**Tests réalisés :**
+- `pytest app/tests/test_demandes_licence.py` : **4 passed**
+- `tsc` web : OK
+- Alembic `upgrade head` : OK (`d4b8e3f91233`)
+
+**Points ouverts / dette technique :**
+- Approbation org + pêcheur : commits séparés (risque org orpheline si échec pêcheur)
+- Pas de suivi public du statut de demande (n° de dossier)
+- Captcha / rate-limit sur POST public à prévoir en Phase 3
+
+## [2026-07-30] — Charte logo, wizard modal & justificatifs
+
+**Ce qui a été construit :**
+- Logo CBM-PIGAP intégré (header FO + portail) ; tokens charte marine / bleu / sage
+- Demande licence en **wizard modal** (5 étapes) ; connexion autorités en modale
+- Upload justificatifs (PDF/JPG/PNG, max 5×5 Mo) via `POST /demandes-licence/with-files`
+- BO : téléchargement des pièces jointes sur la fiche demande
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- UX FO accessible (§ utilisateurs non experts) ; extension M1 inscription
+
+**Technologies / principes utilisés :**
+- Multipart FastAPI, stockage local `uploads/`, JSONB `pieces_jointes`
+
+**Tests réalisés :**
+- `pytest app/tests/test_demandes_licence.py` : 4 passed
+- `tsc` web : OK
+
+**Points ouverts / dette technique :**
+- Stockage local (pas S3) ; antivirus / rate-limit Phase 3
+
+## [2026-07-30] — Notifications temps réel portail
+
+**Ce qui a été construit :**
+- API `GET /notifications/summary` + `GET /notifications/stream` (SSE)
+- Hub in-process poussé à chaque nouvelle demande / alerte
+- Cloche header + badges rail Demandes / Alertes ; pulse sur items en attente
+- Correctif FO 404 : `VITE_API_URL` local vide (proxy Vite → :8000) au lieu de Railway obsolète
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Pilotage autorités (§5.6 / §5.7) — file d’attente visible sans rafraîchir
+
+**Technologies / principes utilisés :**
+- SSE + poll 12 s de secours ; badges sage charte
+
+**Tests réalisés :**
+- `pytest` notifications + demandes : **5 passed**
+- `tsc` web : OK
+
+**Points ouverts / dette technique :**
+- Hub mono-process (pas Redis) — suffisant MVP / un worker uvicorn
+
+## [2026-07-30] — Messages clairs + notifs + gate experts déploiement
+
+**Ce qui a été construit :**
+- Erreurs API FR (backend validation + parseApiError web/mobile) — plus de JSON brut
+- Toasts opérations web ; badges notifications exacts ; purge alertes/demandes démo
+- FO wizard licence + pièces ; MIME upload durci (type ET extension)
+- Mobile : validation MDP 8 car. + messages clairs tous écrans
+
+**Pourquoi :**
+- UX non experts (§ utilisateurs) ; préparation publication Phase 3
+
+**Tests réalisés :**
+- `pytest` suite : **58 passed**
+- Gate experts : Sécurité / Mobile / Web = **GO réserves** (majorité)
+
+**Points ouverts :**
+- JWT_SECRET + rate-limit + CORS prod (ops)
+- Railway login agent requis pour redeploy API si auto-deploy GitHub absent
