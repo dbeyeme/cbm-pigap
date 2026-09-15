@@ -19,62 +19,60 @@ down_revision: str | None = "e5c9d4a02344"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-canal_abonnement = sa.Enum(
-    "b2c",
-    "b2b_autorite",
-    "b2b_flotte",
-    name="canal_abonnement",
-)
-code_offre_abonnement = sa.Enum(
-    "b2c_mensuel",
-    "b2c_annuel",
-    "b2b_autorite_mensuel",
-    "b2b_autorite_annuel",
-    "b2b_flotte_mensuel",
-    "b2b_flotte_annuel",
-    name="code_offre_abonnement",
-)
-periode_abonnement = sa.Enum("mensuel", "annuel", name="periode_abonnement")
-statut_abonnement = sa.Enum(
-    "brouillon",
-    "en_attente_paiement",
-    "actif",
-    "expire",
-    "annule",
-    name="statut_abonnement",
-)
-statut_paiement = sa.Enum(
-    "initie",
-    "en_attente",
-    "reussi",
-    "echoue",
-    "expire",
-    name="statut_paiement",
-)
-operateur_mobile_money = sa.Enum(
-    "airtel_money",
-    "moov_money",
-    "demo",
-    name="operateur_mobile_money",
-)
+
+def _create_enum(name: str, *values: str) -> None:
+    vals = ", ".join(f"'{v}'" for v in values)
+    op.execute(
+        sa.text(
+            f"""
+            DO $$ BEGIN
+                CREATE TYPE {name} AS ENUM ({vals});
+            EXCEPTION
+                WHEN duplicate_object THEN NULL;
+            END $$;
+            """
+        )
+    )
 
 
 def upgrade() -> None:
-    canal_abonnement.create(op.get_bind(), checkfirst=True)
-    code_offre_abonnement.create(op.get_bind(), checkfirst=True)
-    periode_abonnement.create(op.get_bind(), checkfirst=True)
-    statut_abonnement.create(op.get_bind(), checkfirst=True)
-    statut_paiement.create(op.get_bind(), checkfirst=True)
-    operateur_mobile_money.create(op.get_bind(), checkfirst=True)
+    _create_enum("canal_abonnement", "b2c", "b2b_autorite", "b2b_flotte")
+    _create_enum(
+        "code_offre_abonnement",
+        "b2c_mensuel",
+        "b2c_annuel",
+        "b2b_autorite_mensuel",
+        "b2b_autorite_annuel",
+        "b2b_flotte_mensuel",
+        "b2b_flotte_annuel",
+    )
+    _create_enum("periode_abonnement", "mensuel", "annuel")
+    _create_enum(
+        "statut_abonnement",
+        "brouillon",
+        "en_attente_paiement",
+        "actif",
+        "expire",
+        "annule",
+    )
+    _create_enum("statut_paiement", "initie", "en_attente", "reussi", "echoue", "expire")
+    _create_enum("operateur_mobile_money", "airtel_money", "moov_money", "demo")
+
+    canal = postgresql.ENUM(name="canal_abonnement", create_type=False)
+    code_offre = postgresql.ENUM(name="code_offre_abonnement", create_type=False)
+    periode = postgresql.ENUM(name="periode_abonnement", create_type=False)
+    statut_abo = postgresql.ENUM(name="statut_abonnement", create_type=False)
+    statut_pay = postgresql.ENUM(name="statut_paiement", create_type=False)
+    operateur = postgresql.ENUM(name="operateur_mobile_money", create_type=False)
 
     op.create_table(
         "abonnements",
         sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("canal", canal_abonnement, nullable=False),
-        sa.Column("code_offre", code_offre_abonnement, nullable=False),
-        sa.Column("periode", periode_abonnement, nullable=False),
+        sa.Column("canal", canal, nullable=False),
+        sa.Column("code_offre", code_offre, nullable=False),
+        sa.Column("periode", periode, nullable=False),
         sa.Column("montant_fcfa", sa.Integer(), nullable=False),
-        sa.Column("statut", statut_abonnement, nullable=False),
+        sa.Column("statut", statut_abo, nullable=False),
         sa.Column("pecheur_id", sa.UUID(), nullable=True),
         sa.Column("organisation_id", sa.UUID(), nullable=True),
         sa.Column("embarcations_incluses", sa.Integer(), nullable=False, server_default="1"),
@@ -99,9 +97,9 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("abonnement_id", sa.UUID(), nullable=False),
         sa.Column("montant_fcfa", sa.Integer(), nullable=False),
-        sa.Column("operateur", operateur_mobile_money, nullable=False),
+        sa.Column("operateur", operateur, nullable=False),
         sa.Column("msisdn", sa.String(length=32), nullable=True),
-        sa.Column("statut", statut_paiement, nullable=False),
+        sa.Column("statut", statut_pay, nullable=False),
         sa.Column("reference_interne", sa.String(length=64), nullable=False),
         sa.Column("reference_operateur", sa.String(length=128), nullable=True),
         sa.Column(
@@ -130,9 +128,9 @@ def downgrade() -> None:
     op.drop_index("ix_abonnements_statut", table_name="abonnements")
     op.drop_index("ix_abonnements_canal", table_name="abonnements")
     op.drop_table("abonnements")
-    operateur_mobile_money.drop(op.get_bind(), checkfirst=True)
-    statut_paiement.drop(op.get_bind(), checkfirst=True)
-    statut_abonnement.drop(op.get_bind(), checkfirst=True)
-    periode_abonnement.drop(op.get_bind(), checkfirst=True)
-    code_offre_abonnement.drop(op.get_bind(), checkfirst=True)
-    canal_abonnement.drop(op.get_bind(), checkfirst=True)
+    op.execute(sa.text("DROP TYPE IF EXISTS operateur_mobile_money"))
+    op.execute(sa.text("DROP TYPE IF EXISTS statut_paiement"))
+    op.execute(sa.text("DROP TYPE IF EXISTS statut_abonnement"))
+    op.execute(sa.text("DROP TYPE IF EXISTS periode_abonnement"))
+    op.execute(sa.text("DROP TYPE IF EXISTS code_offre_abonnement"))
+    op.execute(sa.text("DROP TYPE IF EXISTS canal_abonnement"))
