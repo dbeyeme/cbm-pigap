@@ -11,7 +11,9 @@ import {
   updateZone,
   ZoneReglementee,
 } from '../api';
-import { GABON_COAST_BOUNDS } from '../geo/gabonMaritimeRoutes';
+import CompactList from '../components/CompactList';
+import { syncGabonBoundariesOnMap } from '../geo/gabonBoundary';
+import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
 import {
   findOverlappingIds,
   fitMapToZone,
@@ -20,10 +22,7 @@ import {
   syncZonesOnMap,
   zoneColor,
 } from '../geo/zoneMap';
-import CompactList from '../components/CompactList';
 import { MODULE_VISUALS } from '../media';
-
-const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 function escapeHtml(value: string): string {
   return value
@@ -170,16 +169,17 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
     }
     const map = new maplibregl.Map({
       container: mapRef.current,
-      style: STYLE,
-      center: [9.2, 0.0],
-      zoom: 6.8,
-      maxBounds: [
-        [GABON_COAST_BOUNDS.west - 1.5, GABON_COAST_BOUNDS.south - 1],
-        [GABON_COAST_BOUNDS.east + 1.5, GABON_COAST_BOUNDS.north + 1],
-      ],
+      style: GABON_SATELLITE_STYLE,
+      center: GABON_MAP_VIEW.center,
+      zoom: GABON_MAP_VIEW.zoom,
+      maxBounds: GABON_MAP_VIEW.maxBounds,
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
     mapObj.current = map;
+    map.once('load', () => {
+      map.fitBounds(GABON_MAP_VIEW.fitBounds, { padding: 40, maxZoom: 7.2 });
+      void syncGabonBoundariesOnMap(map);
+    });
     popup.current = new maplibregl.Popup({
       closeButton: true,
       maxWidth: '280px',
@@ -631,15 +631,15 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
           ))}
         </div>
 
-        <div className="zone-legend">
+        <div className="zone-legend zone-legend-rich">
           <span>
-            <i style={{ background: zoneColor('interdite') }} /> interdite
+            <img src="/icons/zone-interdite.svg" alt="" width="18" height="18" /> interdite
           </span>
           <span>
-            <i style={{ background: zoneColor('protegee') }} /> protégée
+            <img src="/icons/zone-protegee.svg" alt="" width="18" height="18" /> protégée
           </span>
           <span>
-            <i style={{ background: zoneColor('sensible') }} /> sensible
+            <img src="/icons/zone-sensible.svg" alt="" width="18" height="18" /> sensible
           </span>
         </div>
 

@@ -5,6 +5,88 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-09-15] — Abonnements B2C/B2B + Mobile Money (démo)
+
+**Ce qui a été construit :**
+- Module backend `abonnements` : catalogue tarifs, initier B2C/B2B, confirmer-demo, webhook, couverture flotte (anti double facturation), garde optionnelle `ABONNEMENT_ENFORCE`
+- Migration Alembic `f6d0e5b13455` ; UI web Acteurs → Abonnements ; mobile écran Abonnement
+- ADR-007 (écart cahier §2.2) ; tests catalogue unitaires verts ; tests API PostGIS non exécutés (Docker local down)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Demande explicite monétisation ; réf. `docs/modele-economique.md` ; écart §2.2 documenté ADR-007
+
+**Technologies / principes utilisés :**
+- Mobile Money mode `demo` (Airtel/Moov live via webhook plus tard) ; FastAPI + Alembic
+
+**Tests réalisés :**
+- `pytest app/tests/test_abonnements_catalog.py` — 3 passed
+- `npx tsc --noEmit` (web) OK
+- `test_abonnements.py` (API) — bloqué : PostGIS local indisponible
+
+**Points ouverts / dette technique :**
+- Brancher SingPay/PViT ; HT/TVA ; activer enforce en Phase 4 ; relancer tests API quand DB up
+
+---
+
+## [2026-09-15] — Modèle économique : abonnements B2C & licences B2B
+
+**Ce qui a été construit :**
+- Document [`docs/modele-economique.md`](modele-economique.md) : offre B2C pêcheurs (3 000 FCFA/mois · 30 000 FCFA/an via Mobile Money), grilles B2B Autorité (2,5 M/mois · 25 M/an) et Flotte/Coop (150 k/mois · 1,5 M/an + extras embarcation), packs balises, structure de coûts, scénarios CA, parcours paiement cible V2
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Préparer Phase 3–4 commerciale ; paiement / facturation / abonnement restent **hors MVP** (§2.2) — analyse seule, pas d’implémentation code
+- Calibrer le B2B pour absorber balises, sat, hébergement et support dans le contexte gabonais (coexistence NEMO, ADR-005 AIS open)
+
+**Technologies / principes utilisés :**
+- Agrégateurs Mobile Money Gabon (cible) : SingPay / PViT / E-Billing ; anti double facturation pêcheur flotte vs indépendant
+
+**Tests réalisés :**
+- non exécutés (livrable documentaire)
+
+**Points ouverts / dette technique :**
+- Confirmer HT/TTC avec expert-comptable ; partenariat NEMO ; monétisation réelle reportée Phase 4 / V2
+
+---
+
+## [2026-09-15] — Flotte démo allégée + carte / filtres
+
+**Ce qui a été construit :**
+- Semis maritime : **1 corridor / bateau** (Espoir, Mondah, Ogooué, Chaloupe Cap Lopez, Mayumba) — plus de téléports multi-scénarios ni `entree_etranger` / `ntem_fleuve` en GPS mobile
+- Espacement horodatage **distance-aware** (~12–15 km/h) ; Chaloupe typée `chaloupe` (icône navire)
+- Live fleet limitée à 5 routes ; AIS carte : silhouette + badge distincts des pirogues PIGAP
+- UI : barre période compacte (dashboard / rapports), toggles carte allégés, FO sans chiffres / carte démo factices
+
+**Pourquoi :**
+- Corriger anomalies de position (téléports) et densité de flotte pour une démo lisible côte gabonaise
+
+**Tests réalisés :**
+- `npx tsc --noEmit` (web) OK
+- Purge DB locale : à relancer quand PostGIS est up (`seed_production_demo` puis `seed_maritime_scenarios`)
+
+**Points ouverts :**
+- Docker/PostGIS local indisponible au moment du semis — relancer les scripts seed
+
+---
+
+## [2026-09-10] — Refonte UX FO + Admin (design thinking / PNL)
+
+**Ce qui a été construit :**
+- Design system : tokens unifiés, `styles/motion.css`, focus-visible, pulses limités (3 cycles), fond BO calme
+- FO : hero épuré (marque + CTA), demande licence en primaire, connexion autorités en secondaire, nav mobile drawer, chiffres démo, skip link, focus trap modal
+- Admin : topbar épurée (titre + search + notif, logout sidebar seul), hubs sans double titre
+- Dashboard carte-first : KPIs → map+rail (Signaux/Alertes) → Analyse (prédictions, tendances, espèces, journal)
+
+**Pourquoi :**
+- Réduire la charge cognitive (chunking PNL), ancrer un signal primaire par écran, motion d’état plutôt que décoration
+
+**Tests réalisés :**
+- `npx tsc --noEmit` (web) OK
+
+**Points ouverts :**
+- Validation humaine visuelle (Christian) avant gel UI Phase 3
+
+---
+
 ## [2026-07-27] — Phase 0 : socle agents, règles, skills et suivi
 
 **Ce qui a été construit :**
@@ -605,4 +687,162 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 **Points ouverts :**
 - JWT_SECRET + rate-limit + CORS prod (ops)
-- Railway login agent requis pour redeploy API si auto-deploy GitHub absent
+
+## [2026-07-30] — Publication & déploiement
+
+**Ce qui a été construit :**
+- Push `main` (`8587241`) sur GitHub
+- Web prod Vercel : https://cbm-pigap-web.vercel.app
+- API prod Railway redeploy SUCCESS : https://cbm-pigap-production.up.railway.app (`/health` ok ; erreurs validation en string FR)
+
+**Pourquoi :**
+- Gate experts majorité GO réserves → publication autorisée
+
+**Tests réalisés :**
+- Smoke prod : `/health` ok ; `VALIDATION_ERROR` FR sur login / demandes-licence
+- Suite locale antérieure : **58 passed**
+
+**Points ouverts :**
+- Renforcer JWT_SECRET, rate-limit POST public, CORS (réserves sécu)
+
+## [2026-09-09] — Refonte UI/UX maquettes + neuroscience
+
+**Ce qui a été construit :**
+- Design system FO/BO (tokens navy/primary, sidebar, topbar, KPI, status, hubs)
+- Landing FO fidèle maquette (hero, services ×6, mission, chiffres démo, footer)
+- Shell BO : IA stricte (Acteurs / Navires / Pêches / Surveillance / Alertes / Rapports / Cartographie / Admin)
+- Dashboard dense (KPI, carte, secteurs, alertes, raccourcis, table)
+- Hubs Acteurs & Pêches ; Rapports stub KPIs ; Surveillance = carte + zones
+
+**Pourquoi :**
+- Alignement maquettes produit + charge cognitive réduite (hiérarchie alertes → carte → KPI)
+
+**Tests réalisés :**
+- `npx tsc --noEmit` (web) : OK
+- Maritime (routing carte) : **GO** — pas de régression trajectoires à terre
+
+**Points ouverts :**
+- Chiffres FO = placeholders démo (pas d’API publique stats)
+- Export CSV rapports Phase 3
+- Harmoniser titres internes des pages métier (doubles stage-head dans hubs)
+
+---
+
+## [2026-09-09] — Circulation near-live (côte + fleuves)
+
+**Ce qui a été construit :**
+- API `GET /api/v1/positions/live` : dernière position par embarcation (eau only, secteur côte/bras/fleuve, statut actif/recent/silence)
+- Portail : polling 20 s sur Navires/Surveillance + carte dashboard « temps réel »
+- Semis : ping live en fin de corridor ; script `simulate_live_fleet.py` pour avancer la flotte
+
+**Pourquoi :**
+- Avant : trajectoires historiques chargées à la demande, pas de vue flotte en circulation
+- MVP réaliste sans AIS/IoT (§ hors périmètre) : GPS mobile + corridors open data
+
+**Tests réalisés :**
+- `pytest app/tests/test_m2_geoloc.py` : 12 passed
+- `tsc --noEmit` (web) : OK
+
+**Points ouverts :**
+- Pas de WebSocket positions (polling volontaire)
+- AIS / balises = point d’extension `source=balise` seulement
+
+---
+
+## [2026-09-09] — Couche AIS ZEE Gabon (open data)
+
+**Ce qui a été construit :**
+- Module `ais_gabon` : poll Open Waters + filtre polygone ZEE Marine Regions
+- API `GET /api/v1/ais/live` (rôles autorités) · marqueurs distincts sur Navires
+- `AIS_DEMO_WHEN_EMPTY` si flux réel vide (couverture AIS faible au Gabon)
+- ADR-005
+
+**Pourquoi :**
+- Demande : agréger des données open temps réel limitées au Gabon, sans confondre avec GPS pêcheurs
+
+**Tests réalisés :**
+- `pytest` AIS + M2 : 16 passed
+- `tsc` web : OK
+
+**Points ouverts :**
+- Densifier via AISStream (clé) ou partenariat GFW/CLS
+- Pas d’AIS sur pirogues / fleuves (limite physique du signal)
+
+---
+
+## [2026-09-10] — AIS réel : AISStream + snapshot
+
+**Ce qui a été construit :**
+- Ingest AISStream (WebSocket) + Open Waters WS/REST, filtre ZEE, snapshot disque
+- `AIS_DEMO_WHEN_EMPTY=false` par défaut ; CTA UI si 0 navire
+- Script `collect_ais_gabon.py` ; semis GPS live rafraîchi
+
+**Pourquoi :**
+- Open Waters REST renvoie 0 sur le Gabon ; besoin d’une source live réelle (clé gratuite AISStream)
+
+**Tests réalisés :**
+- `pytest app/tests/test_ais_gabon.py` : 5 passed
+
+**Points ouverts :**
+- Christian doit créer `AISSTREAM_API_KEY` sur aisstream.io
+
+---
+
+## [2026-09-10] — Graphiques KPI + moteur de prédiction (ADR-006)
+
+**Ce qui a été construit :**
+- `GET /api/v1/dashboard/series` : volumes / espèces / alertes par jour, semaine ou mois (somme = dashboard)
+- Module `predictions` : sklearn Ridge / Poisson, horizon 7 ou 30 j — pêches, pénuries, intrusions, zones d’incidents
+- Portail : Recharts sur le tableau de bord et page Rapports (saisons sèche / pluies, carte des risques)
+- Seed `scripts/seed_series_saisonnieres.py` : 12 mois fictifs + graphe d’intrusions + baisse sardine
+- ADR-006 (écart cahier §2.2, prédictions consultatives, pas d’alerte M7 auto)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.6 : indicateurs exacts, désormais aussi en série temporelle
+- §2.2 / §5.7 : le ML stocks restait hors MVP ; itération post-MVP actée (ADR-006)
+
+**Technologies / principes utilisés :**
+- PostgreSQL `date_trunc`, sklearn Ridge + PoissonRegressor, Recharts, `justification` analogue à `declencheur`
+
+**Tests réalisés :**
+- `pytest app/tests/test_dashboard_series.py app/tests/test_predictions.py` : 6 passed
+- Régression M1–M7 (dont M2 live, M6, M7) : OK
+- `tsc --noEmit` (web) : OK
+- Page Rapports : documents PDF/CSV conservés + graphiques saisonniers
+
+**Points ouverts / dette technique :**
+- Courbes saisonnières du seed **fictives** — à valider expert halieutique
+- Calendrier juin–septembre / octobre–mai : labels d’affichage seulement
+- Pas d’export CSV ; pas de prévision AIS (pas d’historique)
+
+
+---
+
+## [2026-09-10] — Documents officiels (licence, fiche, bilan, rapport)
+
+**Ce qui a été construit :**
+- Module `documents` : PDF A4 (bandeau Gabon) pour licence de pêche, fiche d’enregistrement (pêcheur ou demande FO), bilan d’activité, rapport de pilotage
+- Export CSV du rapport (dette « export Phase 3 »)
+- Portail : page Rapports (4 cartes) ; boutons PDF sur Acteurs → Licences et Demandes
+- Journal d’accès `LogAcces` à chaque export
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- M1 §5.1 : licence associée au pêcheur — pièce imprimable pour l’agent
+- M6 §5.6 : indicateurs exacts du tableau de bord dans un rapport périodique
+- §7 : traçabilité des consultations de données nominatives
+- Pas un 8ᵉ module métier : génération à partir des données déjà en base
+
+**Technologies / principes utilisés :**
+- ReportLab (PDF) ; CSV UTF-8 BOM pour tableur
+- Rôles identiques au registre (licence/fiche) et au dashboard (bilan/rapport)
+- Période par défaut = 31 jours si non précisée (évite un export de tout l’historique)
+
+**Tests réalisés :**
+- `pytest app/tests/test_documents.py` : 5 passed
+- Régression M1 / M6 / demandes : 15 passed (avec documents)
+- `tsc` : erreurs préexistantes `TrendCharts` / recharts (hors périmètre)
+
+**Points ouverts / dette technique :**
+- Les PDF ne sont pas des actes ministériels : mention « usage officiel soumis à validation »
+- Modèle graphique à caler avec Kimba Connect (cachet, QR, photo)
+- Si l’API locale ne répond plus : relancer `uvicorn` (un export trop large peut bloquer le worker unique)

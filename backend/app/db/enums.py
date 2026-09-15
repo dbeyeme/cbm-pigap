@@ -54,3 +54,45 @@ class StatutDemandeLicence(enum.StrEnum):
     en_attente = "en_attente"
     approuvee = "approuvee"
     refusee = "refusee"
+
+
+class CanalAbonnement(enum.StrEnum):
+    b2c = "b2c"
+    b2b_autorite = "b2b_autorite"
+    b2b_flotte = "b2b_flotte"
+
+
+class PeriodeAbonnement(enum.StrEnum):
+    mensuel = "mensuel"
+    annuel = "annuel"
+
+
+class CodeOffreAbonnement(enum.StrEnum):
+    b2c_mensuel = "b2c_mensuel"
+    b2c_annuel = "b2c_annuel"
+    b2b_autorite_mensuel = "b2b_autorite_mensuel"
+    b2b_autorite_annuel = "b2b_autorite_annuel"
+    b2b_flotte_mensuel = "b2b_flotte_mensuel"
+    b2b_flotte_annuel = "b2b_flotte_annuel"
+
+
+class StatutAbonnement(enum.StrEnum):
+    brouillon = "brouillon"
+    en_attente_paiement = "en_attente_paiement"
+    actif = "actif"
+    expire = "expire"
+    annule = "annule"
+
+
+class StatutPaiement(enum.StrEnum):
+    initie = "initie"
+    en_attente = "en_attente"
+    reussi = "reussi"
+    echoue = "echoue"
+    expire = "expire"
+
+
+class OperateurMobileMoney(enum.StrEnum):
+    airtel_money = "airtel_money"
+    moov_money = "moov_money"
+    demo = "demo"

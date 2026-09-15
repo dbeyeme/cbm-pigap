@@ -16,6 +16,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNav, MobileTab } from './src/components/BottomNav';
 import { OceanBackground } from './src/components/OceanBackground';
 import { ScreenTransition } from './src/components/ScreenTransition';
+import { AbonnementScreen } from './src/screens/AbonnementScreen';
 import { CapturesScreen } from './src/screens/CapturesScreen';
 import { CreatePecheurScreen } from './src/screens/CreatePecheurScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -24,7 +25,7 @@ import { SearchScreen } from './src/screens/SearchScreen';
 import { TrackingScreen } from './src/screens/TrackingScreen';
 import { colors } from './src/theme';
 
-type Screen = 'login' | 'home' | 'create' | 'search' | 'tracking' | 'captures';
+type Screen = 'login' | 'home' | 'create' | 'search' | 'tracking' | 'captures' | 'abonnement';
 
 function tabFromScreen(screen: Screen): MobileTab {
   if (screen === 'captures') return 'captures';
@@ -54,7 +55,11 @@ export default function App() {
     );
   }
 
-  const showNav = Boolean(token) && screen !== 'login' && screen !== 'create';
+  const showNav =
+    Boolean(token) &&
+    screen !== 'login' &&
+    screen !== 'create' &&
+    screen !== 'abonnement';
 
   return (
     <SafeAreaProvider>
@@ -77,6 +82,7 @@ export default function App() {
                   onSearch={() => setScreen('search')}
                   onTracking={() => setScreen('tracking')}
                   onCaptures={() => setScreen('captures')}
+                  onAbonnement={() => setScreen('abonnement')}
                   onLogout={() => {
                     setToken(null);
                     setScreen('login');
@@ -89,6 +95,9 @@ export default function App() {
                   onDone={() => setScreen('home')}
                   onBack={() => setScreen('home')}
                 />
+              )}
+              {token && screen === 'abonnement' && (
+                <AbonnementScreen token={token} onBack={() => setScreen('home')} />
               )}
               {token && screen === 'search' && (
                 <SearchScreen token={token} onBack={() => setScreen('home')} />

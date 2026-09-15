@@ -12,6 +12,7 @@ Envoi de positions depuis le mobile, historique filtrable, affichage trajectoire
 | POST | `/api/v1/positions` | Une position |
 | POST | `/api/v1/positions/batch` | Lot de positions (sync) |
 | GET | `/api/v1/positions/trajectories` | Toutes les sorties (multi-trajets / bateau) |
+| GET | `/api/v1/positions/live?since_minutes=` | Circulation near-live (dernière position / bateau) |
 | GET | `/api/v1/positions/trajectory?...` | Points d’une embarcation (filtre période) |
 | GET | `/api/v1/positions/embarcations` | Embarcations visibles selon rôle |
 
@@ -23,8 +24,13 @@ Géométries GeoJSON Point SRID 4326. Source `mobile` (MVP) ou `balise` (extensi
 cd backend
 pytest app/tests/test_m2_geoloc.py -q
 
-# Mobile : scénarios Côte→mer / Ogooué / étranger
-# Carte web : après login, toutes les trajectoires ; clic = isoler une sortie
+# Semis historique + ping live
+python scripts/seed_maritime_scenarios.py
+# Optionnel : flotte qui avance toutes les 20 s
+python scripts/simulate_live_fleet.py
+
+# Web : Navires / Surveillance → « Circulation live » (poll 20 s)
+# Dashboard : carte « Suivi des navires en temps réel »
 ```
 
 ## Géographie (open data)

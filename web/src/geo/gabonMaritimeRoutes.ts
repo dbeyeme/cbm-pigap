@@ -49,7 +49,10 @@ function nearDemoCorridor(lon: number, lat: number, maxDeg = 0.08): boolean {
 /** Approximation client ; validation stricte = API water_mask. */
 export function isOnWater(lon: number, lat: number): boolean {
   if (!isInGabonZone(lon, lat)) return false;
-  if (lon < 9.30 && lat >= -4.0 && lat <= 1.2) return true;
+  // Bande océanique large à l'ouest — exclut la ville de Port-Gentil (terre)
+  // qui tombait dans l'ancien seuil lon < 9.30.
+  if (lon < 8.70 && lat >= -4.0 && lat <= 1.2) return true;
+  // Cap Lopez / rade : seulement corridors démo (rade_port_gentil), pas le tissu urbain
   return nearDemoCorridor(lon, lat);
 }
 

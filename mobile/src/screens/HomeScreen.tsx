@@ -19,6 +19,7 @@ type Props = {
   onSearch: () => void;
   onTracking: () => void;
   onCaptures: () => void;
+  onAbonnement: () => void;
   onLogout: () => void;
 };
 
@@ -27,6 +28,7 @@ export function HomeScreen({
   onSearch,
   onTracking,
   onCaptures,
+  onAbonnement,
   onLogout,
 }: Props) {
   return (
@@ -86,6 +88,12 @@ export function HomeScreen({
         title="Chercher une licence"
         subtitle="Par nom ou numéro"
         onPress={onSearch}
+      />
+      <ActionTile
+        illustration={ILLU.licences}
+        title="Abonnement"
+        subtitle="3 000 / mois · 30 000 / an — Mobile Money"
+        onPress={onAbonnement}
       />
     </View>
   );

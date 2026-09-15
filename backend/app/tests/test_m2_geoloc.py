@@ -387,9 +387,47 @@ async def test_list_trajectories_multiple_per_boat(
 
 
 @pytest.mark.asyncio
+async def test_live_fleet_last_position(client: AsyncClient, agent_headers: dict) -> None:
+    """Vue circulation : dernière position par embarcation (eau uniquement)."""
+    emb_id = await _create_embarcation(client, agent_headers)
+    base = datetime.now(UTC)
+    for i, (lon, lat) in enumerate(list(ESTUAIRE_LIBREVILLE)[:3]):
+        resp = await client.post(
+            "/api/v1/positions",
+            headers=agent_headers,
+            json={
+                "embarcation_id": emb_id,
+                "position": {"type": "Point", "coordinates": [lon, lat]},
+                "horodatage": (base - timedelta(minutes=3 - i)).isoformat(),
+                "source": "mobile",
+            },
+        )
+        assert resp.status_code == 201, resp.text
+
+    live = await client.get(
+        "/api/v1/positions/live",
+        headers=agent_headers,
+        params={"since_minutes": 60},
+    )
+    assert live.status_code == 200, live.text
+    rows = live.json()
+    mine = [r for r in rows if r["embarcation_id"] == emb_id]
+    assert len(mine) == 1
+    last = list(ESTUAIRE_LIBREVILLE)[2]
+    assert mine[0]["position"]["coordinates"][0] == pytest.approx(last[0], abs=1e-5)
+    assert mine[0]["position"]["coordinates"][1] == pytest.approx(last[1], abs=1e-5)
+    assert mine[0]["statut"] in ("actif", "recent", "silence")
+    assert mine[0]["secteur"] in ("cote", "bras_mer", "fleuve")
+    assert mine[0]["age_seconds"] >= 0
+
+
+@pytest.mark.asyncio
 async def test_positions_require_auth(client: AsyncClient) -> None:
     response = await client.get(
         "/api/v1/positions/trajectory",
         params={"embarcation_id": str(uuid.uuid4())},
     )
     assert response.status_code == 401
+
+    live = await client.get("/api/v1/positions/live")
+    assert live.status_code == 401

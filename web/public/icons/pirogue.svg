@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Pirogue artisanale réaliste -->
+  <ellipse cx="32" cy="46" rx="26" ry="5" fill="#001a3d" opacity="0.28"/>
+  <path d="M6 40c3-2 10-4 26-4s23 2 26 4c-2 4-9 7-26 7S8 44 6 40Z" fill="#1a1208"/>
+  <path d="M10 39c2.5-1 9-2.2 22-2.2S51.5 38 54 39" stroke="#c4a574" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M14 38.5h36" stroke="#5c4030" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 37.5V18" stroke="#8b6914" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M32 18.5 44 31H20L32 18.5Z" fill="#f1e6c8" stroke="#8b6914" stroke-width="1.4" stroke-linejoin="round"/>
+  <circle cx="32" cy="15.5" r="2.4" fill="#f59e0b"/>
+  <path d="M8 43c4 1.2 12 2 24 2s20-.8 24-2" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" opacity="0.75"/>
+</svg>

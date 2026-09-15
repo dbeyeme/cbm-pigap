@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.errors import ApiError
 from app.core.logging import configure_logging
 from app.core.validation_messages import format_validation_errors
+from app.modules.ais_gabon.service import start_ais_background, stop_ais_background
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -21,7 +22,9 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     logger.info("app_startup", env=settings.app_env)
+    start_ais_background()
     yield
+    await stop_ais_background()
     logger.info("app_shutdown")
 
 
@@ -50,9 +53,7 @@ async def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_error_handler(
-    _request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     """Transforme les erreurs Pydantic en message français unique."""
     detail = format_validation_errors(list(exc.errors()))
     return JSONResponse(

@@ -34,3 +34,8 @@ def test_contracts_construct() -> None:
     assert QuotaRead.model_fields["taux_consommation"]
     assert DashboardRead.model_fields["pecheurs_actifs"]
     assert AlerteRead.model_fields["declencheur"]
+    from app.modules.dashboard.schemas import DashboardSeriesRead
+    from app.modules.predictions.schemas import PredictionsRead
+
+    assert DashboardSeriesRead.model_fields["volume_par_periode"]
+    assert PredictionsRead.model_fields["penuries"]

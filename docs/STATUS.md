@@ -11,10 +11,10 @@
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-07-30 |
+| **Dernière mise à jour** | 2026-09-15 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | Gate experts GO réserves · messages FR + toasts · prêt publish |
+| **Note récente** | Abonnements implémentés (API + web + mobile, MM démo) — ADR-007 ; `ABONNEMENT_ENFORCE=false` |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -70,7 +70,8 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 ## Décisions ouvertes
 
 - Liste fermée espèces/méthodes MVP à valider zone pilote (avant quotas réalistes)
-- _(ADR-001/002/003/004 acceptés)_
+- Agrégateur Mobile Money live (SingPay/PViT) + calendrier `ABONNEMENT_ENFORCE=true`
+- _(ADR-001…007 acceptés)_
 
 ## Comment mettre à jour
 

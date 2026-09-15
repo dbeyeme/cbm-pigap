@@ -1,7 +1,7 @@
 """Seed démo production — jeu de données propre (pas le dump local de tests).
 
-Crée : admin, agent, 6 pêcheurs/embarcations, zones, trajectoires GPS,
-quelques captures et un quota.
+Crée : admin, agent, 5 pêcheurs/embarcations (1 corridor chacun), zones,
+trajectoires GPS, quelques captures et un quota.
 
 Usage:
   cd backend && DATABASE_URL=... python scripts/seed_production_demo.py
@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import math
 import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -35,14 +36,25 @@ from app.modules.geolocalisation.geo import point_to_wkt
 from app.modules.zones.geo import polygon_to_wkt
 from app.schemas.common import PointGeoJSON, PolygonGeoJSON
 
+# (nom, prenom, licence, immat, boat_nom, email, boat_type)
 DEMO_PECHEURS = [
-    ("Mba", "Jean", "LIC-DEMO-01", "GA-M2-DEMO-01", "Pirogue Espoir", "pecheur1@example.com"),
-    ("Nzé", "Marie", "LIC-DEMO-02", "GA-M2-DEMO-02", "Pirogue Akwé", "pecheur2@example.com"),
-    ("Obiang", "Paul", "LIC-DEMO-03", "GA-M2-DEMO-03", "Pirogue Komo", "pecheur3@example.com"),
-    ("Allogo", "Claire", "LIC-DEMO-04", "GA-M2-DEMO-04", "Pirogue Mondah", "pecheur4@example.com"),
-    ("Mintsa", "Eric", "LIC-DEMO-05", "GA-M2-DEMO-05", "Chaloupe Cap Lopez", "pecheur5@example.com"),
-    ("Boussougou", "Amina", "LIC-DEMO-06", "GA-M2-DEMO-06", "Pirogue Ogooué", "pecheur6@example.com"),
+    ("Mba", "Jean", "LIC-DEMO-01", "GA-M2-DEMO-01", "Pirogue Espoir", "pecheur1@example.com", "pirogue"),
+    ("Allogo", "Claire", "LIC-DEMO-04", "GA-M2-DEMO-04", "Pirogue Mondah", "pecheur4@example.com", "pirogue"),
+    ("Boussougou", "Amina", "LIC-DEMO-06", "GA-M2-DEMO-06", "Pirogue Ogooué", "pecheur6@example.com", "pirogue"),
+    (
+        "Mintsa",
+        "Eric",
+        "LIC-DEMO-05",
+        "GA-M2-DEMO-05",
+        "Chaloupe Cap Lopez",
+        "pecheur5@example.com",
+        "chaloupe",
+    ),
+    ("Nzé", "Marie", "LIC-DEMO-02", "GA-M2-DEMO-02", "Pirogue Mayumba", "pecheur2@example.com", "pirogue"),
 ]
+
+# Immatriculations hors jeu léger (ex. ancien Pirogue Komo) — positions purgées
+LEGACY_DEMO_IMMATS = ("GA-M2-DEMO-03",)
 
 DEMO_ZONES = [
     {
@@ -62,14 +74,35 @@ DEMO_ZONES = [
     },
 ]
 
-TRAJECTORY_PLAN: list[list[tuple[str, int]]] = [
-    [("sortie_cote_mer", 0), ("entree_mondah", 5)],
-    [("remontee_komo", 1), ("mer_vers_ogooue", 7)],
-    [("ogooue_interieur", 2)],
-    [("entree_etranger", 3)],
-    [("ntem_fleuve", 4)],
-    [("mayumba_cote", 6)],
+# Un corridor par bateau (ordre = DEMO_PECHEURS)
+TRAJECTORY_PLAN: list[tuple[str, int]] = [
+    ("sortie_cote_mer", 0),
+    ("entree_mondah", 1),
+    ("mer_vers_ogooue", 2),
+    ("rade_port_gentil", 3),
+    ("mayumba_cote", 4),
 ]
+
+_KM_PER_MIN = 0.22
+_MIN_STEP_MIN = 8
+
+
+def _haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
+    lon1, lat1 = a
+    lon2, lat2 = b
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * r * math.asin(min(1.0, math.sqrt(h)))
+
+
+def _step_minutes(prev: tuple[float, float] | None, curr: tuple[float, float]) -> int:
+    if prev is None:
+        return 0
+    dist = _haversine_km(prev, curr)
+    return max(_MIN_STEP_MIN, int(round(dist / _KM_PER_MIN)))
 
 
 async def ensure_staff(session) -> None:
@@ -103,7 +136,7 @@ async def ensure_staff(session) -> None:
 
 async def ensure_pecheurs(session) -> list[Embarcation]:
     boats: list[Embarcation] = []
-    for nom, prenom, licence, immat, boat_nom, email in DEMO_PECHEURS:
+    for nom, prenom, licence, immat, boat_nom, email, boat_type in DEMO_PECHEURS:
         pecheur = (
             await session.execute(select(Pecheur).where(Pecheur.numero_licence == licence))
         ).scalar_one_or_none()
@@ -136,14 +169,25 @@ async def ensure_pecheurs(session) -> list[Embarcation]:
                 pecheur_id=pecheur.id,
                 nom=boat_nom,
                 immatriculation=immat,
-                type="pirogue",
-                longueur=8.5,
+                type=boat_type,
+                longueur=8.5 if boat_type == "pirogue" else 12.0,
             )
             session.add(emb)
             await session.flush()
-            print(f"  + embarcation {immat}")
+            print(f"  + embarcation {immat} ({boat_type})")
         else:
-            print(f"  embarcation OK : {immat}")
+            # Aligner nom / type (ex. Chaloupe, Mayumba renommé)
+            changed = False
+            if emb.nom != boat_nom:
+                emb.nom = boat_nom
+                changed = True
+            if (emb.type or "") != boat_type:
+                emb.type = boat_type
+                changed = True
+            if changed:
+                print(f"  embarcation MAJ : {immat} → {boat_nom} / {boat_type}")
+            else:
+                print(f"  embarcation OK : {immat}")
         boats.append(emb)
     return boats
 
@@ -167,6 +211,39 @@ async def ensure_zones(session) -> None:
         print(f"  + zone {item['nom']}")
 
 
+async def purge_legacy_noise(session, keep_boats: list[Embarcation]) -> None:
+    """Supprime positions des immat legacy + toute position hors jeu léger démo M2."""
+    keep_ids = {b.id for b in keep_boats}
+    legacy = list(
+        (
+            await session.execute(
+                select(Embarcation).where(Embarcation.immatriculation.in_(LEGACY_DEMO_IMMATS))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for emb in legacy:
+        await session.execute(delete(Position).where(Position.embarcation_id == emb.id))
+        print(f"  purge positions legacy : {emb.immatriculation} ({emb.nom})")
+
+    # Autres GA-M2-* hors keep → purge positions seulement (pas de delete compte)
+    extras = list(
+        (
+            await session.execute(
+                select(Embarcation).where(Embarcation.immatriculation.like("GA-M2-%"))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for emb in extras:
+        if emb.id in keep_ids:
+            continue
+        await session.execute(delete(Position).where(Position.embarcation_id == emb.id))
+        print(f"  purge positions hors jeu : {emb.immatriculation} ({emb.nom})")
+
+
 async def seed_trajectories(session, boats: list[Embarcation]) -> None:
     demo_ids = [b.id for b in boats]
     if not demo_ids:
@@ -176,25 +253,33 @@ async def seed_trajectories(session, boats: list[Embarcation]) -> None:
     await session.flush()
     day = datetime.now(UTC).replace(hour=5, minute=0, second=0, microsecond=0)
     n_trips = 0
-    for i, trips in enumerate(TRAJECTORY_PLAN):
-        boat = boats[i % len(boats)]
-        for scenario, hours in trips:
-            path = DEMO_ROUTES[scenario]
-            base = day + timedelta(hours=hours)
-            for j, (lon, lat) in enumerate(path):
-                session.add(
-                    Position(
-                        embarcation_id=boat.id,
-                        position=point_to_wkt(PointGeoJSON(coordinates=(lon, lat))),
-                        horodatage=base + timedelta(minutes=j * 12),
-                        source=SourcePosition.mobile,
-                        synchronise_a=datetime.now(UTC),
-                    )
+    for i, (scenario, hours) in enumerate(TRAJECTORY_PLAN):
+        if i >= len(boats):
+            break
+        if scenario not in DEMO_ROUTES:
+            print(f"  skip scénario inconnu : {scenario}")
+            continue
+        boat = boats[i]
+        path = DEMO_ROUTES[scenario]
+        base = day + timedelta(hours=hours)
+        elapsed = 0
+        prev: tuple[float, float] | None = None
+        for lon, lat in path:
+            elapsed += _step_minutes(prev, (lon, lat))
+            session.add(
+                Position(
+                    embarcation_id=boat.id,
+                    position=point_to_wkt(PointGeoJSON(coordinates=(lon, lat))),
+                    horodatage=base + timedelta(minutes=elapsed),
+                    source=SourcePosition.mobile,
+                    synchronise_a=datetime.now(UTC),
                 )
-            meta = DEMO_ROUTE_META[scenario]
-            print(f"  • {boat.immatriculation} « {meta['label']} »")
-            n_trips += 1
-    print(f"  trajectoires : {n_trips}")
+            )
+            prev = (lon, lat)
+        meta = DEMO_ROUTE_META.get(scenario, {})
+        print(f"  • {boat.immatriculation} « {meta.get('label', scenario)} »")
+        n_trips += 1
+    print(f"  trajectoires : {n_trips} (1 corridor / bateau)")
 
 
 async def seed_captures_quotas(session, boats: list[Embarcation]) -> None:
@@ -208,7 +293,6 @@ async def seed_captures_quotas(session, boats: list[Embarcation]) -> None:
         ("barracuda", 12.0, "filet", 8.65, -0.72, "Port-Gentil"),
         ("thon", 25.0, "senne", 9.22, 0.38, "Owendo"),
         ("sardine", 60.0, "filet", 9.28, 0.50, "Libreville"),
-        ("merou", 8.0, "ligne", 10.22, -0.70, "Lambaréné"),
     ]
     now = datetime.now(UTC)
     for i, (espece, kg, methode, lon, lat, debarq) in enumerate(samples):
@@ -253,17 +337,19 @@ async def main() -> None:
     async with AsyncSessionLocal() as session:
         print("== Staff ==")
         await ensure_staff(session)
-        print("== Pêcheurs / embarcations ==")
+        print("== Pêcheurs / embarcations (jeu léger) ==")
         boats = await ensure_pecheurs(session)
         print("== Zones ==")
         await ensure_zones(session)
         await session.flush()
+        print("== Purge bruit legacy ==")
+        await purge_legacy_noise(session, boats)
         print("== Trajectoires ==")
         await seed_trajectories(session, boats)
         print("== Captures / quotas ==")
         await seed_captures_quotas(session, boats)
         await session.commit()
-        print("Seed production démo terminé.")
+        print("Seed production démo terminé (5 bateaux, 1 corridor chacun).")
 
 
 if __name__ == "__main__":

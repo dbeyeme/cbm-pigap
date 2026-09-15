@@ -4,6 +4,7 @@ import {
   approveDemandeLicence,
   deleteDemandeLicence,
   DemandeLicence,
+  downloadFicheDemandePdf,
   listDemandesLicence,
   pieceDemandeUrl,
   refuseDemandeLicence,
@@ -249,6 +250,19 @@ export default function DemandesPage({ token, onError }: Props) {
                 {selected.type_demande === 'personne_morale' ? 'Organisation' : 'Pêcheur'} ·{' '}
                 {new Date(selected.date_creation).toLocaleString('fr-FR')}
               </p>
+              <div className="zone-actions" style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className="ghost compact"
+                  onClick={() => {
+                    void downloadFicheDemandePdf(token, selected.id)
+                      .then(() => toast.success('Fiche générée', 'Fiche d’enregistrement PDF'))
+                      .catch((err) => fail(err, 'Génération de la fiche impossible'));
+                  }}
+                >
+                  Fiche d’enregistrement PDF
+                </button>
+              </div>
               <dl className="demande-dl">
                 {selected.type_demande === 'personne_physique' ? (
                   <>

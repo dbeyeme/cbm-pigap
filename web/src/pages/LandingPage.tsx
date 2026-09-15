@@ -1,8 +1,18 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState, type ComponentType } from 'react';
 
 import DemandeLicenceWizard from '../components/DemandeLicenceWizard';
+import {
+  IconAlert,
+  IconClose,
+  IconDashboard,
+  IconFish,
+  IconMenu,
+  IconShield,
+  IconShip,
+  IconUsers,
+} from '../components/Icons';
 import Modal from '../components/Modal';
-import { ILLUSTRATIONS, MODULE_VISUALS } from '../media';
+import { ILLUSTRATIONS } from '../media';
 
 type Props = {
   email: string;
@@ -14,33 +24,60 @@ type Props = {
   onLogin: (e: FormEvent) => void;
 };
 
-const HERO_SLIDES = [
+type Service = {
+  id: string;
+  title: string;
+  body: string;
+  href: string;
+  Icon: ComponentType<{ size?: number; className?: string }>;
+};
+
+const SERVICES: Service[] = [
   {
-    id: 'suivi',
-    kicker: 'Zone pilote Estuaire',
-    title: 'Suivre la pêche artisanale',
-    body: 'Une plateforme gabonaise pour les autorités, agents et pêcheurs — simple, claire, adaptée au terrain.',
-    image: ILLUSTRATIONS.hero,
+    id: 'acteurs',
+    title: 'Enregistrement des acteurs',
+    body: 'Inscription des pêcheurs, armateurs et organisations avec justificatifs.',
+    href: '#demande',
+    Icon: IconUsers,
   },
   {
-    id: 'licence',
-    kicker: 'Inscription',
-    title: 'Demander une licence en ligne',
-    body: 'Déposez votre dossier en quelques étapes, avec justificatifs. Les agents le traitent dans le portail.',
-    image: MODULE_VISUALS.licences.src,
+    id: 'navires',
+    title: 'Suivi des navires',
+    body: 'Trajectoires GPS en mer, estuaire et fleuves — hors terre.',
+    href: '#apropos',
+    Icon: IconShip,
   },
   {
-    id: 'carte',
-    kicker: 'Surveillance',
-    title: 'Carte, alertes et captures',
-    body: 'Trajectoires en mer et fleuves, zones réglementées, quotas et tableaux de bord pour décider vite.',
-    image: MODULE_VISUALS.trajectories.src,
+    id: 'peches',
+    title: 'Suivi des pêches et ressources',
+    body: 'Déclarations de captures et consommation des quotas.',
+    href: '#apropos',
+    Icon: IconFish,
+  },
+  {
+    id: 'alertes',
+    title: 'Alertes et surveillance',
+    body: 'Détection de situations à traiter : zones, quotas, tendances.',
+    href: '#apropos',
+    Icon: IconAlert,
+  },
+  {
+    id: 'pilotage',
+    title: 'Tableaux de bord et rapports',
+    body: 'Indicateurs pour décider vite — autorités et agents.',
+    href: '#apropos',
+    Icon: IconDashboard,
+  },
+  {
+    id: 'conformite',
+    title: 'Conformité et réglementation',
+    body: 'Zones réglementées et règles métier tracées.',
+    href: '#apropos',
+    Icon: IconShield,
   },
 ];
 
-/**
- * Landing publique FO — charte logo, hero carousel, wizards modales.
- */
+/** Landing publique — hero épuré, CTAs clairs, nav mobile. */
 export default function LandingPage({
   email,
   password,
@@ -50,16 +87,9 @@ export default function LandingPage({
   onPassword,
   onLogin,
 }: Props) {
-  const [slide, setSlide] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-
-  useEffect(() => {
-    if (paused) return;
-    const id = window.setInterval(() => setSlide((s) => (s + 1) % HERO_SLIDES.length), 7000);
-    return () => window.clearInterval(id);
-  }, [paused]);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
@@ -67,201 +97,231 @@ export default function LandingPage({
     if (hash === 'connexion') setLoginOpen(true);
   }, []);
 
-  const current = HERO_SLIDES[slide];
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [navOpen]);
 
   function openDemande() {
+    setNavOpen(false);
     setWizardOpen(true);
     window.history.replaceState(null, '', '#demande');
   }
 
   function openLogin() {
+    setNavOpen(false);
     setLoginOpen(true);
     window.history.replaceState(null, '', '#connexion');
   }
 
+  function closeModals() {
+    setWizardOpen(false);
+    setLoginOpen(false);
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+
   return (
-    <div className="app landing-app fo-landing">
-      <header className="chrome chrome-login landing-chrome fo-chrome">
-        <div className="brand brand-with-logo">
-          <img src="/logo-cbm-pigap.png" alt="CBM-PIGAP" className="brand-logo" />
+    <div className="app landing-app ds-fo">
+      <a className="ds-skip-link" href="#accueil">
+        Aller au contenu
+      </a>
+
+      <header className="ds-fo-chrome">
+        <a className="ds-fo-brand" href="#accueil">
+          <img src="/logo-cbm-pigap.png" alt="" />
           <div>
             <strong>CBM-PIGAP</strong>
-            <span>Kimba Connect · Gabon</span>
+            <span>Contrôle du Secteur Halieutique du Gabon</span>
           </div>
-        </div>
-        <nav className="fo-nav">
-          <button type="button" className="ghost fo-nav-btn" onClick={openDemande}>
+        </a>
+        <nav className="ds-fo-nav" aria-label="Sections">
+          <a href="#accueil">Accueil</a>
+          <a href="#services">Services</a>
+          <a href="#apropos">À propos</a>
+        </nav>
+        <div className="ds-fo-actions">
+          <button type="button" className="ghost" onClick={openLogin}>
+            Connexion autorités
+          </button>
+          <button type="button" className="btn-primary" onClick={openDemande}>
             Demande de licence
           </button>
-          <a href="#modules">Modules</a>
-          <button type="button" className="btn-primary fo-nav-cta" onClick={openLogin}>
-            Connexion
+          <button
+            type="button"
+            className="ds-fo-menu-toggle"
+            aria-label="Ouvrir le menu"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(true)}
+          >
+            <IconMenu size={20} />
           </button>
-        </nav>
+        </div>
       </header>
 
+      <button
+        type="button"
+        className={`ds-fo-nav-scrim${navOpen ? ' is-open' : ''}`}
+        aria-label="Fermer le menu"
+        tabIndex={navOpen ? 0 : -1}
+        onClick={() => setNavOpen(false)}
+      />
+      <aside className={`ds-fo-drawer${navOpen ? ' is-open' : ''}`} aria-label="Menu mobile">
+        <div className="ds-fo-drawer-head">
+          <strong>Menu</strong>
+          <button type="button" className="ghost" aria-label="Fermer" onClick={() => setNavOpen(false)}>
+            <IconClose size={18} />
+          </button>
+        </div>
+        <nav className="ds-fo-drawer-nav">
+          <a href="#accueil" onClick={() => setNavOpen(false)}>
+            Accueil
+          </a>
+          <a href="#services" onClick={() => setNavOpen(false)}>
+            Services
+          </a>
+          <a href="#apropos" onClick={() => setNavOpen(false)}>
+            À propos
+          </a>
+          <button type="button" className="ghost" onClick={openLogin}>
+            Connexion autorités
+          </button>
+          <button type="button" className="btn-primary" onClick={openDemande}>
+            Demande de licence
+          </button>
+        </nav>
+      </aside>
+
       <section
-        className="fo-hero"
-        aria-label="Présentation"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
+        id="accueil"
+        className="ds-fo-hero ds-fo-hero-slim"
+        style={{
+          backgroundImage: `linear-gradient(105deg, rgba(0,26,61,0.9) 0%, rgba(0,26,61,0.5) 45%, rgba(0,26,61,0.22) 100%), url(${ILLUSTRATIONS.hero})`,
+        }}
       >
-        <img className="fo-hero-bg" src={current.image} alt="" key={current.id} />
-        <div className="fo-hero-veil" />
-        <div className="fo-hero-copy" key={`copy-${current.id}`}>
-          <p className="eyebrow">{current.kicker}</p>
-          <h1>{current.title}</h1>
-          <p className="lede">{current.body}</p>
-          <div className="landing-cta-row">
-            <button type="button" className="btn-primary" onClick={openDemande}>
-              Demander une licence
+        <div className="ds-fo-hero-copy ds-rise-in">
+          <p className="ds-fo-brand-hero">CBM-PIGAP</p>
+          <h1>
+            Un secteur halieutique <em>durable</em> et <em>sécurisé</em>
+          </h1>
+          <p>
+            Enregistrement des acteurs et suivi des activités de pêche — une plateforme claire pour
+            le Gabon.
+          </p>
+          <div className="ds-fo-cta-row">
+            <button type="button" className="btn-primary ds-fo-cta-main" onClick={openDemande}>
+              Demande de licence
             </button>
-            <button type="button" className="ghost fo-ghost-light" onClick={openLogin}>
-              Accès autorités
+            <button type="button" className="ds-fo-cta-ghost" onClick={openLogin}>
+              Connexion autorités
             </button>
           </div>
         </div>
-        <div className="fo-hero-dots" role="tablist" aria-label="Diapositives">
-          {HERO_SLIDES.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              role="tab"
-              aria-selected={i === slide}
-              className={`home-carousel-dot${i === slide ? ' on' : ''}`}
-              onClick={() => setSlide(i)}
-              title={s.title}
-            />
+      </section>
+
+      <section id="services" className="ds-fo-section">
+        <header className="ds-fo-section-head">
+          <h2>Services de la plateforme</h2>
+          <p>Six piliers pour piloter le secteur — du registre à la surveillance.</p>
+        </header>
+        <div className="ds-fo-services ds-stagger">
+          {SERVICES.map((s) => (
+            <article key={s.id} className="ds-fo-service ds-lift ds-rise-in">
+              <div className="ds-fo-service-icon" aria-hidden>
+                <s.Icon size={22} />
+              </div>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+              {s.href === '#demande' ? (
+                <button type="button" className="linkish" onClick={openDemande}>
+                  Demander une licence →
+                </button>
+              ) : null}
+            </article>
           ))}
         </div>
       </section>
 
-      <section className="landing-section fo-section" aria-labelledby="platforms-title">
-        <div className="landing-section-inner fo-platforms">
-          <div>
-            <p className="eyebrow">Kimba Connect · Estuaire</p>
-            <h2 id="platforms-title">Deux outils, une mission</h2>
-            <div className="fo-feature-grid">
-              <article className="glass-block fo-feature-card">
-                <img src={MODULE_VISUALS.captures.src} alt="" className="fo-feature-icon" />
-                <strong>Mobile — agents &amp; pêcheurs</strong>
-                <p>Déclarations hors-ligne, GPS mer et fleuves, synchronisation dès le réseau.</p>
-              </article>
-              <article className="glass-block fo-feature-card">
-                <img src={MODULE_VISUALS.dashboard.src} alt="" className="fo-feature-icon" />
-                <strong>Portail — autorités</strong>
-                <p>Licences, trajectoires, zones, quotas et alertes pour le contrôle.</p>
-              </article>
-            </div>
-          </div>
-          <figure className="landing-devices fo-devices">
-            <img src={ILLUSTRATIONS.devices} alt="Aperçu mobile et web CBM-PIGAP" />
-          </figure>
-        </div>
-      </section>
-
-      <section
-        className="landing-section fo-section fo-demande-section"
-        id="demande"
-        aria-labelledby="demande-title"
-      >
-        <div className="landing-section-inner fo-cta-band">
-          <div>
-            <p className="eyebrow">Front office</p>
-            <h2 id="demande-title">Demande / inscription licence</h2>
-            <p className="landing-section-lede">
-              Assistant en 5 étapes : type, identité, activité, justificatifs, envoi. Un agent
-              traite le dossier dans le back-office.
-            </p>
-          </div>
-          <button type="button" className="btn-primary btn-lg" onClick={openDemande}>
-            Ouvrir la demande
-          </button>
-        </div>
-      </section>
-
-      <section className="landing-section fo-section" id="modules" aria-labelledby="modules-title">
-        <div className="landing-section-inner">
-          <p className="eyebrow">MVP · Estuaire</p>
-          <h2 id="modules-title">Modules du portail</h2>
-          <p className="landing-section-lede">
-            Les briques utilisées par les autorités après connexion.
+      <section id="apropos" className="ds-fo-mission">
+        <div
+          className="ds-fo-mission-photo ds-fo-mission-photo--maritime"
+          style={{
+            backgroundImage: `linear-gradient(145deg, rgba(0,26,61,0.42) 0%, rgba(0,26,61,0.18) 50%, rgba(8,47,73,0.5) 100%), url(${ILLUSTRATIONS.liveCoast})`,
+          }}
+          role="img"
+          aria-label="Côte gabonaise — suivi maritime"
+        />
+        <div className="ds-fo-mission-copy">
+          <h2>Une gestion claire pour des océans protégés</h2>
+          <p>
+            CBM-PIGAP accompagne les autorités dans le suivi de la pêche artisanale : côtes
+            atlantiques, fleuves et bras de mer, sur tout le territoire gabonais.
           </p>
-          <div className="landing-module-grid fo-module-grid">
-            {(
-              [
-                'licences',
-                'trajectories',
-                'zones',
-                'captures',
-                'quotas',
-                'dashboard',
-                'alertes',
-              ] as const
-            ).map((key, i) => {
-              const m = MODULE_VISUALS[key];
-              return (
-                <article key={key} className="landing-module-card glass-block">
-                  <img src={m.src} alt="" className="landing-module-icon" />
-                  <span className="mod-kicker">M{i + 1}</span>
-                  <strong>{m.label}</strong>
-                  <span>{m.short}</span>
-                </article>
-              );
-            })}
-          </div>
+          <ul className="ds-fo-mission-tags">
+            <li>Côtes Atlantique</li>
+            <li>Fleuves et bras de mer</li>
+            <li>Tout le territoire gabonais</li>
+          </ul>
         </div>
       </section>
 
-      <section className="landing-section fo-login" id="connexion" aria-labelledby="login-title">
-        <div className="landing-section-inner fo-cta-band">
+      <footer className="ds-fo-footer">
+        <div className="ds-fo-brand">
+          <img src="/logo-cbm-pigap.png" alt="" />
           <div>
-            <p className="eyebrow">Back-office</p>
-            <h2 id="login-title">Connexion autorités</h2>
-            <p className="landing-section-lede">
-              Réservé aux agents et administrateurs. Les pêcheurs utilisent l’application mobile
-              après validation de leur licence.
-            </p>
+            <strong>CBM-PIGAP</strong>
+            <span>Contrôle du Secteur Halieutique du Gabon</span>
           </div>
-          <button type="button" className="btn-primary btn-lg" onClick={openLogin}>
-            Se connecter
-          </button>
         </div>
-      </section>
-
-      <DemandeLicenceWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
-
-      <Modal
-        open={loginOpen}
-        onClose={() => setLoginOpen(false)}
-        title="Connexion autorités"
-        footer={
-          <button type="submit" form="fo-login-form" disabled={loading}>
-            {loading ? 'Connexion…' : 'Entrer sur le portail'}
+        <nav aria-label="Pied de page">
+          <a href="#accueil">Accueil</a>
+          <a href="#services">Services</a>
+          <a href="#apropos">À propos</a>
+          <button type="button" className="linkish" onClick={openLogin}>
+            Connexion
           </button>
-        }
-      >
-        <form id="fo-login-form" className="login-form stack-form" onSubmit={onLogin}>
+        </nav>
+        <p className="ds-fo-flag">République Gabonaise — Une mer, une richesse, notre avenir</p>
+      </footer>
+
+      <Modal open={loginOpen} title="Connexion autorités" onClose={closeModals}>
+        <form id="fo-login-form" className="login-form" onSubmit={onLogin}>
           <label>
             E-mail
             <input
+              type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => onEmail(e.target.value)}
-              autoComplete="username"
+              required
             />
           </label>
           <label>
             Mot de passe
             <input
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => onPassword(e.target.value)}
-              autoComplete="current-password"
+              required
             />
           </label>
           {error ? <p className="error">{error}</p> : null}
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Connexion…' : 'Se connecter'}
+          </button>
         </form>
       </Modal>
+
+      <DemandeLicenceWizard open={wizardOpen} onClose={closeModals} />
     </div>
   );
 }

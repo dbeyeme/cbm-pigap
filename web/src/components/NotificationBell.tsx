@@ -1,4 +1,5 @@
 import { NotificationSummary } from '../api';
+import { IconAlert, IconBell, IconUsers } from './Icons';
 
 type Props = {
   summary: NotificationSummary;
@@ -30,12 +31,7 @@ export default function NotificationBell({
         onClick={onToggle}
         title={connected ? 'Notifications temps réel' : 'Notifications (reconnexion…)'}
       >
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
-          <path
-            fill="currentColor"
-            d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2Z"
-          />
-        </svg>
+        <IconBell size={20} />
         {total > 0 ? <span className="notif-badge">{total}</span> : null}
         <span className={`notif-live${connected ? ' on' : ''}`} aria-hidden />
       </button>
@@ -43,7 +39,9 @@ export default function NotificationBell({
       {open ? (
         <div className="notif-panel glass-block" role="dialog" aria-label="Notifications">
           <header className="notif-panel-head">
-            <strong>À traiter</strong>
+            <strong>
+              <IconBell size={14} /> À traiter
+            </strong>
             <span>
               {summary.demandes_en_attente} demande(s) · {summary.alertes_nouvelles} alerte(s)
             </span>
@@ -59,6 +57,13 @@ export default function NotificationBell({
                     className={`notif-item notif-${item.kind}`}
                     onClick={() => onNavigate(item.page)}
                   >
+                    <span className="notif-item-icon" aria-hidden>
+                      {item.kind === 'demande' ? (
+                        <IconUsers size={15} />
+                      ) : (
+                        <IconAlert size={15} />
+                      )}
+                    </span>
                     <span className="notif-item-kind">
                       {item.kind === 'demande' ? 'Demande' : 'Alerte'}
                     </span>
@@ -71,20 +76,14 @@ export default function NotificationBell({
           )}
           <footer className="notif-panel-foot">
             <button type="button" className="ghost" onClick={() => onNavigate('demandes')}>
-              Demandes
+              <IconUsers size={14} /> Demandes
             </button>
             <button type="button" className="ghost" onClick={() => onNavigate('alertes')}>
-              Alertes
+              <IconAlert size={14} /> Alertes
             </button>
           </footer>
         </div>
       ) : null}
     </div>
   );
-}
-
-/** Badge compact pour le rail — compteur exact. */
-export function RailBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return <span className="rail-badge">{count}</span>;
 }

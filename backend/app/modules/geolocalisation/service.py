@@ -18,6 +18,7 @@ from app.modules.geolocalisation.geo import geojson_text_to_point, point_to_wkt
 from app.modules.geolocalisation.schemas import (
     EmbarcationTrackRead,
     LicenceDossierRead,
+    LiveVesselRead,
     PositionBatchCreate,
     PositionCreate,
     PositionRead,
@@ -51,6 +52,21 @@ async def _assert_can_access_embarcation(
             raise not_found("Embarcation introuvable", "EMBARCATION_NOT_FOUND")
         return emb
     raise bad_request("Rôle non autorisé pour la géolocalisation", "ROLE_FORBIDDEN")
+
+
+async def _assert_pecheur_abonnement_write(
+    db: AsyncSession, user: Utilisateur, embarcation_id: UUID
+) -> None:
+    """Si enforcement actif, un pêcheur doit avoir un abonnement (ou couverture flotte)."""
+    if user.role != RoleUtilisateur.pecheur:
+        return
+    result = await db.execute(select(Pecheur).where(Pecheur.utilisateur_id == user.id))
+    pecheur = result.scalar_one_or_none()
+    if pecheur is None:
+        return
+    from app.modules.abonnements import service as abo_service
+
+    await abo_service.assert_pecheur_couvert(db, pecheur.id)
 
 
 def _to_read(position: Position, geojson_raw: str | None) -> PositionRead:
@@ -101,6 +117,7 @@ async def create_position(
     db: AsyncSession, user: Utilisateur, data: PositionCreate
 ) -> PositionRead:
     await _assert_can_access_embarcation(db, user, data.embarcation_id)
+    await _assert_pecheur_abonnement_write(db, user, data.embarcation_id)
     _assert_on_water(data.position)
     now = datetime.now(UTC)
     row = Position(
@@ -132,6 +149,7 @@ async def create_positions_batch(
     emb_ids = {p.embarcation_id for p in data.positions}
     for emb_id in emb_ids:
         await _assert_can_access_embarcation(db, user, emb_id)
+        await _assert_pecheur_abonnement_write(db, user, emb_id)
     for item in data.positions:
         _assert_on_water(item.position)
     _assert_batch_no_land_crossing(data.positions)
@@ -318,6 +336,81 @@ async def list_trajectory_segments(
                 )
             )
     out.sort(key=lambda t: t.debut, reverse=True)
+    return out
+
+
+def _classify_secteur(lon: float, lat: float) -> str:
+    """Classification indicative côte / bras de mer / fleuve (Gabon)."""
+    if lon >= 10.0 or lat >= 1.5 or (lon >= 9.7 and lat <= -0.25):
+        return "fleuve"
+    if 9.15 <= lon <= 9.55 and -0.15 <= lat <= 1.05:
+        return "bras_mer"
+    return "cote"
+
+
+def _live_statut(age_seconds: int) -> str:
+    if age_seconds < 5 * 60:
+        return "actif"
+    if age_seconds < 30 * 60:
+        return "recent"
+    return "silence"
+
+
+async def list_live_vessels(
+    db: AsyncSession,
+    user: Utilisateur,
+    *,
+    since_minutes: int = 360,
+) -> list[LiveVesselRead]:
+    """Dernière position (eau) par embarcation dans la fenêtre."""
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(minutes=since_minutes)
+    emb_list = await list_embarcations_for_user(db, user)
+    if not emb_list:
+        return []
+    emb_by_id = {e.id: e for e in emb_list}
+    ids = list(emb_by_id.keys())
+    latest = (
+        select(
+            Position.embarcation_id,
+            func.max(Position.horodatage).label("max_h"),
+        )
+        .where(Position.embarcation_id.in_(ids), Position.horodatage >= cutoff)
+        .group_by(Position.embarcation_id)
+        .subquery()
+    )
+    result = await db.execute(
+        select(Position, ST_AsGeoJSON(Position.position).label("position_geojson"))
+        .join(
+            latest,
+            (Position.embarcation_id == latest.c.embarcation_id)
+            & (Position.horodatage == latest.c.max_h),
+        )
+        .order_by(Position.horodatage.desc())
+    )
+    out: list[LiveVesselRead] = []
+    for pos, geo in result.all():
+        read = _to_read(pos, geo)
+        lon, lat = read.position.coordinates
+        if not is_on_water(lon, lat):
+            continue
+        emb = emb_by_id[pos.embarcation_id]
+        age = max(0, int((now - read.horodatage.astimezone(UTC)).total_seconds()))
+        out.append(
+            LiveVesselRead(
+                embarcation_id=emb.id,
+                nom=emb.nom,
+                immatriculation=emb.immatriculation,
+                type=emb.type,
+                position=read.position,
+                horodatage=read.horodatage,
+                source=read.source,
+                age_seconds=age,
+                statut=_live_statut(age),
+                secteur=_classify_secteur(lon, lat),
+            )
+        )
+    out.sort(key=lambda v: v.horodatage, reverse=True)
     return out
 
 

@@ -1,0 +1,94 @@
+/* CBM-PIGAP — Motion system (high-tech, calme, prefers-reduced-motion) */
+
+.ds-rise-in {
+  animation: ds-rise-in var(--dur-slow) var(--ease-out) both;
+}
+
+.ds-fade-slide {
+  animation: ds-fade-slide var(--dur) var(--ease-out) both;
+}
+
+.ds-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.ds-stagger > *:nth-child(2) { animation-delay: 50ms; }
+.ds-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.ds-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.ds-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.ds-stagger > *:nth-child(6) { animation-delay: 250ms; }
+
+@keyframes ds-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ds-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ds-marker-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ship-marker,
+.alert-map-marker {
+  animation: ds-marker-pop var(--dur) var(--ease-out) both;
+}
+
+/* Pulse alerte : 3 cycles puis stop (pas d’état d’alerte permanent) */
+.alert-map-pulse {
+  animation: alert-pulse 1.4s ease-out 3;
+}
+
+.ds-lift {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) ease;
+}
+
+.ds-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-rise-in,
+  .ds-fade-slide,
+  .ship-marker,
+  .alert-map-marker,
+  .alert-map-pulse,
+  .ds-sys-status i,
+  .notif-bell.has-unread,
+  .pending-pulse,
+  .ds-fo-live {
+    animation: none !important;
+  }
+
+  .ds-lift:hover {
+    transform: none;
+  }
+
+  .ds-sidebar,
+  .ds-sidebar-scrim {
+    transition: none !important;
+  }
+}

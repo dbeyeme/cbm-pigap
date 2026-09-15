@@ -230,3 +230,77 @@ export function syncCapturesBatch(token: string, captures: CaptureCreatePayload[
     body: JSON.stringify({ captures }),
   });
 }
+
+/* ——— Abonnements ——— */
+
+export type OffreAbonnement = {
+  code: string;
+  canal: string;
+  periode: string;
+  montant_fcfa: number;
+  libelle: string;
+  description: string;
+};
+
+export type InitierAbonnementResponse = {
+  abonnement: {
+    id: string;
+    statut: string;
+    montant_fcfa: number;
+    code_offre: string;
+    date_fin: string | null;
+  };
+  paiement: {
+    id: string;
+    reference_interne: string;
+    instructions: string | null;
+    statut: string;
+  };
+};
+
+export type CouvertureAbonnement = {
+  pecheur_id: string;
+  numero_licence: string;
+  couvert: boolean;
+  motif: string;
+  enforce: boolean;
+  source_couverture: string | null;
+};
+
+export function listOffresAbonnement() {
+  return request<OffreAbonnement[]>('/api/v1/abonnements/offres');
+}
+
+export function getCouvertureAbonnement(token: string, pecheurId: string) {
+  return request<CouvertureAbonnement>(`/api/v1/abonnements/couverture/${pecheurId}`, {
+    token,
+  });
+}
+
+export function initierAbonnementB2C(
+  token: string,
+  body: {
+    code_offre: string;
+    numero_licence?: string;
+    pecheur_id?: string;
+    operateur?: string;
+    msisdn?: string;
+  },
+) {
+  return request<InitierAbonnementResponse>('/api/v1/abonnements/initier-b2c', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(body),
+  });
+}
+
+export function confirmerPaiementDemo(token: string, paiementId: string) {
+  return request<InitierAbonnementResponse>(
+    `/api/v1/abonnements/paiements/${paiementId}/confirmer-demo`,
+    {
+      method: 'POST',
+      token,
+      body: JSON.stringify({}),
+    },
+  );
+}

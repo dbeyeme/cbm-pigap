@@ -3,40 +3,48 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  AisVessel,
   fetchMe,
+  listAisLive,
+  listAlertes,
+  listLiveVessels,
   listTrajectories,
   listZones,
+  LiveVessel,
   login,
   TrajectorySegment,
   ZoneReglementee,
 } from './api';
+import AppSidebar from './components/AppSidebar';
+import AppTopbar from './components/AppTopbar';
+import CompactList from './components/CompactList';
+import { IconPirogue, IconShip } from './components/Icons';
+import { useToast } from './components/ToastProvider';
+import { syncGabonBoundariesOnMap } from './geo/gabonBoundary';
 import { GABON_COAST_BOUNDS } from './geo/gabonMaritimeRoutes';
 import {
   clearMarkers,
+  coordsFromDeclencheur,
   FlowAnimHandle,
+  placeAisMarkers,
+  placeAlertMarkers,
   placeShipMarkers,
   startLineFlowAnimation,
+  VesselKind,
 } from './geo/mapEffects';
-import { removeZonesFromMap, syncZonesOnMap, zoneColor } from './geo/zoneMap';
-import CompactList from './components/CompactList';
-import HomeCarousel from './components/HomeCarousel';
-import NotificationBell, { RailBadge } from './components/NotificationBell';
-import { useToast } from './components/ToastProvider';
-import AlertesPage from './pages/AlertesPage';
-import CapturesPage from './pages/CapturesPage';
-import DashboardPage from './pages/DashboardPage';
-import DemandesPage from './pages/DemandesPage';
-import LandingPage from './pages/LandingPage';
-import LicencesPage from './pages/LicencesPage';
-import OrganisationsPage from './pages/OrganisationsPage';
-import QuotasPage from './pages/QuotasPage';
-import UsersPage from './pages/UsersPage';
-import ZonesPage from './pages/ZonesPage';
+import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from './geo/mapStyle';
+import { removeZonesFromMap, syncZonesOnMap } from './geo/zoneMap';
 import { useNotifications } from './hooks/useNotifications';
 import { friendlyApiError } from './lib/apiErrors';
-import { MODULE_VISUALS } from './media';
-
-const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+import { type NavId, type Page } from './nav';
+import ActeursHub from './pages/ActeursHub';
+import AlertesPage from './pages/AlertesPage';
+import DashboardPage from './pages/DashboardPage';
+import LandingPage from './pages/LandingPage';
+import PechesHub from './pages/PechesHub';
+import RapportsPage from './pages/RapportsPage';
+import UsersPage from './pages/UsersPage';
+import ZonesPage from './pages/ZonesPage';
 
 const PALETTE = [
   '#1B6CA8',
@@ -49,23 +57,43 @@ const PALETTE = [
   '#0284C7',
 ];
 
-type Page =
-  | 'home'
-  | 'map'
-  | 'search'
-  | 'zones'
-  | 'captures'
-  | 'quotas'
-  | 'dashboard'
-  | 'alertes'
-  | 'demandes'
-  | 'organisations'
-  | 'users';
+const LIVE_POLL_MS = 20_000;
+const AIS_POLL_MS = 60_000;
 
 function colorFor(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h + id.charCodeAt(i) * (i + 1)) % PALETTE.length;
   return PALETTE[h];
+}
+
+function isMapPage(page: Page): boolean {
+  return page === 'navires' || page === 'map' || page === 'surveillance';
+}
+
+function vesselKind(type: string | null | undefined): VesselKind {
+  const t = (type ?? '').toLowerCase();
+  if (
+    t.includes('chaloupe') ||
+    t.includes('chalut') ||
+    t.includes('navire') ||
+    t.includes('bateau')
+  ) {
+    return 'navire';
+  }
+  return 'pirogue';
+}
+
+function formatAge(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.round(sec / 60)} min`;
+  return `${Math.round(sec / 3600)} h`;
+}
+
+function secteurLabel(s: string): string {
+  if (s === 'cote') return 'côte';
+  if (s === 'bras_mer') return 'bras de mer';
+  if (s === 'fleuve') return 'fleuve';
+  return s;
 }
 
 export default function App() {
@@ -74,15 +102,23 @@ export default function App() {
   const mapObj = useRef<maplibregl.Map | null>(null);
   const flowAnim = useRef<FlowAnimHandle | null>(null);
   const shipMarkers = useRef<maplibregl.Marker[]>([]);
+  const aisMarkers = useRef<maplibregl.Marker[]>([]);
+  const alertMarkers = useRef<maplibregl.Marker[]>([]);
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('AdminPass123!');
   const [token, setToken] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>('dashboard');
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { summary: notifSummary, connected: notifConnected } = useNotifications(token);
   const [segments, setSegments] = useState<TrajectorySegment[]>([]);
+  const [liveVessels, setLiveVessels] = useState<LiveVessel[]>([]);
+  const [aisVessels, setAisVessels] = useState<AisVessel[]>([]);
+  const [aisNote, setAisNote] = useState('');
+  const [liveMode, setLiveMode] = useState(true);
+  const [aisOverlay, setAisOverlay] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [boatFilter, setBoatFilter] = useState('');
   const [zones, setZones] = useState<ZoneReglementee[]>([]);
@@ -90,6 +126,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [acteursTab, setActeursTab] = useState<'demandes' | 'licences' | 'organisations'>(
+    'demandes',
+  );
+  const [pechesTab, setPechesTab] = useState<'captures' | 'quotas'>('captures');
 
   const boats = useMemo(() => {
     const map = new Map<string, { id: string; nom: string; immatriculation: string; trips: number }>();
@@ -114,36 +155,47 @@ export default function App() {
     return list;
   }, [segments, boatFilter, selectedId]);
 
+  const liveVisible = useMemo(() => {
+    let list = liveVessels;
+    if (boatFilter) list = list.filter((v) => v.embarcation_id === boatFilter);
+    return list;
+  }, [liveVessels, boatFilter]);
+
+  const onMap = isMapPage(page);
+
   useEffect(() => {
-    if (page !== 'map' || !mapRef.current) return;
+    if (!onMap || !mapRef.current) return;
     if (mapObj.current) {
       mapObj.current.resize();
       return;
     }
     const map = new maplibregl.Map({
       container: mapRef.current,
-      style: STYLE,
-      center: [9.2, 0.0],
-      zoom: 6.8,
-      maxBounds: [
-        [GABON_COAST_BOUNDS.west - 1.5, GABON_COAST_BOUNDS.south - 1],
-        [GABON_COAST_BOUNDS.east + 1.5, GABON_COAST_BOUNDS.north + 1],
-      ],
+      style: GABON_SATELLITE_STYLE,
+      center: GABON_MAP_VIEW.center,
+      zoom: GABON_MAP_VIEW.zoom,
+      maxBounds: GABON_MAP_VIEW.maxBounds,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     mapObj.current = map;
+    map.once('load', () => {
+      map.fitBounds(GABON_MAP_VIEW.fitBounds, { padding: 48, maxZoom: 7.6 });
+      void syncGabonBoundariesOnMap(map);
+    });
     return () => {
       flowAnim.current?.stop();
       flowAnim.current = null;
       clearMarkers(shipMarkers.current);
+      clearMarkers(aisMarkers.current);
+      clearMarkers(alertMarkers.current);
       map.remove();
       mapObj.current = null;
     };
-  }, [page]);
+  }, [onMap]);
 
   useEffect(() => {
     const map = mapObj.current;
-    if (!map || page !== 'map') return;
+    if (!map || !onMap) return;
 
     const draw = () => {
       const sourceId = 'all-trajectories';
@@ -157,8 +209,79 @@ export default function App() {
       if (map.getLayer(lineId)) map.removeLayer(lineId);
       if (map.getLayer(pointsId)) map.removeLayer(pointsId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
+      const aisSrc = 'ais-zee-live';
+      const aisLayer = 'ais-zee-circles';
+      if (map.getLayer(aisLayer)) map.removeLayer(aisLayer);
+      if (map.getSource(aisSrc)) map.removeSource(aisSrc);
+
+      const paintAis = () => {
+        if (!aisOverlay || !aisVessels.length) {
+          clearMarkers(aisMarkers.current);
+          return;
+        }
+        map.addSource(aisSrc, {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: aisVessels.map((v) => ({
+              type: 'Feature',
+              properties: {
+                nom: v.nom,
+                mmsi: v.mmsi,
+                demo: v.demo,
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: v.position.coordinates,
+              },
+            })),
+          },
+        });
+        map.addLayer({
+          id: aisLayer,
+          type: 'circle',
+          source: aisSrc,
+          paint: {
+            'circle-radius': 9,
+            'circle-color': ['case', ['get', 'demo'], '#94a3b8', '#c2410c'],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.92,
+          },
+        });
+        placeAisMarkers(
+          map,
+          aisVessels.map((v) => ({
+            lng: v.position.coordinates[0],
+            lat: v.position.coordinates[1],
+            demo: v.demo,
+            label: v.demo ? `${v.nom}` : `${v.nom} · MMSI ${v.mmsi}`,
+          })),
+          aisMarkers.current,
+        );
+      };
 
       if (visible.length === 0) {
+        clearMarkers(shipMarkers.current);
+        if (liveMode && liveVisible.length) {
+          placeShipMarkers(
+            map,
+            liveVisible.map((v) => ({
+              lng: v.position.coordinates[0],
+              lat: v.position.coordinates[1],
+              kind: vesselKind(v.type),
+              statut: v.statut,
+              label: v.nom,
+              alert: v.statut === 'silence',
+            })),
+            shipMarkers.current,
+          );
+        }
+        if (aisOverlay) {
+          paintAis();
+        } else {
+          clearMarkers(aisMarkers.current);
+        }
         map.fitBounds(
           [
             [GABON_COAST_BOUNDS.west, GABON_COAST_BOUNDS.south],
@@ -175,7 +298,13 @@ export default function App() {
             | { type: 'Point'; coordinates: [number, number] };
         }> = [];
         const allCoords: [number, number][] = [];
-        const ends: Array<{ lng: number; lat: number }> = [];
+        const ends: Array<{
+          lng: number;
+          lat: number;
+          kind: VesselKind;
+          label: string;
+        }> = [];
+        const preferLive = liveMode && liveVisible.length > 0;
 
         for (const seg of visible) {
           const color = colorFor(seg.id);
@@ -188,15 +317,21 @@ export default function App() {
               geometry: { type: 'LineString', coordinates: coords },
             });
           }
-          coords.forEach((c, i) => {
-            const isEnd = i === 0 || i === coords.length - 1;
+          // Historique : un seul point d'extrémité (pas chaque GPS). Live = HTML markers.
+          if (!preferLive && coords.length) {
+            const end = coords[coords.length - 1];
             features.push({
               type: 'Feature',
-              properties: { id: seg.id, color, isEnd },
-              geometry: { type: 'Point', coordinates: c },
+              properties: { id: seg.id, color, isEnd: true },
+              geometry: { type: 'Point', coordinates: end },
             });
-            if (i === coords.length - 1) ends.push({ lng: c[0], lat: c[1] });
-          });
+            ends.push({
+              lng: end[0],
+              lat: end[1],
+              kind: vesselKind(seg.type),
+              label: seg.embarcation_nom,
+            });
+          }
         }
 
         map.addSource(sourceId, {
@@ -209,10 +344,10 @@ export default function App() {
           source: sourceId,
           filter: ['==', ['geometry-type'], 'LineString'],
           paint: {
-            'line-color': ['get', 'color'],
-            'line-width': selectedId ? 14 : 10,
-            'line-opacity': 0.22,
-            'line-blur': 4,
+            'line-color': '#7dd3fc',
+            'line-width': selectedId ? 16 : 12,
+            'line-opacity': preferLive ? 0.12 : 0.28,
+            'line-blur': 5,
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
@@ -223,30 +358,53 @@ export default function App() {
           filter: ['==', ['geometry-type'], 'LineString'],
           paint: {
             'line-color': ['get', 'color'],
-            'line-width': selectedId ? 5 : 3.5,
-            'line-opacity': 0.95,
-            'line-dasharray': [0, 4],
+            'line-width': selectedId ? 4.5 : preferLive ? 2 : 3,
+            'line-opacity': preferLive ? 0.45 : 0.95,
+            'line-dasharray': [0, 3.5],
           },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         });
-        map.addLayer({
-          id: pointsId,
-          type: 'circle',
-          source: sourceId,
-          filter: ['==', ['geometry-type'], 'Point'],
-          paint: {
-            'circle-radius': ['case', ['get', 'isEnd'], 5, 3],
-            'circle-color': ['get', 'color'],
-            'circle-stroke-width': 1.5,
-            'circle-stroke-color': '#ffffff',
-            'circle-opacity': ['case', ['get', 'isEnd'], 0.35, 0.85],
-          },
-        });
+        // Cercles GPS : uniquement en mode historique (1 extrémité), jamais en live.
+        if (!preferLive) {
+          map.addLayer({
+            id: pointsId,
+            type: 'circle',
+            source: sourceId,
+            filter: ['==', ['geometry-type'], 'Point'],
+            paint: {
+              'circle-radius': 3,
+              'circle-color': ['get', 'color'],
+              'circle-stroke-width': 1.5,
+              'circle-stroke-color': '#ffffff',
+              'circle-opacity': 0.35,
+            },
+          });
+        }
 
-        placeShipMarkers(map, ends.slice(0, 24), shipMarkers.current);
+        placeShipMarkers(
+          map,
+          preferLive
+            ? liveVisible.map((v) => ({
+                lng: v.position.coordinates[0],
+                lat: v.position.coordinates[1],
+                kind: vesselKind(v.type),
+                statut: v.statut,
+                label: v.nom,
+                alert: v.statut === 'silence',
+              }))
+            : ends.slice(0, 24),
+          shipMarkers.current,
+        );
+
+        if (aisOverlay) {
+          paintAis();
+        } else {
+          clearMarkers(aisMarkers.current);
+        }
+
         flowAnim.current = startLineFlowAnimation(map, lineId);
 
-        if (allCoords.length) {
+        if (!liveMode && allCoords.length) {
           const bounds = allCoords.reduce(
             (b, c) => b.extend(c),
             new maplibregl.LngLatBounds(allCoords[0], allCoords[0]),
@@ -256,7 +414,7 @@ export default function App() {
       }
 
       removeZonesFromMap(map);
-      if (showZonesOverlay) {
+      if (showZonesOverlay || page === 'surveillance') {
         syncZonesOnMap(map, zones, { visible: true });
       }
     };
@@ -268,18 +426,84 @@ export default function App() {
       flowAnim.current?.stop();
       flowAnim.current = null;
     };
-  }, [visible, page, selectedId, zones, showZonesOverlay]);
+  }, [visible, liveVisible, liveMode, aisOverlay, aisVessels, onMap, page, selectedId, zones, showZonesOverlay]);
+
+  useEffect(() => {
+    const map = mapObj.current;
+    if (!map || !onMap || !token) return;
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        await syncGabonBoundariesOnMap(map);
+        const rows = await listAlertes(token, { statut: 'nouvelle' });
+        if (cancelled) return;
+        const points = rows
+          .map((a) => {
+            const c = coordsFromDeclencheur(a.declencheur);
+            if (!c) return null;
+            return {
+              lng: c[0],
+              lat: c[1],
+              label: `${a.type.replaceAll('_', ' ')} · ${a.niveau_gravite}`,
+            };
+          })
+          .filter((p): p is { lng: number; lat: number; label: string } => p != null);
+        placeAlertMarkers(map, points, alertMarkers.current);
+        if (page === 'surveillance' && points.length) {
+          const bounds = new maplibregl.LngLatBounds();
+          for (const p of points) bounds.extend([p.lng, p.lat]);
+          map.fitBounds(bounds, { padding: 64, maxZoom: 9 });
+        }
+      } catch {
+        /* alertes carte optionnelles */
+      }
+    };
+
+    if (map.isStyleLoaded()) void run();
+    else map.once('load', () => void run());
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onMap, page, token]);
 
   async function loadTrajectories(accessToken: string) {
     const trajs = await listTrajectories(accessToken);
     setSegments(trajs);
     setSelectedId(null);
     setBoatFilter('');
+    if (!liveMode) {
+      setStatus(
+        trajs.length
+          ? `${trajs.length} trajectoire(s) · ${new Set(trajs.map((t) => t.embarcation_id)).size} embarcation(s)`
+          : 'Aucune trajectoire — lance le semis maritime.',
+      );
+    }
+  }
+
+  async function loadLive(accessToken: string) {
+    const fleet = await listLiveVessels(accessToken, 1440);
+    setLiveVessels(fleet);
+    const actifs = fleet.filter((v) => v.statut === 'actif').length;
+    const cotes = fleet.filter((v) => v.secteur === 'cote' || v.secteur === 'bras_mer').length;
+    const fleuves = fleet.filter((v) => v.secteur === 'fleuve').length;
     setStatus(
-      trajs.length
-        ? `${trajs.length} trajectoire(s) · ${new Set(trajs.map((t) => t.embarcation_id)).size} embarcation(s)`
-        : 'Aucune trajectoire — lance le semis maritime.',
+      fleet.length
+        ? `Live · ${fleet.length} en circulation (${actifs} actifs) · ${cotes} côte/bras · ${fleuves} fleuve · MAJ ${new Date().toLocaleTimeString()}`
+        : 'Live · aucun signal récent (semis ou simulateur).',
     );
+  }
+
+  async function loadAis(accessToken: string, refresh = false) {
+    try {
+      const res = await listAisLive(accessToken, refresh);
+      setAisVessels(res.enabled ? res.vessels : []);
+      setAisNote(res.note || (res.enabled ? '' : 'AIS désactivé'));
+    } catch {
+      setAisVessels([]);
+      setAisNote('AIS indisponible');
+    }
   }
 
   async function ensureZones(accessToken: string) {
@@ -288,7 +512,113 @@ export default function App() {
       const list = await listZones(accessToken);
       setZones(list);
     } catch {
-      /* overlay optionnel — ne bloque pas la carte */
+      /* overlay optionnel */
+    }
+  }
+
+  async function goMap(as: 'navires' | 'surveillance' = 'navires') {
+    if (!token) return;
+    setPage(as);
+    setError(null);
+    if (as === 'surveillance') setShowZonesOverlay(true);
+    setLoading(true);
+    try {
+      await loadTrajectories(token);
+      await loadLive(token);
+      await loadAis(token, true);
+      await ensureZones(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chargement impossible');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!token || !onMap || !liveMode) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const fleet = await listLiveVessels(token, 1440);
+        if (cancelled) return;
+        setLiveVessels(fleet);
+        const actifs = fleet.filter((v) => v.statut === 'actif').length;
+        const cotes = fleet.filter(
+          (v) => v.secteur === 'cote' || v.secteur === 'bras_mer',
+        ).length;
+        const fleuves = fleet.filter((v) => v.secteur === 'fleuve').length;
+        setStatus(
+          fleet.length
+            ? `Live · ${fleet.length} en circulation (${actifs} actifs) · ${cotes} côte/bras · ${fleuves} fleuve · MAJ ${new Date().toLocaleTimeString()}`
+            : 'Live · aucun signal récent (semis ou simulateur).',
+        );
+      } catch {
+        /* polling soft-fail */
+      }
+    };
+    const id = window.setInterval(() => void tick(), LIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [token, onMap, liveMode]);
+
+  useEffect(() => {
+    if (!token || !onMap || !aisOverlay) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await listAisLive(token, false);
+        if (cancelled) return;
+        setAisVessels(res.enabled ? res.vessels : []);
+        setAisNote(res.note || '');
+      } catch {
+        /* soft */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), AIS_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [token, onMap, aisOverlay]);
+
+  function navigate(id: NavId) {
+    setError(null);
+    setNotifOpen(false);
+    switch (id) {
+      case 'dashboard':
+        setPage('dashboard');
+        break;
+      case 'acteurs':
+        setActeursTab('demandes');
+        setPage('acteurs');
+        break;
+      case 'navires':
+        void goMap('navires');
+        break;
+      case 'peches':
+        setPechesTab('captures');
+        setPage('peches');
+        break;
+      case 'surveillance':
+        void goMap('surveillance');
+        break;
+      case 'alertes':
+        setPage('alertes');
+        break;
+      case 'rapports':
+        setPage('rapports');
+        break;
+      case 'cartographie':
+        setPage('cartographie');
+        break;
+      case 'admin':
+        setPage('admin');
+        break;
+      default:
+        break;
     }
   }
 
@@ -307,27 +637,13 @@ export default function App() {
         setMeId(null);
         setMeRole(null);
       }
-      setPage('home');
+      setPage('dashboard');
       await loadTrajectories(res.access_token);
       toast.success('Connexion réussie', 'Bienvenue sur le portail des autorités.');
     } catch (err) {
       const msg = friendlyApiError(err);
       setError(msg);
       toast.error('Connexion impossible', msg);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function goMap() {
-    if (!token) return;
-    setPage('map');
-    setLoading(true);
-    try {
-      await loadTrajectories(token);
-      await ensureZones(token);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chargement impossible');
     } finally {
       setLoading(false);
     }
@@ -355,7 +671,7 @@ export default function App() {
     setSegments([]);
     setZones([]);
     setShowZonesOverlay(false);
-    setPage('home');
+    setPage('dashboard');
     setError(null);
   }
 
@@ -374,566 +690,335 @@ export default function App() {
   }
 
   return (
-    <div className="app app-cmd">
-      <aside className="icon-rail" aria-label="Navigation">
-        <button
-          type="button"
-          className={`rail-btn ${page === 'home' ? 'rail-on' : ''}`}
-          title="Accueil"
-          onClick={() => setPage('home')}
-        >
-          <span className="rail-glyph" aria-hidden>
-            ⌂
-          </span>
-          <span className="rail-label">Accueil</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'dashboard' ? 'rail-on' : ''}`}
-          title="Tableau de bord"
-          onClick={() => {
-            setPage('dashboard');
-            setError(null);
+    <div className="app app-cmd ds-app">
+      <AppSidebar
+        page={page}
+        alertesBadge={notifSummary.alertes_nouvelles}
+        demandesBadge={notifSummary.demandes_en_attente}
+        showAdmin={meRole === 'admin'}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+        onNavigate={navigate}
+        onLogout={logout}
+      />
+
+      <div className="cmd-main ds-main">
+        <AppTopbar
+          page={page}
+          meRole={meRole}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSearchSubmit={() => {
+            setActeursTab('licences');
+            setPage('acteurs');
           }}
-        >
-          <img src={MODULE_VISUALS.dashboard.src} alt="" />
-          <span className="rail-label">Pilotage</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'map' ? 'rail-on' : ''}`}
-          title="Trajectoires"
-          onClick={() => void goMap()}
-        >
-          <img src={MODULE_VISUALS.trajectories.src} alt="" />
-          <span className="rail-label">Carte</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'search' ? 'rail-on' : ''}`}
-          title="Licences"
-          onClick={() => {
-            setPage('search');
-            setError(null);
-          }}
-        >
-          <img src={MODULE_VISUALS.licences.src} alt="" />
-          <span className="rail-label">Licences</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'zones' ? 'rail-on' : ''}`}
-          title="Zones"
-          onClick={() => {
-            setPage('zones');
-            setError(null);
-          }}
-        >
-          <img src={MODULE_VISUALS.zones.src} alt="" />
-          <span className="rail-label">Zones</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'captures' ? 'rail-on' : ''}`}
-          title="Captures"
-          onClick={() => {
-            setPage('captures');
-            setError(null);
-          }}
-        >
-          <img src={MODULE_VISUALS.captures.src} alt="" />
-          <span className="rail-label">Captures</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'quotas' ? 'rail-on' : ''}`}
-          title="Quotas"
-          onClick={() => {
-            setPage('quotas');
-            setError(null);
-          }}
-        >
-          <img src={MODULE_VISUALS.quotas.src} alt="" />
-          <span className="rail-label">Quotas</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'alertes' ? 'rail-on' : ''}${notifSummary.alertes_nouvelles > 0 ? ' rail-attention' : ''}`}
-          title="Alertes"
-          onClick={() => {
-            setPage('alertes');
-            setError(null);
+          notifSummary={notifSummary}
+          notifConnected={notifConnected}
+          notifOpen={notifOpen}
+          onNotifToggle={() => setNotifOpen((v) => !v)}
+          onNotifNavigate={(p) => {
+            if (p === 'demandes') {
+              setActeursTab('demandes');
+              setPage('acteurs');
+            } else {
+              setPage('alertes');
+            }
             setNotifOpen(false);
-          }}
-        >
-          <img src={MODULE_VISUALS.alertes.src} alt="" />
-          <span className="rail-label">Alertes</span>
-          <RailBadge count={notifSummary.alertes_nouvelles} />
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'demandes' ? 'rail-on' : ''}${notifSummary.demandes_en_attente > 0 ? ' rail-attention' : ''}`}
-          title="Demandes licence"
-          onClick={() => {
-            setPage('demandes');
-            setError(null);
-            setNotifOpen(false);
-          }}
-        >
-          <img src={MODULE_VISUALS.licences.src} alt="" />
-          <span className="rail-label">Demandes</span>
-          <RailBadge count={notifSummary.demandes_en_attente} />
-        </button>
-        <button
-          type="button"
-          className={`rail-btn ${page === 'organisations' ? 'rail-on' : ''}`}
-          title="Organisations"
-          onClick={() => {
-            setPage('organisations');
             setError(null);
           }}
-        >
-          <img src={MODULE_VISUALS.quotas.src} alt="" />
-          <span className="rail-label">Organis.</span>
-        </button>
-        {meRole === 'admin' ? (
-          <button
-            type="button"
-            className={`rail-btn ${page === 'users' ? 'rail-on' : ''}`}
-            title="Équipe"
-            onClick={() => {
-              setPage('users');
-              setError(null);
-            }}
-          >
-            <img src={MODULE_VISUALS.users.src} alt="" />
-            <span className="rail-label">Équipe</span>
-          </button>
-        ) : null}
-        <button type="button" className="rail-btn rail-logout" title="Déconnexion" onClick={logout}>
-          <span className="rail-glyph" aria-hidden>
-            ⎋
-          </span>
-          <span className="rail-label">Sortir</span>
-        </button>
-      </aside>
+          onMenuOpen={() => setMobileNavOpen(true)}
+        />
 
-      <div className="cmd-main">
-        <header className="cmd-top">
-          <div className="brand brand-with-logo">
-            <img src="/logo-cbm-pigap.png" alt="" className="brand-logo brand-logo-sm" />
-            <div>
-              <strong>CBM-PIGAP</strong>
-              <span>Portail des autorités · Gabon</span>
-            </div>
-          </div>
-          <div className="cmd-top-actions">
-            <NotificationBell
-              summary={notifSummary}
-              connected={notifConnected}
-              open={notifOpen}
-              onToggle={() => setNotifOpen((v) => !v)}
-              onNavigate={(p) => {
-                setPage(p);
-                setNotifOpen(false);
-                setError(null);
-              }}
-            />
-            <button type="button" className="ghost logout cmd-logout-wide" onClick={logout}>
-              Déconnexion
-            </button>
-          </div>
-        </header>
-
-        <div className="cmd-content">
-      {error &&
-      page !== 'search' &&
-      page !== 'zones' &&
-      page !== 'captures' &&
-      page !== 'quotas' &&
-      page !== 'dashboard' &&
-      page !== 'alertes' &&
-      page !== 'demandes' &&
-      page !== 'organisations' &&
-      page !== 'users' ? (
-        <p className="error pad" style={{ paddingInline: 22 }}>
-          {error}
-        </p>
-      ) : null}
-
-      {page === 'home' ? (
-        <section className="stage home-stage">
-          <div className="home-intro stage-head glass-block home-intro-anim">
-            <p className="eyebrow">Zone pilote · Estuaire / Gabon</p>
-            <h1>Portail des autorités</h1>
-            <p>
-              Bienvenue. Utilisez le diaporama ou choisissez une action ci-dessous —
-              grands boutons, textes simples.
+        <div className="cmd-content ds-content">
+          {error && onMap ? (
+            <p className="error pad" style={{ paddingInline: 22 }}>
+              {error}
             </p>
-            <p className="status-line">
-              {status || 'Astuce : commencez par le Tableau de bord ou les Alertes.'}
-            </p>
-          </div>
+          ) : null}
 
-          <HomeCarousel
-            onAction={(action) => {
-              setError(null);
-              if (action === 'map') void goMap();
-              else setPage(action);
-            }}
-          />
+          {page === 'dashboard' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <DashboardPage token={token} onError={setError} onNavigate={navigate} />
+            </>
+          ) : null}
 
-          <div className="home-groups">
-            <div className="home-group home-group-anim" style={{ animationDelay: '80ms' }}>
-              <h2>Voir l’essentiel</h2>
-              <p className="home-group-lede">
-                Vue d’ensemble et alertes — le premier écran pour les autorités.
-              </p>
-              <div className="home-module-grid" role="list">
-                <button
-                  type="button"
-                  className="home-module-card home-module-primary home-card-anim"
-                  style={{ animationDelay: '120ms' }}
-                  role="listitem"
-                  onClick={() => {
-                    setPage('dashboard');
-                    setError(null);
-                  }}
-                >
-                  <img src={MODULE_VISUALS.dashboard.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Recommandé</span>
-                  <strong>Tableau de bord</strong>
-                  <span>Chiffres clés et carte d’activité</span>
-                </button>
-                <button
-                  type="button"
-                  className="home-module-card home-module-alert home-card-anim"
-                  style={{ animationDelay: '180ms' }}
-                  role="listitem"
-                  onClick={() => {
-                    setPage('alertes');
-                    setError(null);
-                  }}
-                >
-                  <img src={MODULE_VISUALS.alertes.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Prioritaire</span>
-                  <strong>Alertes</strong>
-                  <span>Situations à traiter en premier</span>
-                </button>
-              </div>
-            </div>
+          {page === 'acteurs' ||
+          page === 'demandes' ||
+          page === 'search' ||
+          page === 'organisations' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <ActeursHub
+                key={acteursTab}
+                token={token}
+                demandesBadge={notifSummary.demandes_en_attente}
+                onError={setError}
+                colorFor={colorFor}
+                initialTab={
+                  page === 'search'
+                    ? 'licences'
+                    : page === 'organisations'
+                      ? 'organisations'
+                      : acteursTab
+                }
+                onOpenTrajectory={(s) => {
+                  setSelectedId(s.id);
+                  setBoatFilter(s.embarcation_id);
+                  void goMap('navires');
+                }}
+              />
+            </>
+          ) : null}
 
-            <div className="home-group home-group-anim" style={{ animationDelay: '160ms' }}>
-              <h2>Surveiller</h2>
-              <p className="home-group-lede">
-                Trajectoires des embarcations et zones réglementées sur la carte.
-              </p>
-              <div className="home-module-grid" role="list">
-                <button
-                  type="button"
-                  className="home-module-card home-card-anim"
-                  style={{ animationDelay: '200ms' }}
-                  role="listitem"
-                  onClick={() => void goMap()}
-                >
-                  <img src={MODULE_VISUALS.trajectories.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Carte</span>
-                  <strong>Trajectoires</strong>
-                  <span>Suivi des sorties en mer et fleuves</span>
-                </button>
-                <button
-                  type="button"
-                  className="home-module-card home-card-anim"
-                  style={{ animationDelay: '260ms' }}
-                  role="listitem"
-                  onClick={() => {
-                    setPage('zones');
-                    setError(null);
-                  }}
-                >
-                  <img src={MODULE_VISUALS.zones.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Carte</span>
-                  <strong>Zones</strong>
-                  <span>Zones interdites, protégées, sensibles</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="home-group home-group-anim" style={{ animationDelay: '240ms' }}>
-              <h2>Gérer</h2>
-              <p className="home-group-lede">Licences, captures déclarées et quotas.</p>
-              <div className="home-module-grid" role="list">
-                <button
-                  type="button"
-                  className="home-module-card home-card-anim"
-                  style={{ animationDelay: '280ms' }}
-                  role="listitem"
-                  onClick={() => {
-                    setPage('search');
-                    setError(null);
-                  }}
-                >
-                  <img src={MODULE_VISUALS.licences.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Dossiers</span>
-                  <strong>Licences</strong>
-                  <span>Pêcheurs et embarcations</span>
-                </button>
-                <button
-                  type="button"
-                  className="home-module-card home-card-anim"
-                  style={{ animationDelay: '340ms' }}
-                  role="listitem"
-                  onClick={() => {
-                    setPage('captures');
-                    setError(null);
-                  }}
-                >
-                  <img src={MODULE_VISUALS.captures.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Déclarations</span>
-                  <strong>Captures</strong>
-                  <span>Volumes déclarés par espèce</span>
-                </button>
-                <button
-                  type="button"
-                  className="home-module-card home-card-anim"
-                  style={{ animationDelay: '400ms' }}
-                  role="listitem"
-                  onClick={() => {
-                    setPage('quotas');
-                    setError(null);
-                  }}
-                >
-                  <img src={MODULE_VISUALS.quotas.src} alt="" className="home-module-icon" />
-                  <span className="mod-kicker">Limites</span>
-                  <strong>Quotas</strong>
-                  <span>Consommation et seuils</span>
-                </button>
-                {meRole === 'admin' ? (
-                  <button
-                    type="button"
-                    className="home-module-card home-card-anim"
-                    style={{ animationDelay: '460ms' }}
-                    role="listitem"
-                    onClick={() => {
-                      setPage('users');
-                      setError(null);
+          {onMap ? (
+            <section className="map-stage">
+              <aside className="side">
+                <header className="zones-head page-head-with-icon zones-head-icon">
+                  <div>
+                    <h2>{page === 'surveillance' ? 'Surveillance' : 'Navires'}</h2>
+                    <p className="side-status">{status || 'Chargement…'}</p>
+                  </div>
+                </header>
+                <div className="map-layer-toggles">
+                  <label className="toggle-row">
+                    <input
+                      type="checkbox"
+                      checked={liveMode}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setLiveMode(on);
+                        if (token) {
+                          if (on) void loadLive(token);
+                          else void loadTrajectories(token);
+                        }
+                      }}
+                    />
+                    Live GPS PIGAP
+                  </label>
+                  <label className="toggle-row">
+                    <input
+                      type="checkbox"
+                      checked={aisOverlay}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setAisOverlay(on);
+                        if (on && token) void loadAis(token, true);
+                        if (!on) {
+                          clearMarkers(aisMarkers.current);
+                          setAisVessels([]);
+                        }
+                      }}
+                    />
+                    AIS ZEE
+                  </label>
+                  <label className="toggle-row">
+                    <input
+                      type="checkbox"
+                      checked={showZonesOverlay || page === 'surveillance'}
+                      onChange={() => void toggleZonesOverlay()}
+                      disabled={page === 'surveillance'}
+                    />
+                    Zones
+                  </label>
+                </div>
+                {aisOverlay ? (
+                  <p className="side-status ais-side-note">
+                    {aisVessels.length} signal(aux) AIS
+                    {aisVessels.some((v) => v.demo) ? ' · démo' : ''}
+                    {aisNote ? ` — ${aisNote}` : ''}
+                    {aisVessels.length === 0
+                      ? ' — aucun en ZEE pour l’instant'
+                      : ''}
+                  </p>
+                ) : null}
+                {showZonesOverlay || page === 'surveillance' ? (
+                  <div className="zone-legend compact zone-legend-rich">
+                    <span>
+                      <img src="/icons/zone-interdite.svg" alt="" width="16" height="16" /> interdite
+                    </span>
+                    <span>
+                      <img src="/icons/zone-protegee.svg" alt="" width="16" height="16" /> protégée
+                    </span>
+                    <span>
+                      <img src="/icons/zone-sensible.svg" alt="" width="16" height="16" /> sensible
+                    </span>
+                  </div>
+                ) : null}
+                <label className="filter-label">
+                  Embarcation
+                  <select
+                    value={boatFilter}
+                    onChange={(e) => {
+                      setBoatFilter(e.target.value);
+                      setSelectedId(null);
                     }}
                   >
-                    <img src={MODULE_VISUALS.users.src} alt="" className="home-module-icon" />
-                    <span className="mod-kicker">Admin</span>
-                    <strong>Équipe</strong>
-                    <span>Agents et administrateurs</span>
-                  </button>
-                ) : null}
+                    <option value="">Toutes</option>
+                    {boats.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.nom} · {b.trips}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {liveMode ? (
+                  <CompactList
+                    items={liveVisible}
+                    getKey={(v) => v.embarcation_id}
+                    initial={8}
+                    empty={
+                      <p className="empty-list">
+                        Aucun signal live — semis maritime ou simulate_live_fleet.py
+                      </p>
+                    }
+                    renderItem={(v) => {
+                      const kind = vesselKind(v.type);
+                      const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
+                      return (
+                        <button
+                          type="button"
+                          className={`traj-item traj-item--vessel traj-item--${kind}`}
+                          style={{ borderLeftColor: colorFor(v.embarcation_id) }}
+                          title={`${v.nom} · ${v.statut} · ${formatAge(v.age_seconds)}`}
+                          onClick={() => setBoatFilter(v.embarcation_id)}
+                        >
+                          <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
+                            <VesselIcon size={18} />
+                          </span>
+                          <span className="traj-item-body">
+                            <span className="traj-title">{v.nom}</span>
+                            <span className="traj-meta">
+                              {secteurLabel(v.secteur)} · {v.statut} · {formatAge(v.age_seconds)}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    }}
+                  />
+                ) : (
+                  <CompactList
+                    items={
+                      boatFilter
+                        ? segments.filter((s) => s.embarcation_id === boatFilter)
+                        : segments
+                    }
+                    getKey={(s) => s.id}
+                    initial={8}
+                    empty={
+                      <p className="empty-list">
+                        Aucune trajectoire — semis maritime puis recharge.
+                      </p>
+                    }
+                    renderItem={(s) => {
+                      const on = selectedId === s.id;
+                      const kind = vesselKind(s.type);
+                      const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
+                      return (
+                        <button
+                          type="button"
+                          className={`traj-item traj-item--vessel traj-item--${kind}${on ? ' on' : ''}`}
+                          style={{ borderLeftColor: colorFor(s.id) }}
+                          title={`${s.embarcation_nom} · sortie ${s.index}`}
+                          onClick={() => setSelectedId(on ? null : s.id)}
+                        >
+                          <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
+                            <VesselIcon size={18} />
+                          </span>
+                          <span className="traj-item-body">
+                            <span className="traj-title">
+                              {s.embarcation_nom}
+                              <em> · {s.index}</em>
+                            </span>
+                            <span className="traj-meta">
+                              {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    }}
+                  />
+                )}
+              </aside>
+              <div className="map-wrap">
+                <div ref={mapRef} className="map" />
               </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
+            </section>
+          ) : null}
 
-      {page === 'map' ? (
-        <section className="map-stage">
-          <aside className="side">
-            <header className="zones-head page-head-with-icon zones-head-icon">
-              <img src={MODULE_VISUALS.trajectories.src} alt="" className="page-module-icon sm" />
-              <div>
-                <h2>Trajectoires</h2>
-                <p className="side-status">{status || 'Chargement…'}</p>
-              </div>
-            </header>
-            <label className="toggle-row">
-              <input
-                type="checkbox"
-                checked={showZonesOverlay}
-                onChange={() => void toggleZonesOverlay()}
+          {page === 'peches' || page === 'captures' || page === 'quotas' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <PechesHub
+                key={pechesTab}
+                token={token}
+                onError={setError}
+                initialTab={page === 'quotas' ? 'quotas' : pechesTab}
               />
-              Afficher zones
-            </label>
-            {showZonesOverlay ? (
-              <div className="zone-legend compact">
-                <span>
-                  <i style={{ background: zoneColor('interdite') }} /> interdite
-                </span>
-                <span>
-                  <i style={{ background: zoneColor('protegee') }} /> protégée
-                </span>
-                <span>
-                  <i style={{ background: zoneColor('sensible') }} /> sensible
-                </span>
-              </div>
-            ) : null}
-            <button
-              type="button"
-              className={`ghost ${!selectedId && !boatFilter ? 'active-filter' : ''}`}
-              onClick={() => {
-                setSelectedId(null);
-                setBoatFilter('');
-              }}
-            >
-              Toutes
-            </button>
-            <label className="filter-label">
-              Embarcation
-              <select
-                value={boatFilter}
-                onChange={(e) => {
-                  setBoatFilter(e.target.value);
-                  setSelectedId(null);
-                }}
-              >
-                <option value="">Toutes</option>
-                {boats.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.nom} · {b.trips}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <CompactList
-              items={
-                boatFilter
-                  ? segments.filter((s) => s.embarcation_id === boatFilter)
-                  : segments
-              }
-              getKey={(s) => s.id}
-              initial={6}
-              empty={
-                <p className="empty-list">Aucune trajectoire — semis maritime puis recharge.</p>
-              }
-              renderItem={(s) => {
-                const on = selectedId === s.id;
-                return (
-                  <button
-                    type="button"
-                    className={`traj-item ${on ? 'on' : ''}`}
-                    style={{ borderLeftColor: colorFor(s.id) }}
-                    onClick={() => setSelectedId(on ? null : s.id)}
-                  >
-                    <span className="traj-title">
-                      {s.embarcation_nom}
-                      <em> · {s.index}</em>
-                    </span>
-                    <span className="traj-meta">
-                      {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
-                    </span>
-                  </button>
-                );
-              }}
-            />
-          </aside>
-          <div className="map-wrap">
-            <div ref={mapRef} className="map" />
-          </div>
-        </section>
-      ) : null}
+            </>
+          ) : null}
 
-      {page === 'search' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
+          {page === 'alertes' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <AlertesPage token={token} onError={setError} />
+            </>
+          ) : null}
+
+          {page === 'rapports' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <RapportsPage token={token} onError={setError} />
+            </>
+          ) : null}
+
+          {page === 'cartographie' || page === 'zones' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <ZonesPage token={token} onStatus={setStatus} onError={setError} />
+            </>
+          ) : null}
+
+          {(page === 'admin' || page === 'users') && meRole === 'admin' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <UsersPage token={token} currentUserId={meId} onError={setError} />
+            </>
+          ) : null}
+
+          {loading && onMap ? (
+            <p className="status-line" style={{ padding: 12 }}>
+              Chargement…
             </p>
           ) : null}
-          <LicencesPage
-            token={token}
-            onError={setError}
-            colorFor={colorFor}
-            onOpenTrajectory={(s) => {
-              setSelectedId(s.id);
-              setBoatFilter(s.embarcation_id);
-              void goMap();
-            }}
-          />
-        </>
-      ) : null}
-
-      {page === 'zones' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <ZonesPage token={token} onStatus={setStatus} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'captures' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <CapturesPage token={token} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'quotas' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <QuotasPage token={token} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'dashboard' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <DashboardPage token={token} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'alertes' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <AlertesPage token={token} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'demandes' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <DemandesPage token={token} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'organisations' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <OrganisationsPage token={token} onError={setError} />
-        </>
-      ) : null}
-
-      {page === 'users' && meRole === 'admin' ? (
-        <>
-          {error ? (
-            <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <UsersPage token={token} currentUserId={meId} onError={setError} />
-        </>
-      ) : null}
         </div>
       </div>
     </div>

@@ -49,6 +49,27 @@ class EmbarcationTrackRead(OrmModel):
     derniere_position_a: datetime | None = None
 
 
+class LiveVesselRead(BaseModel):
+    """Dernière position connue d'une embarcation (vue circulation / near-live)."""
+
+    embarcation_id: UUID
+    nom: str
+    immatriculation: str
+    type: str | None = None
+    position: PointGeoJSON
+    horodatage: datetime
+    source: SourcePosition
+    age_seconds: int = Field(..., description="Âge de la dernière position (s)")
+    statut: str = Field(
+        ...,
+        description="actif (<5 min) | recent (<30 min) | silence (dans la fenêtre)",
+    )
+    secteur: str = Field(
+        ...,
+        description="cote | bras_mer | fleuve — classification indicative Gabon",
+    )
+
+
 class TrajectorySegmentRead(BaseModel):
     """Une sortie / trajet (plusieurs possibles par embarcation)."""
 

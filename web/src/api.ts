@@ -69,6 +69,40 @@ export type TrajectorySegment = {
   points: PositionPoint[];
 };
 
+export type LiveVessel = {
+  embarcation_id: string;
+  nom: string;
+  immatriculation: string;
+  type?: string | null;
+  position: { type: 'Point'; coordinates: [number, number] };
+  horodatage: string;
+  source: string;
+  age_seconds: number;
+  statut: 'actif' | 'recent' | 'silence' | string;
+  secteur: 'cote' | 'bras_mer' | 'fleuve' | string;
+};
+
+export type AisVessel = {
+  mmsi: string;
+  nom: string;
+  position: { type: 'Point'; coordinates: [number, number] };
+  horodatage: string;
+  sog_kn?: number | null;
+  cog_deg?: number | null;
+  ship_type?: string | null;
+  provider: string;
+  demo: boolean;
+};
+
+export type AisLiveResponse = {
+  enabled: boolean;
+  vessels: AisVessel[];
+  fetched_at: string | null;
+  source: string;
+  note: string;
+  eez_filter: boolean;
+};
+
 export type LicenceDossier = {
   pecheur_id: string;
   nom: string;
@@ -174,6 +208,20 @@ export function listTrajectories(token: string, embarcationId?: string) {
     `/api/v1/positions/trajectories${q ? `?${q}` : ''}`,
     token,
   );
+}
+
+/** Circulation near-live (dernière position / embarcation). Poller 15–30 s. */
+export function listLiveVessels(token: string, sinceMinutes = 360) {
+  const params = new URLSearchParams({ since_minutes: String(sinceMinutes) });
+  return request<LiveVessel[]>(`/api/v1/positions/live?${params}`, token);
+}
+
+/** Navires AIS dans la ZEE Gabon (open data, ADR-005) — distinct GPS PIGAP. */
+export function listAisLive(token: string, refresh = false) {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', 'true');
+  const q = params.toString();
+  return request<AisLiveResponse>(`/api/v1/ais/live${q ? `?${q}` : ''}`, token);
 }
 
 export function getLicenceDossier(token: string, licence: string) {
@@ -470,6 +518,163 @@ export function getDashboard(
   return request<DashboardRead>(`/api/v1/dashboard${qs ? `?${qs}` : ''}`, token);
 }
 
+function periodQuery(debut?: string, fin?: string): string {
+  const q = new URLSearchParams();
+  if (debut) q.set('debut', debut);
+  if (fin) q.set('fin', fin);
+  const qs = q.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/** Télécharge un PDF/CSV authentifié (documents officiels). */
+export async function downloadAuthenticatedFile(
+  token: string,
+  path: string,
+  fallbackFilename: string,
+): Promise<void> {
+  const res = await fetch(`${API}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(parseApiError(text));
+  }
+  const blob = await res.blob();
+  const disp = res.headers.get('content-disposition') ?? '';
+  const match = /filename="([^"]+)"/.exec(disp);
+  const filename = match?.[1] ?? fallbackFilename;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadLicencePdf(token: string, pecheurId: string) {
+  return downloadAuthenticatedFile(
+    token,
+    `/api/v1/documents/licence/${pecheurId}`,
+    'licence.pdf',
+  );
+}
+
+export function downloadFichePecheurPdf(token: string, pecheurId: string) {
+  return downloadAuthenticatedFile(
+    token,
+    `/api/v1/documents/fiche/pecheur/${pecheurId}`,
+    'fiche.pdf',
+  );
+}
+
+export function downloadFicheDemandePdf(token: string, demandeId: string) {
+  return downloadAuthenticatedFile(
+    token,
+    `/api/v1/documents/fiche/demande/${demandeId}`,
+    'fiche-demande.pdf',
+  );
+}
+
+export function downloadBilanPdf(
+  token: string,
+  pecheurId: string,
+  params?: { debut?: string; fin?: string },
+) {
+  return downloadAuthenticatedFile(
+    token,
+    `/api/v1/documents/bilan/${pecheurId}${periodQuery(params?.debut, params?.fin)}`,
+    'bilan.pdf',
+  );
+}
+
+export function downloadRapport(
+  token: string,
+  params?: { debut?: string; fin?: string; format?: 'pdf' | 'csv' },
+) {
+  const q = new URLSearchParams();
+  if (params?.debut) q.set('debut', params.debut);
+  if (params?.fin) q.set('fin', params.fin);
+  q.set('format', params?.format ?? 'pdf');
+  const ext = params?.format === 'csv' ? 'csv' : 'pdf';
+  return downloadAuthenticatedFile(
+    token,
+    `/api/v1/documents/rapport?${q.toString()}`,
+    `rapport.${ext}`,
+  );
+}
+
+export type GrainSerie = 'jour' | 'semaine' | 'mois';
+
+export type DashboardSeries = {
+  grain: GrainSerie;
+  volume_par_periode: Array<{ periode: string; volume_kg: number }>;
+  especes_par_periode: Array<{ periode: string; espece: string; volume_kg: number }>;
+  alertes_par_periode: Array<{ periode: string; type: string; count: number }>;
+  saisons: Array<{ periode: string; saison: string }>;
+  periode_debut: string | null;
+  periode_fin: string | null;
+  genere_a: string;
+};
+
+export function getDashboardSeries(
+  token: string,
+  params?: { debut?: string; fin?: string; grain?: GrainSerie },
+) {
+  const q = new URLSearchParams();
+  if (params?.debut) q.set('debut', params.debut);
+  if (params?.fin) q.set('fin', params.fin);
+  if (params?.grain) q.set('grain', params.grain);
+  const qs = q.toString();
+  return request<DashboardSeries>(`/api/v1/dashboard/series${qs ? `?${qs}` : ''}`, token);
+}
+
+export type PredictionsRead = {
+  horizon_jours: number;
+  mode: 'ok' | 'insuffisant';
+  peches: Array<{
+    espece: string;
+    volume_prevu_kg: number;
+    intervalle_bas_kg: number;
+    intervalle_haut_kg: number;
+    justification: Record<string, unknown>;
+  }>;
+  penuries: Array<{
+    espece: string;
+    risque: 'faible' | 'moyen' | 'eleve';
+    volume_4sem_kg: number;
+    baseline_saison_kg: number;
+    volume_prevu_30j_kg: number;
+    justification: Record<string, unknown>;
+  }>;
+  intrusions: Array<{
+    zone_id: string | null;
+    zone_nom: string;
+    count_prevu: number;
+    score: number;
+    justification: Record<string, unknown>;
+  }>;
+  zones_incidents: Array<{
+    zone_id: string | null;
+    zone_nom: string;
+    centre: { type: 'Point'; coordinates: [number, number] } | null;
+    score: number;
+    count_intrusions_hist: number;
+    volume_captures_kg: number;
+    quota_taux_max: number | null;
+    justification: Record<string, unknown>;
+  }>;
+  genere_a: string;
+};
+
+export function getPredictions(token: string, horizonJours: 7 | 30 = 30) {
+  return request<PredictionsRead>(
+    `/api/v1/predictions?horizon_jours=${horizonJours}`,
+    token,
+  );
+}
+
 export function listAlertes(
   token: string,
   params?: { type?: string; statut?: string; embarcation_id?: string },
@@ -686,6 +891,133 @@ export type NotificationSummary = {
 
 export function fetchNotificationSummary(token: string) {
   return request<NotificationSummary>('/api/v1/notifications/summary', token);
+}
+
+/* ——— Abonnements / Mobile Money ——— */
+
+export type OffreAbonnement = {
+  code: string;
+  canal: string;
+  periode: string;
+  montant_fcfa: number;
+  libelle: string;
+  description: string;
+  embarcations_incluses: number;
+};
+
+export type Abonnement = {
+  id: string;
+  canal: string;
+  code_offre: string;
+  periode: string;
+  montant_fcfa: number;
+  statut: string;
+  pecheur_id: string | null;
+  organisation_id: string | null;
+  embarcations_incluses: number;
+  date_debut: string | null;
+  date_fin: string | null;
+  auto_renouvellement: boolean;
+  notes: string | null;
+  date_creation: string;
+};
+
+export type PaiementMM = {
+  id: string;
+  abonnement_id: string;
+  montant_fcfa: number;
+  operateur: string;
+  msisdn: string | null;
+  statut: string;
+  reference_interne: string;
+  reference_operateur: string | null;
+  date_creation: string;
+  date_confirmation: string | null;
+  instructions: string | null;
+};
+
+export type InitierAbonnementResponse = {
+  abonnement: Abonnement;
+  paiement: PaiementMM;
+};
+
+export type CouvertureAbonnement = {
+  pecheur_id: string;
+  numero_licence: string;
+  couvert: boolean;
+  motif: string;
+  abonnement: Abonnement | null;
+  enforce: boolean;
+  source_couverture: string | null;
+};
+
+export function listOffresAbonnement() {
+  return request<OffreAbonnement[]>('/api/v1/abonnements/offres');
+}
+
+export function listAbonnements(
+  token: string,
+  params?: { canal?: string; statut?: string; pecheur_id?: string; organisation_id?: string },
+) {
+  const q = new URLSearchParams();
+  if (params?.canal) q.set('canal', params.canal);
+  if (params?.statut) q.set('statut', params.statut);
+  if (params?.pecheur_id) q.set('pecheur_id', params.pecheur_id);
+  if (params?.organisation_id) q.set('organisation_id', params.organisation_id);
+  const qs = q.toString();
+  return request<Abonnement[]>(`/api/v1/abonnements${qs ? `?${qs}` : ''}`, token);
+}
+
+export function getCouvertureAbonnement(token: string, pecheurId: string) {
+  return request<CouvertureAbonnement>(`/api/v1/abonnements/couverture/${pecheurId}`, token);
+}
+
+export function initierAbonnementB2C(
+  token: string,
+  body: {
+    code_offre: string;
+    pecheur_id?: string;
+    numero_licence?: string;
+    operateur?: string;
+    msisdn?: string;
+  },
+) {
+  return request<InitierAbonnementResponse>('/api/v1/abonnements/initier-b2c', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function initierAbonnementB2B(
+  token: string,
+  body: {
+    code_offre: string;
+    organisation_id: string;
+    embarcations?: number;
+    operateur?: string;
+    msisdn?: string;
+    activer_demo?: boolean;
+  },
+) {
+  return request<InitierAbonnementResponse>('/api/v1/abonnements/initier-b2b', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function confirmerPaiementDemo(token: string, paiementId: string) {
+  return request<InitierAbonnementResponse>(
+    `/api/v1/abonnements/paiements/${paiementId}/confirmer-demo`,
+    token,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+}
+
+export function activerAbonnementManuel(token: string, abonnementId: string, notes?: string) {
+  const q = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+  return request<Abonnement>(`/api/v1/abonnements/${abonnementId}/activer-manuel${q}`, token, {
+    method: 'POST',
+  });
 }
 
 /**

@@ -4,6 +4,9 @@ import {
   createEmbarcation,
   createPecheur,
   deletePecheur,
+  downloadBilanPdf,
+  downloadFichePecheurPdf,
+  downloadLicencePdf,
   Embarcation,
   getLicenceDossier,
   LicenceDossier,
@@ -14,6 +17,7 @@ import {
   updatePecheur,
 } from '../api';
 import CompactList from '../components/CompactList';
+import { useToast } from '../components/ToastProvider';
 import { MODULE_VISUALS } from '../media';
 
 type Props = {
@@ -29,9 +33,11 @@ export default function LicencesPage({
   onOpenTrajectory,
   colorFor,
 }: Props) {
+  const toast = useToast();
   const [q, setQ] = useState('');
   const [pecheurs, setPecheurs] = useState<Pecheur[]>([]);
   const [selected, setSelected] = useState<Pecheur | null>(null);
+  const [docBusy, setDocBusy] = useState<string | null>(null);
   const [boats, setBoats] = useState<Embarcation[]>([]);
   const [dossier, setDossier] = useState<LicenceDossier | null>(null);
   const [loading, setLoading] = useState(false);
@@ -150,6 +156,20 @@ export default function LicencesPage({
       onError(err instanceof Error ? err.message : 'Création embarcation impossible');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function downloadDoc(label: string, action: () => Promise<void>) {
+    if (!selected) return;
+    setDocBusy(label);
+    onError(null);
+    try {
+      await action();
+      toast.success('Document généré', label);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Génération impossible');
+    } finally {
+      setDocBusy(null);
     }
   }
 
@@ -325,6 +345,40 @@ export default function LicencesPage({
                 <div className="zone-actions">
                   <button type="button" className="ghost compact" onClick={() => void onViewDossier()}>
                     Voir trajectoires
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={docBusy !== null}
+                    onClick={() =>
+                      void downloadDoc('Licence PDF', () =>
+                        downloadLicencePdf(token, selected.id),
+                      )
+                    }
+                  >
+                    {docBusy === 'Licence PDF' ? 'PDF…' : 'Licence PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={docBusy !== null}
+                    onClick={() =>
+                      void downloadDoc('Fiche PDF', () =>
+                        downloadFichePecheurPdf(token, selected.id),
+                      )
+                    }
+                  >
+                    {docBusy === 'Fiche PDF' ? 'PDF…' : 'Fiche PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={docBusy !== null}
+                    onClick={() =>
+                      void downloadDoc('Bilan PDF', () => downloadBilanPdf(token, selected.id))
+                    }
+                  >
+                    {docBusy === 'Bilan PDF' ? 'PDF…' : 'Bilan PDF'}
                   </button>
                   <button type="button" className="ghost compact" onClick={() => void onToggleStatut()}>
                     {selected.statut === 'actif' ? 'Suspendre' : 'Réactiver'}

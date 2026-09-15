@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -43,3 +44,39 @@ class DashboardRead(BaseModel):
 
 class DashboardEmbarcationFilter(BaseModel):
     embarcation_id: UUID | None = None
+
+
+GrainSerie = Literal["jour", "semaine", "mois"]
+
+
+class VolumePeriode(BaseModel):
+    periode: str
+    volume_kg: float
+
+
+class EspecePeriode(BaseModel):
+    periode: str
+    espece: str
+    volume_kg: float
+
+
+class AlertePeriode(BaseModel):
+    periode: str
+    type: str
+    count: int
+
+
+class SaisonPeriode(BaseModel):
+    periode: str
+    saison: str
+
+
+class DashboardSeriesRead(BaseModel):
+    grain: GrainSerie
+    volume_par_periode: list[VolumePeriode]
+    especes_par_periode: list[EspecePeriode]
+    alertes_par_periode: list[AlertePeriode]
+    saisons: list[SaisonPeriode]
+    periode_debut: datetime | None = None
+    periode_fin: datetime | None = None
+    genere_a: datetime

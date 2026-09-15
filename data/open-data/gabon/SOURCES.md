@@ -19,11 +19,13 @@ Masque d’eau et corridors de démo pour M2. **Pas de données personnelles** ;
 |-----|---------|---------|--------|
 | **EEZ Gabon** (MRGID 8476) | Flanders Marine Institute (VLIZ) — [Marine Regions](https://www.marineregions.org/) EEZ v12 | [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) | API / GeoJSON Marine Regions |
 | **Fleuves** | Contributeurs [OpenStreetMap](https://www.openstreetmap.org/) | [ODbL 1.0](https://opendatacommons.org/licenses/odbl/) | Overpass API |
+| **AIS (live)** | [Open Waters](https://ais.openwaters.io) (agrégat AIS open) | Conditions fournisseur | `GET /v1/vessels?bbox=` puis filtre ZEE PIGAP |
 
 ### Attribution (à conserver)
 
 - Marine Regions / Flanders Marine Institute — Exclusive Economic Zones (EEZ) v12.
 - © OpenStreetMap contributors — données fluviales (ODbL).
+- Open Waters / contributeurs AIS — positions navires (couche surveillance ADR-005) ; **pas** le registre pêcheurs PIGAP.
 
 ## Date de génération
 

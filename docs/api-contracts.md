@@ -15,6 +15,8 @@ Voir le détail dans ce fichier — index des modules :
 | M6 Dashboard | `app/modules/dashboard/schemas.py` | `/api/v1/dashboard` |
 | M7 Alertes | `app/modules/alertes/schemas.py` | `/api/v1/alertes` |
 | Demandes licence (FO) | `app/modules/demandes_licence/schemas.py` | `/api/v1/demandes-licence` |
+| Abonnements / Mobile Money | `app/modules/abonnements/` | `/api/v1/abonnements` |
+| Documents | `app/modules/documents/` | `/api/v1/documents` |
 | Commun | `app/schemas/common.py` | erreurs `{detail, code}`, GeoJSON |
 
 ## Conventions
@@ -86,6 +88,14 @@ Consommation recalculée à chaque capture (create/sync/patch/delete). Seuils 90
 
 Réponse exacte : `pecheurs_actifs`, `volume_total_kg`, `repartition_especes`, `alertes_actives` (statut nouvelle), `zones_forte_activite` (ST_Intersects).
 
+`GET /dashboard/series` — buckets jour/semaine/mois (`volume_par_periode`, espèces, alertes, labels saisonniers). Somme = volume dashboard.
+
+## Prédictions consultatives (`/api/v1/predictions`) — ADR-006
+
+| Méthode | Chemin | Auth | Notes |
+|---------|--------|------|-------|
+| GET | `/predictions?horizon_jours=7\|30` | autorité, agent, admin, chercheur | sklearn léger, `justification` obligatoire, pas d’alerte M7 |
+
 ## M7 — Alertes (`/api/v1/alertes`)
 
 | Méthode | Chemin | Auth | Notes |
@@ -110,6 +120,18 @@ Règles auto : intrusion zone interdite (positions/captures), dépassement quota
 | POST | `/demandes-licence/{id}/refuse` | idem | Motif obligatoire |
 
 Personnes morales : CRUD aussi via M1 `/api/v1/organisations`.
+
+## Documents (`/api/v1/documents`)
+
+PDF (ReportLab) + CSV rapport. Chaque export écrit `LogAcces`.
+
+| Méthode | Chemin | Auth | Notes |
+|---------|--------|------|-------|
+| GET | `/documents/licence/{pecheur_id}` | agent, admin, autorité | PDF licence M1 |
+| GET | `/documents/fiche/pecheur/{pecheur_id}` | idem | PDF fiche d’enregistrement |
+| GET | `/documents/fiche/demande/{demande_id}` | idem | PDF fiche depuis demande FO |
+| GET | `/documents/bilan/{pecheur_id}` | + chercheur | PDF bilan captures / alertes |
+| GET | `/documents/rapport` | + chercheur | Query `debut`, `fin`, `format=pdf\|csv` |
 
 ## Notifications portail (`/api/v1/notifications`)
 

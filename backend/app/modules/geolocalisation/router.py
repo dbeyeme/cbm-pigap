@@ -15,6 +15,7 @@ from app.modules.geolocalisation import service
 from app.modules.geolocalisation.schemas import (
     EmbarcationTrackRead,
     LicenceDossierRead,
+    LiveVesselRead,
     PositionBatchCreate,
     PositionCreate,
     PositionRead,
@@ -101,6 +102,19 @@ async def list_trajectories(
     return await service.list_trajectory_segments(
         db, user, gap_hours=gap_hours, embarcation_id=embarcation_id
     )
+
+
+@router.get("/live", response_model=list[LiveVesselRead])
+async def list_live_fleet(
+    db: DbSession,
+    user: GeolocUser,
+    since_minutes: Annotated[int, Query(ge=5, le=24 * 60)] = 360,
+) -> list[LiveVesselRead]:
+    """Circulation near-live : dernière position par embarcation (côte + fleuves).
+
+    Rafraîchir côté client toutes les 15–30 s. Source = GPS mobile / démo (pas AIS).
+    """
+    return await service.list_live_vessels(db, user, since_minutes=since_minutes)
 
 
 @router.get("/dossier", response_model=LicenceDossierRead)

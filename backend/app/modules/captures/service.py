@@ -55,6 +55,9 @@ async def _assert_can_write_capture(
         own = await _get_pecheur_for_user(db, user)
         if own is None or own.id != pecheur_id:
             raise not_found("Pêcheur introuvable", "PECHEUR_NOT_FOUND")
+        from app.modules.abonnements import service as abo_service
+
+        await abo_service.assert_pecheur_couvert(db, pecheur_id)
         return emb
 
     raise bad_request("Rôle non autorisé pour déclarer une capture", "ROLE_FORBIDDEN")

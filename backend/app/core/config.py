@@ -17,7 +17,7 @@ def _to_asyncpg_url(url: str) -> str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -34,6 +34,19 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     upload_max_mb: int = 5
     upload_max_files: int = 5
+    # ADR-005 — couche AIS ZEE Gabon (open data, hors IoT)
+    ais_enabled: bool = True
+    ais_openwaters_url: str = "https://ais.openwaters.io"
+    ais_poll_seconds: int = 60
+    ais_collect_seconds: int = 25
+    # false recommandé dès qu'une clé AISStream est configurée
+    ais_demo_when_empty: bool = False
+    aisstream_api_key: str | None = None
+    # Abonnements / Mobile Money (docs/modele-economique.md) — hors MVP cahier, activé Phase 4
+    mobile_money_mode: str = "demo"  # demo | live
+    mobile_money_webhook_secret: str | None = None
+    # false = pilote Phase 3 (couverture toujours OK) ; true = exige abonnement actif
+    abonnement_enforce: bool = False
 
     @field_validator("database_url", mode="before")
     @classmethod

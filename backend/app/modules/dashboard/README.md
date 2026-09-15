@@ -7,6 +7,7 @@ Objectif (§5.6) : indicateurs exacts pour autorités / agents — pêcheurs act
 | Méthode | Chemin | Rôles |
 |---------|--------|-------|
 | GET | `/api/v1/dashboard?debut=&fin=` | autorité, agent, admin, chercheur |
+| GET | `/api/v1/dashboard/series?debut=&fin=&grain=jour\|semaine\|mois` | idem — séries exactes |
 
 ## Tester
 

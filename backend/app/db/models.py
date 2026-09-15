@@ -14,6 +14,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -25,11 +26,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.enums import (
+    CanalAbonnement,
+    CodeOffreAbonnement,
     NiveauGravite,
+    OperateurMobileMoney,
+    PeriodeAbonnement,
     RoleUtilisateur,
     SourcePosition,
+    StatutAbonnement,
     StatutAlerte,
     StatutDemandeLicence,
+    StatutPaiement,
     StatutPecheur,
     TypeAlerte,
     TypeDemandeLicence,
@@ -84,6 +91,7 @@ class Organisation(Base):
     )
 
     pecheurs: Mapped[list[Pecheur]] = relationship(back_populates="organisation")
+    abonnements: Mapped[list[Abonnement]] = relationship(back_populates="organisation")
 
 
 class Utilisateur(Base):
@@ -133,6 +141,7 @@ class Pecheur(Base):
     organisation: Mapped[Organisation | None] = relationship(back_populates="pecheurs")
     embarcations: Mapped[list[Embarcation]] = relationship(back_populates="pecheur")
     captures: Mapped[list[Capture]] = relationship(back_populates="pecheur")
+    abonnements: Mapped[list[Abonnement]] = relationship(back_populates="pecheur")
 
 
 class Embarcation(Base):
@@ -326,6 +335,100 @@ class DemandeLicence(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     date_traitement: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Abonnement(Base):
+    """Abonnement B2C / B2B — docs/modele-economique.md (Phase 4 / V2)."""
+
+    __tablename__ = "abonnements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    canal: Mapped[CanalAbonnement] = mapped_column(
+        Enum(CanalAbonnement, name="canal_abonnement", native_enum=True),
+        nullable=False,
+        index=True,
+    )
+    code_offre: Mapped[CodeOffreAbonnement] = mapped_column(
+        Enum(CodeOffreAbonnement, name="code_offre_abonnement", native_enum=True),
+        nullable=False,
+    )
+    periode: Mapped[PeriodeAbonnement] = mapped_column(
+        Enum(PeriodeAbonnement, name="periode_abonnement", native_enum=True),
+        nullable=False,
+    )
+    montant_fcfa: Mapped[int] = mapped_column(Integer, nullable=False)
+    statut: Mapped[StatutAbonnement] = mapped_column(
+        Enum(StatutAbonnement, name="statut_abonnement", native_enum=True),
+        nullable=False,
+        default=StatutAbonnement.brouillon,
+        index=True,
+    )
+    pecheur_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pecheurs.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    # Flotte : embarcations couvertes au-delà du pack base (10)
+    embarcations_incluses: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    date_debut: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    date_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    auto_renouvellement: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    date_mise_a_jour: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    pecheur: Mapped[Pecheur | None] = relationship(back_populates="abonnements")
+    organisation: Mapped[Organisation | None] = relationship(back_populates="abonnements")
+    paiements: Mapped[list[PaiementMobileMoney]] = relationship(back_populates="abonnement")
+
+
+class PaiementMobileMoney(Base):
+    """Paiement Mobile Money (Airtel / Moov) — mode demo ou webhook agrégateur."""
+
+    __tablename__ = "paiements_mobile_money"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    abonnement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("abonnements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    montant_fcfa: Mapped[int] = mapped_column(Integer, nullable=False)
+    operateur: Mapped[OperateurMobileMoney] = mapped_column(
+        Enum(OperateurMobileMoney, name="operateur_mobile_money", native_enum=True),
+        nullable=False,
+        default=OperateurMobileMoney.demo,
+    )
+    msisdn: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    statut: Mapped[StatutPaiement] = mapped_column(
+        Enum(StatutPaiement, name="statut_paiement", native_enum=True),
+        nullable=False,
+        default=StatutPaiement.initie,
+        index=True,
+    )
+    reference_interne: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    reference_operateur: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    date_confirmation: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    abonnement: Mapped[Abonnement] = relationship(back_populates="paiements")
 
 
 class LogAcces(Base):

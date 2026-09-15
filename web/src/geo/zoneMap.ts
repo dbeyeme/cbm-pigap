@@ -3,9 +3,9 @@ import maplibregl from 'maplibre-gl';
 import type { ZoneReglementee } from '../api';
 
 export const ZONE_COLORS: Record<ZoneReglementee['type'], string> = {
-  interdite: '#FF9B7A',
-  protegee: '#7EB6FF',
-  sensible: '#F0C75E',
+  interdite: '#DC2626',
+  protegee: '#2563EB',
+  sensible: '#D97706',
 };
 
 export function zoneColor(type: ZoneReglementee['type']): string {
@@ -141,10 +141,10 @@ function ensureLayers(map: maplibregl.Map): void {
       'fill-opacity': [
         'case',
         ['==', ['get', 'selected'], 1],
-        0.55,
+        0.48,
         ['==', ['get', 'actif'], 1],
-        0.32,
-        0.12,
+        0.34,
+        0.18,
       ],
     },
   });
@@ -155,8 +155,8 @@ function ensureLayers(map: maplibregl.Map): void {
     filter: ['==', ['get', 'kind'], 'poly'],
     paint: {
       'line-color': ['get', 'color'],
-      'line-width': ['case', ['==', ['get', 'selected'], 1], 4, 2.2],
-      'line-opacity': ['case', ['==', ['get', 'actif'], 1], 0.98, 0.45],
+      'line-width': ['case', ['==', ['get', 'selected'], 1], 3.5, 2.2],
+      'line-opacity': ['case', ['==', ['get', 'actif'], 1], 0.95, 0.55],
     },
   });
   map.addLayer({
@@ -166,17 +166,17 @@ function ensureLayers(map: maplibregl.Map): void {
     filter: ['==', ['get', 'kind'], 'label'],
     layout: {
       'text-field': ['get', 'nom'],
-      'text-size': 12,
+      'text-size': 11,
       'text-offset': [0, 0.2],
       'text-anchor': 'center',
-      'text-allow-overlap': true,
-      'text-ignore-placement': true,
+      'text-allow-overlap': false,
+      'text-ignore-placement': false,
     },
     paint: {
-      'text-color': '#f4fbff',
-      'text-halo-color': '#021A22',
-      'text-halo-width': 1.6,
-      'text-opacity': ['case', ['==', ['get', 'actif'], 1], 1, 0.55],
+      'text-color': '#ffffff',
+      'text-halo-color': 'rgba(0,26,61,0.85)',
+      'text-halo-width': 1.4,
+      'text-opacity': ['case', ['==', ['get', 'actif'], 1], 1, 0.6],
     },
   });
 }

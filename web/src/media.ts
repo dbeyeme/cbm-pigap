@@ -2,6 +2,8 @@
 export const ILLUSTRATIONS = {
   hero: '/illustrations/landing-hero-gabon.png',
   devices: '/illustrations/landing-devices.png',
+  /** Côte gabonaise photoréaliste — widget FO « Vue en temps réel » */
+  liveCoast: '/illustrations/fo-live-gabon-coast.png',
   licences: '/illustrations/icon-licences.png',
   trajectories: '/illustrations/icon-trajectories.png',
   zones: '/illustrations/icon-zones.png',
