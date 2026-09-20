@@ -29,6 +29,7 @@ import AppSidebar from './components/AppSidebar';
 import AisPanel from './components/AisPanel';
 import PortPresencePanel from './components/PortPresencePanel';
 import VesselDetailDrawer from './components/VesselDetailDrawer';
+import PirogueDetailDrawer from './components/PirogueDetailDrawer';
 import Illustration from './components/Illustration';
 import SeaStatePanel from './components/SeaStatePanel';
 import HelpTip from './components/HelpTip';
@@ -141,6 +142,7 @@ export default function App() {
   const [aisLive, setAisLive] = useState<AisLiveResponse | null>(null);
   const [portPresence, setPortPresence] = useState<PortPresenceResponse | null>(null);
   const [selectedMmsi, setSelectedMmsi] = useState<string | null>(null);
+  const [selectedEmbarcation, setSelectedEmbarcation] = useState<string | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<AisTrackPoint[]>([]);
   const [mapExtent, setMapExtent] = useState<'gabon' | 'golfe'>('gabon');
   const [bulletin, setBulletin] = useState<BulletinMeteoMarine | null>(null);
@@ -223,7 +225,10 @@ export default function App() {
       if (!layers.length) return;
       const feats = map.queryRenderedFeatures(e.point, { layers });
       const mmsi = feats[0]?.properties?.mmsi;
-      if (mmsi) setSelectedMmsi(String(mmsi));
+      if (mmsi) {
+        setSelectedEmbarcation(null);
+        setSelectedMmsi(String(mmsi));
+      }
     });
     map.on('mousemove', (e) => {
       const layers = AIS_CLICK_LAYERS.filter((l) => map.getLayer(l));
@@ -446,12 +451,19 @@ export default function App() {
             liveVisible.map((v) => ({
               lng: v.position.coordinates[0],
               lat: v.position.coordinates[1],
+              id: v.embarcation_id,
               kind: vesselKind(v.type),
               statut: v.statut,
               label: v.nom,
               alert: v.statut === 'silence',
             })),
             shipMarkers.current,
+            {
+              onSelect: (id) => {
+                setSelectedMmsi(null);
+                setSelectedEmbarcation(id);
+              },
+            },
           );
         }
         if (aisOverlay) {
@@ -480,6 +492,7 @@ export default function App() {
           lat: number;
           kind: VesselKind;
           label: string;
+          id?: string;
         }> = [];
         const preferLive = liveMode && liveVisible.length > 0;
 
@@ -505,6 +518,7 @@ export default function App() {
             ends.push({
               lng: end[0],
               lat: end[1],
+              id: seg.embarcation_id,
               kind: vesselKind(seg.type),
               label: seg.embarcation_nom,
             });
@@ -564,6 +578,7 @@ export default function App() {
             ? liveVisible.map((v) => ({
                 lng: v.position.coordinates[0],
                 lat: v.position.coordinates[1],
+                id: v.embarcation_id,
                 kind: vesselKind(v.type),
                 statut: v.statut,
                 label: v.nom,
@@ -571,6 +586,12 @@ export default function App() {
               }))
             : ends.slice(0, 24),
           shipMarkers.current,
+          {
+            onSelect: (id) => {
+              setSelectedMmsi(null);
+              setSelectedEmbarcation(id);
+            },
+          },
         );
 
         if (aisOverlay) {
@@ -616,7 +637,7 @@ export default function App() {
       if (map.getLayer(line)) map.removeLayer(line);
       if (map.getLayer(pts)) map.removeLayer(pts);
       if (map.getSource(src)) map.removeSource(src);
-      if (!selectedMmsi || selectedTrack.length === 0) return;
+      if ((!selectedMmsi && !selectedEmbarcation) || selectedTrack.length === 0) return;
       const coords = selectedTrack.map((t) => t.position.coordinates);
       map.addSource(src, {
         type: 'geojson',
@@ -654,7 +675,7 @@ export default function App() {
     };
     if (map.isStyleLoaded()) apply();
     else map.once('load', apply);
-  }, [selectedMmsi, selectedTrack, onMap]);
+  }, [selectedMmsi, selectedEmbarcation, selectedTrack, onMap]);
 
   // Zones calculées (météo-marine × captures × quotas × zones) : polygones colorés
   useEffect(() => {
@@ -1297,7 +1318,10 @@ export default function App() {
                     onRefresh={() => {
                       if (token) void loadAis(token, true);
                     }}
-                    onSelect={(mmsi) => setSelectedMmsi(mmsi)}
+                    onSelect={(mmsi) => {
+                      setSelectedEmbarcation(null);
+                      setSelectedMmsi(mmsi);
+                    }}
                   />
                 ) : null}
                 <SeaStatePanel
@@ -1315,7 +1339,11 @@ export default function App() {
                     onRefresh={() => {
                       if (token) void loadPresence(token);
                     }}
-                    onSelectEmbarcation={(id) => setBoatFilter(id)}
+                    onSelectEmbarcation={(id) => {
+                      setBoatFilter(id);
+                      setSelectedMmsi(null);
+                      setSelectedEmbarcation(id);
+                    }}
                   />
                 ) : null}
                 {showZonesOverlay || page === 'surveillance' ? (
@@ -1368,7 +1396,11 @@ export default function App() {
                           className={`traj-item traj-item--vessel traj-item--${kind}`}
                           style={{ borderLeftColor: colorFor(v.embarcation_id) }}
                           title={`${v.nom} · ${v.statut} · ${formatAge(v.age_seconds)}`}
-                          onClick={() => setBoatFilter(v.embarcation_id)}
+                          onClick={() => {
+                            setBoatFilter(v.embarcation_id);
+                            setSelectedMmsi(null);
+                            setSelectedEmbarcation(v.embarcation_id);
+                          }}
                         >
                           <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
                             <VesselIcon size={18} />
@@ -1440,6 +1472,22 @@ export default function App() {
                     }}
                     onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 9 })}
                     onDetail={(d) => setSelectedTrack(d?.track ?? [])}
+                  />
+                ) : null}
+                {token ? (
+                  <PirogueDetailDrawer
+                    token={token}
+                    embarcationId={selectedEmbarcation}
+                    onClose={() => {
+                      setSelectedEmbarcation(null);
+                      setSelectedTrack([]);
+                    }}
+                    onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 11 })}
+                    onDetail={(f) =>
+                      setSelectedTrack(
+                        f ? f.trajectoire.map((t) => ({ horodatage: t.horodatage, position: t.position })) : [],
+                      )
+                    }
                   />
                 ) : null}
               </div>

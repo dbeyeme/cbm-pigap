@@ -132,20 +132,33 @@ export function placeShipMarkers(
     kind?: VesselKind;
     label?: string;
     statut?: string;
+    id?: string;
   }>,
   store: Marker[],
+  opts?: { onSelect?: (id: string) => void },
 ): void {
   for (const m of store) m.remove();
   store.length = 0;
   for (const p of points) {
     if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue;
+    const el = createShipMarkerElement({
+      alert: p.alert,
+      kind: p.kind,
+      label: p.label,
+      statut: p.statut,
+    });
+    if (opts?.onSelect && p.id) {
+      const id = p.id;
+      el.style.pointerEvents = 'auto';
+      el.style.cursor = 'pointer';
+      el.title = `${p.label ?? ''} · ouvrir la fiche`;
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        opts.onSelect?.(id);
+      });
+    }
     const marker = new maplibregl.Marker({
-      element: createShipMarkerElement({
-        alert: p.alert,
-        kind: p.kind,
-        label: p.label,
-        statut: p.statut,
-      }),
+      element: el,
       anchor: 'center',
       pitchAlignment: 'viewport',
       rotationAlignment: 'viewport',

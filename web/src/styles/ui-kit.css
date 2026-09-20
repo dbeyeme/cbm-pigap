@@ -2879,3 +2879,22 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
     width: 220px;
   }
 }
+
+/* Fiche pirogue : icône verte ; bulles d'aide en portail au-dessus de tout */
+.vessel-drawer-icon--pigap {
+  background: linear-gradient(180deg, #2f9e6b 0%, #15803d 100%);
+  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.28), var(--primary-shine);
+}
+
+.help-tip-bubble--portal {
+  z-index: 5000;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  animation: ds-fade-slide var(--dur-fast) var(--ease-out) both;
+}
+
+.ship-marker[style*="cursor: pointer"]:hover {
+  filter: brightness(1.15);
+}

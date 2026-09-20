@@ -1485,3 +1485,44 @@ export const ZONE_CLASSE_COLORS: Record<string, string> = {
   surexploitee: '#7c3aed',
   neutre: '#64748b',
 };
+
+
+/* ——— Fiche embarcation PIGAP (clic sur la carte) ——— */
+
+export type FicheEmbarcation = {
+  embarcation_id: string;
+  nom: string;
+  immatriculation: string;
+  type: string | null;
+  longueur_m: number | null;
+  pecheur_id: string;
+  pecheur_nom: string;
+  numero_licence: string;
+  statut_pecheur: string;
+  date_delivrance_licence: string | null;
+  organisation: string | null;
+  couverture_ok: boolean;
+  couverture_motif: string;
+  couverture_source: string | null;
+  derniere_position: { type: 'Point'; coordinates: [number, number] } | null;
+  derniere_horodatage: string | null;
+  age_s: number | null;
+  statut_signal: string;
+  secteur: string | null;
+  statut_presence: string;
+  port_nom: string | null;
+  depuis: string | null;
+  dernier_port_nom: string | null;
+  dernier_depart: string | null;
+  trajectoire: { horodatage: string; position: { type: 'Point'; coordinates: [number, number] }; source: string }[];
+  zones_reglementees: { id: string; nom: string; type: string }[];
+  alertes: { id: string; type: string; niveau_gravite: string; statut: string; horodatage: string; regle: string }[];
+  captures_30j_kg: number;
+  captures_30j: number;
+  regularite: string;
+  motifs: string[];
+};
+
+export function getFicheEmbarcation(token: string, embarcationId: string) {
+  return request<FicheEmbarcation>(`/api/v1/positions/embarcations/${embarcationId}/fiche`, token);
+}

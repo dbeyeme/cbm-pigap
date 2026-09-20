@@ -5,6 +5,24 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-09-20] — Fiche embarcation PIGAP au clic et infobulles en portail
+
+**Ce qui a été construit :**
+- `GET /positions/embarcations/{id}/fiche` (`geolocalisation/fiche.py`) : titulaire, licence et statut, couverture d'abonnement, dernière position et signal, statut au port (à quai, en manœuvre, en mer), trajectoire 24 h, zones réglementées touchées, alertes récentes, captures 30 jours, verdict conforme / à vérifier / alerte avec motifs
+- Web : tiroir `PirogueDetailDrawer` ouvert au clic sur un marqueur GPS, une ligne de la liste temps réel ou une ligne de présence au port ; trace 24 h dessinée sur la carte ; exclusion mutuelle avec la fiche AIS
+- `HelpTip` rendu en portail (`document.body`, position fixe, repositionnement automatique) : les bulles passent au-dessus de la carte et ne sont plus rognées par le panneau défilant
+
+**Pourquoi :**
+- Retour porteur en production : le clic sur un navire n'affichait rien (seule la couche AIS, vide en production, ouvrait une fiche) ; les infobulles étaient cachées par la carte
+
+**Tests réalisés :**
+- `pytest` fiche (à quai à Owendo, trajectoire, 404) + géolocalisation : 19 passed ; `tsc -b` + `vite build` OK ; vérification visuelle
+
+**Points ouverts :**
+- Aucun
+
+---
+
 ## [2026-09-20] — Météo-marine : bulletin, zones calculées, alertes automatiques, aides contextuelles
 
 **Ce qui a été construit :**

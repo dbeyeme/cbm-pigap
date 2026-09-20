@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -158,3 +158,62 @@ class PortPresenceResponse(BaseModel):
     sans_signal: int = 0
     total_suivies: int = 0
     incoherences: list[DeclarationPresenceRead] = Field(default_factory=list)
+
+
+class FichePositionRead(BaseModel):
+    horodatage: datetime
+    position: PointGeoJSON
+    source: str
+
+
+class FicheZoneRead(BaseModel):
+    id: str
+    nom: str
+    type: str
+
+
+class FicheAlerteRead(BaseModel):
+    id: str
+    type: str
+    niveau_gravite: str
+    statut: str
+    horodatage: datetime
+    regle: str = ""
+
+
+class FicheEmbarcationRead(BaseModel):
+    """Fiche d'une embarcation PIGAP : identification, régularité, localisation."""
+
+    embarcation_id: UUID
+    nom: str
+    immatriculation: str
+    type: str | None = None
+    longueur_m: float | None = None
+    pecheur_id: UUID
+    pecheur_nom: str
+    numero_licence: str
+    statut_pecheur: str
+    date_delivrance_licence: date | None = None
+    organisation: str | None = None
+    couverture_ok: bool = True
+    couverture_motif: str = ""
+    couverture_source: str | None = None
+    derniere_position: PointGeoJSON | None = None
+    derniere_horodatage: datetime | None = None
+    age_s: int | None = None
+    statut_signal: str = Field("aucun", description="actif | recent | silence | aucun")
+    secteur: str | None = None
+    statut_presence: str = Field(
+        "sans_signal", description="a_quai | en_manoeuvre | en_mer | sans_signal"
+    )
+    port_nom: str | None = None
+    depuis: datetime | None = None
+    dernier_port_nom: str | None = None
+    dernier_depart: datetime | None = None
+    trajectoire: list[FichePositionRead] = Field(default_factory=list)
+    zones_reglementees: list[FicheZoneRead] = Field(default_factory=list)
+    alertes: list[FicheAlerteRead] = Field(default_factory=list)
+    captures_30j_kg: float = 0
+    captures_30j: int = 0
+    regularite: str = Field("conforme", description="conforme | a_verifier | alerte")
+    motifs: list[str] = Field(default_factory=list)

@@ -14,6 +14,7 @@ from app.db.models import Utilisateur
 from app.modules.geolocalisation import service
 from app.modules.geolocalisation.schemas import (
     EmbarcationTrackRead,
+    FicheEmbarcationRead,
     LicenceDossierRead,
     LiveVesselRead,
     PortPresenceResponse,
@@ -133,6 +134,20 @@ async def presence_ports(
     from app.modules.geolocalisation.presence import compute_port_presence
 
     return await compute_port_presence(db, user, fenetre_heures=fenetre_heures)
+
+
+@router.get("/embarcations/{embarcation_id}/fiche", response_model=FicheEmbarcationRead)
+async def fiche_embarcation(
+    embarcation_id: UUID,
+    db: DbSession,
+    user: GeolocUser,
+) -> FicheEmbarcationRead:
+    """Fiche d'une embarcation PIGAP au clic sur la carte : titulaire, licence,
+    couverture d'abonnement, dernière position, statut au port, trajectoire 24 h,
+    zones réglementées, alertes récentes, captures déclarées, verdict de régularité."""
+    from app.modules.geolocalisation.fiche import fiche_embarcation as build
+
+    return await build(db, user, embarcation_id)
 
 
 @router.get("/dossier", response_model=LicenceDossierRead)
