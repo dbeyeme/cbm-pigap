@@ -1,6 +1,7 @@
 import type { PredictionsRead } from '../api';
 import type { NavId } from '../nav';
 import StatusPill from './StatusPill';
+import { IconEye } from './Icons';
 
 type Props = {
   data: PredictionsRead | null;
@@ -66,9 +67,8 @@ export default function PredictionStrip({ data, onNavigate }: Props) {
         ) : (
           <span className="pred-mode">Modèle sklearn (consultatif)</span>
         )}
-        <button type="button" className="ghost" onClick={() => onNavigate?.('rapports')}>
-          Voir les rapports
-        </button>
+        <button type="button" className="ghost" onClick={() =>
+              onNavigate?.('rapports')}><IconEye size={16} /> Voir les rapports</button>
       </div>
       <ul className="pred-strip-list">
         {items.slice(0, 3).map((it) => (

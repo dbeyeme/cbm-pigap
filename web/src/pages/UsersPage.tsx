@@ -9,7 +9,9 @@ import {
   updateStaff,
 } from '../api';
 import CompactList from '../components/CompactList';
-import { MODULE_VISUALS } from '../media';
+import Modal from '../components/Modal';
+import Illustration from '../components/Illustration';
+import { IconFilter, IconPlus, IconTrash } from '../components/Icons';
 
 type Props = {
   token: string;
@@ -56,7 +58,10 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
       .finally(() => setLoading(false));
   }, [token, refresh, onError]);
 
+  const [panelOpen, setPanelOpen] = useState(false);
+
   function fillForm(u: StaffUser | null) {
+    setPanelOpen(true);
     setSelected(u);
     if (!u) {
       setNom('');
@@ -115,6 +120,7 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
         setStatus('Compte créé');
       }
       fillForm(null);
+      setPanelOpen(false);
       await refresh(q, roleFilter);
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Enregistrement impossible');
@@ -135,6 +141,7 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
     try {
       await deleteStaff(token, selected.id);
       fillForm(null);
+      setPanelOpen(false);
       setStatus('Compte supprimé');
       await refresh(q, roleFilter);
     } catch (err) {
@@ -150,9 +157,9 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
   return (
     <section className="stage stage-wide team-stage">
       <header className="stage-head page-head-with-icon glass-block team-hero">
-        <img src={MODULE_VISUALS.users.src} alt="" className="page-module-icon" />
+        <Illustration name="equipe" size={96} className="page-illustration" />
         <div>
-          <p className="eyebrow">Administration</p>
+          <p className="eyebrow">Administration · Équipe</p>
           <h1>Équipe</h1>
           <p>
             Créez et gérez les comptes agents et administrateurs. Réservé aux
@@ -197,12 +204,9 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
               </select>
             </label>
             <div className="row-actions">
-              <button type="submit" disabled={loading}>
-                Filtrer
-              </button>
-              <button type="button" className="ghost" onClick={() => fillForm(null)}>
-                Nouveau
-              </button>
+              <button type="submit" disabled={loading}><IconFilter size={16} /> Filtrer</button>
+              <button type="button" className="ghost" onClick={() =>
+              fillForm(null)}><IconPlus size={16} /> Nouveau</button>
             </div>
           </form>
 
@@ -239,9 +243,14 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
           />
         </aside>
 
-        <div className="glass-block team-panel">
-          <h2>{selected ? `Modifier — ${selected.nom}` : 'Nouveau compte'}</h2>
-          <p className="team-panel-lede">
+      </div>
+      <Modal
+        open={panelOpen}
+        title={selected ? `Modifier — ${selected.nom}` : 'Nouveau compte'}
+        onClose={() => setPanelOpen(false)}
+        illustration="equipe"
+      >
+        <p className="team-panel-lede">
             {selected
               ? 'Modifiez les informations puis enregistrez. Laissez le mot de passe vide pour ne pas le changer.'
               : 'Remplissez le formulaire pour créer un agent ou un administrateur.'}
@@ -288,23 +297,19 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
               />
             </label>
             <div className="row-actions">
-              <button type="submit" disabled={loading}>
-                {selected ? 'Enregistrer' : 'Créer le compte'}
-              </button>
+              <button type="submit" className="btn-primary" disabled={loading}><IconPlus size={16} /> {selected ? 'Enregistrer' : 'Créer le compte'}</button>
               {selected ? (
                 <button
                   type="button"
                   className="ghost danger-ghost"
                   disabled={loading || selected.id === currentUserId}
-                  onClick={() => void onDelete()}
-                >
-                  Supprimer
-                </button>
+                  onClick={() =>
+              void onDelete()}
+                ><IconTrash size={16} /> Supprimer</button>
               ) : null}
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
     </section>
   );
 }

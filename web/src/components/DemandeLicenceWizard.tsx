@@ -4,6 +4,7 @@ import { createDemandeLicenceWithFiles } from '../api';
 import { friendlyApiError } from '../lib/apiErrors';
 import Modal from './Modal';
 import { useToast } from './ToastProvider';
+import { IconArrowLeft, IconArrowRight, IconBuilding, IconClose, IconUsers } from './Icons';
 
 type Props = {
   open: boolean;
@@ -171,28 +172,23 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
       title="Demande de licence"
       footer={
         ok ? (
-          <button type="button" className="btn-primary" onClick={handleClose}>
-            Fermer
-          </button>
+          <button type="button" className="btn-primary" onClick={handleClose}><IconClose size={16} /> Fermer</button>
         ) : (
           <div className="wizard-actions">
             <button
               type="button"
               className="ghost"
               disabled={step === 0 || busy}
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-            >
-              Retour
-            </button>
+              onClick={() =>
+              setStep((s) => Math.max(0, s - 1))}
+            ><IconArrowLeft size={16} /> Retour</button>
             {step < STEPS.length - 1 ? (
               <button
                 type="button"
                 className="btn-primary"
                 disabled={!canNext || busy}
                 onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-              >
-                Continuer
-              </button>
+              ><IconArrowRight size={16} /> Continuer</button>
             ) : (
               <button
                 type="button"
@@ -201,9 +197,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
                 onClick={() => {
                   void onSubmit({ preventDefault() {} } as FormEvent);
                 }}
-              >
-                {busy ? 'Envoi…' : 'Envoyer ma demande'}
-              </button>
+              ><IconArrowRight size={16} /> {busy ? 'Envoi…' : 'Envoyer ma demande'}</button>
             )}
           </div>
         )
@@ -232,17 +226,14 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
               <button
                 type="button"
                 className={demandeType === 'personne_physique' ? 'on' : 'ghost'}
-                onClick={() => setDemandeType('personne_physique')}
-              >
-                Pêcheur (personne)
-              </button>
+                onClick={() =>
+              setDemandeType('personne_physique')}
+              ><IconUsers size={16} /> Pêcheur (personne)</button>
               <button
                 type="button"
                 className={demandeType === 'personne_morale' ? 'on' : 'ghost'}
                 onClick={() => setDemandeType('personne_morale')}
-              >
-                Organisation (personne morale)
-              </button>
+              ><IconBuilding size={16} /> Organisation (personne morale)</button>
               <p className="wizard-hint">
                 Choisissez qui demande la licence. Les organisations (coopératives, sociétés) passent
                 ensuite par le même contrôle.

@@ -19,10 +19,11 @@ import {
 import KpiCard from '../components/KpiCard';
 import StatusPill from '../components/StatusPill';
 import TrendCharts, { AlertTrendChart } from '../components/TrendCharts';
-import { IconReport, IconUsers } from '../components/Icons';
+import { IconDownload, IconRefresh, IconReport, IconUsers } from '../components/Icons';
 import { useToast } from '../components/ToastProvider';
 import { syncGabonBoundariesOnMap } from '../geo/gabonBoundary';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
+import Illustration from '../components/Illustration';
 
 type Props = {
   token: string;
@@ -193,13 +194,16 @@ export default function RapportsPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide">
-      <div className="stage-head">
-        <p className="eyebrow">Synthèse</p>
-        <h1>Rapports & documents</h1>
-        <p>
-          Tendances saisonnières, prévisions consultatives, et pièces officielles (licence,
-          fiche, bilan, rapport).
-        </p>
+      <div className="stage-head page-head-with-icon page-head-illustrated">
+        <Illustration name="rapports" size={104} className="page-illustration" />
+        <div>
+          <p className="eyebrow">Pilotage · Rapports</p>
+          <h1>Rapports et documents</h1>
+          <p>
+            Tendances saisonnières, prévisions consultatives et pièces officielles : licence,
+            fiche, bilan, rapport.
+          </p>
+        </div>
       </div>
 
       <form className="dash-period-bar dash-period-bar--rapports" onSubmit={onFilter} aria-label="Période et grain">
@@ -242,9 +246,7 @@ export default function RapportsPage({ token, onError }: Props) {
             ))}
           </select>
         </label>
-        <button type="submit" disabled={loading} className="dash-btn-refresh">
-          {loading ? 'Calcul…' : 'Actualiser'}
-        </button>
+        <button type="submit" disabled={loading} className="dash-btn-refresh"><IconRefresh size={16} /> {loading ? 'Calcul…' : 'Actualiser'}</button>
       </form>
 
       <div className="docs-grid">
@@ -266,9 +268,7 @@ export default function RapportsPage({ token, onError }: Props) {
                   downloadRapport(token, { ...bounds, format: 'pdf' }),
                 )
               }
-            >
-              {busy === 'Rapport PDF' ? 'Génération…' : 'Télécharger PDF'}
-            </button>
+            ><IconDownload size={16} /> {busy === 'Rapport PDF' ? 'Génération…' : 'Télécharger PDF'}</button>
             <button
               type="button"
               className="ghost"
@@ -300,9 +300,7 @@ export default function RapportsPage({ token, onError }: Props) {
               onClick={() =>
                 void run('Bilan PDF', () => downloadBilanPdf(token, pecheurId, bounds))
               }
-            >
-              {busy === 'Bilan PDF' ? 'Génération…' : 'Télécharger PDF'}
-            </button>
+            ><IconDownload size={16} /> {busy === 'Bilan PDF' ? 'Génération…' : 'Télécharger PDF'}</button>
           </div>
         </article>
 
@@ -322,9 +320,7 @@ export default function RapportsPage({ token, onError }: Props) {
               onClick={() =>
                 void run('Licence PDF', () => downloadLicencePdf(token, pecheurId))
               }
-            >
-              {busy === 'Licence PDF' ? 'Génération…' : 'Télécharger PDF'}
-            </button>
+            ><IconDownload size={16} /> {busy === 'Licence PDF' ? 'Génération…' : 'Télécharger PDF'}</button>
           </div>
         </article>
 
@@ -344,9 +340,7 @@ export default function RapportsPage({ token, onError }: Props) {
               onClick={() =>
                 void run('Fiche PDF', () => downloadFichePecheurPdf(token, pecheurId))
               }
-            >
-              {busy === 'Fiche PDF' ? 'Génération…' : 'Télécharger PDF'}
-            </button>
+            ><IconDownload size={16} /> {busy === 'Fiche PDF' ? 'Génération…' : 'Télécharger PDF'}</button>
           </div>
         </article>
       </div>

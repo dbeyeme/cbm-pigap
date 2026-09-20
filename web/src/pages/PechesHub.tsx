@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import HubTabs from '../components/HubTabs';
+import { IconFish, IconReport } from '../components/Icons';
 import CapturesPage from './CapturesPage';
 import QuotasPage from './QuotasPage';
 
@@ -24,8 +25,8 @@ export default function PechesHub({ token, onError, initialTab = 'captures' }: P
       </div>
       <HubTabs
         tabs={[
-          { id: 'captures', label: 'Captures' },
-          { id: 'quotas', label: 'Quotas' },
+          { id: 'captures', label: 'Captures', icon: IconFish },
+          { id: 'quotas', label: 'Quotas', icon: IconReport },
         ]}
         active={tab}
         onChange={setTab}

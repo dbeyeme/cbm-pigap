@@ -14,6 +14,8 @@ import CompactList from '../components/CompactList';
 import { useToast } from '../components/ToastProvider';
 import { friendlyApiError } from '../lib/apiErrors';
 import { MODULE_VISUALS } from '../media';
+import { IconCheckCircle, IconFilter, IconTrash, IconXCircle } from '../components/Icons';
+import Illustration from '../components/Illustration';
 
 type Props = {
   token: string;
@@ -87,10 +89,6 @@ export default function DemandesPage({ token, onError }: Props) {
   async function onApprove(e: FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    if (licence.trim().length < 1) {
-      toast.warn('Numéro de licence requis', 'Indiquez le numéro à attribuer.');
-      return;
-    }
     if (password.length < 8) {
       toast.warn('Mot de passe trop court', 'Au moins 8 caractères pour le compte pêcheur.');
       return;
@@ -98,17 +96,25 @@ export default function DemandesPage({ token, onError }: Props) {
     setLoading(true);
     onError(null);
     try {
-      await approveDemandeLicence(token, selected.id, {
-        numero_licence: licence.trim(),
+      const approved = await approveDemandeLicence(token, selected.id, {
+        ...(licence.trim() ? { numero_licence: licence.trim() } : {}),
         mot_de_passe: password,
-        creer_embarcation: Boolean(selected.embarcation_nom && selected.embarcation_immatriculation),
+        creer_embarcation: Boolean(selected.embarcation_nom),
       });
-      setSelected(null);
+      setSelected(approved);
       setLicence('');
-      setStatus('Demande approuvée — pêcheur créé');
+      setPassword('');
+      const numero = approved.numero_licence_attribue ?? '—';
+      const immat = approved.immatriculation_attribuee;
+      setStatus(`Demande approuvée · licence ${numero}${immat ? ` · immatriculation ${immat}` : ''}`);
       await refresh();
       refreshNotifications();
-      toast.success('Demande approuvée', 'Le compte pêcheur et la licence ont été créés.');
+      toast.success(
+        `Licence ${numero} attribuée`,
+        immat
+          ? `Compte pêcheur créé. Embarcation immatriculée ${immat}.`
+          : 'Compte pêcheur créé. Le numéro a été attribué automatiquement.',
+      );
     } catch (err) {
       fail(err, 'Approbation impossible');
     } finally {
@@ -205,9 +211,7 @@ export default function DemandesPage({ token, onError }: Props) {
               Recherche
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, org…" />
             </label>
-            <button type="submit" disabled={loading}>
-              Filtrer
-            </button>
+            <button type="submit" disabled={loading}><IconFilter size={16} /> Filtrer</button>
           </form>
 
           <CompactList
@@ -242,7 +246,7 @@ export default function DemandesPage({ token, onError }: Props) {
 
         <div className="glass-block team-panel">
           {!selected ? (
-            <p className="empty-list">Sélectionnez une demande pour la traiter.</p>
+            <div className="abo-empty"><Illustration name="demande" size={96} /><p>Sélectionnez une demande dans la file d’attente pour l’instruire.</p></div>
           ) : (
             <>
               <h2>Détail</h2>
@@ -354,21 +358,45 @@ export default function DemandesPage({ token, onError }: Props) {
                     <dd>{selected.motif_refus}</dd>
                   </div>
                 ) : null}
+                {selected.statut === 'approuvee' ? (
+                  <div className="demande-identifiants">
+                    <dt>Identifiants délivrés</dt>
+                    <dd>
+                      <span className="ident-chip ident-chip--licence">
+                        Licence {selected.numero_licence_attribue ?? '—'}
+                      </span>
+                      {selected.immatriculation_attribuee ? (
+                        <span className="ident-chip ident-chip--immat">
+                          Immatriculation {selected.immatriculation_attribuee}
+                        </span>
+                      ) : null}
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
 
               {selected.statut === 'en_attente' ? (
                 <>
                   <form className="stack-form" onSubmit={onApprove}>
                     <h3>Approuver</h3>
-                    <label>
-                      N° de licence à attribuer
-                      <input
-                        required
-                        value={licence}
-                        onChange={(e) => setLicence(e.target.value)}
-                        placeholder="LIC-…"
-                      />
-                    </label>
+                    <p className="form-hint form-hint--auto">
+                      Le numéro de licence
+                      {selected.embarcation_nom && !selected.embarcation_immatriculation
+                        ? ' et l’immatriculation de l’embarcation seront attribués'
+                        : ' sera attribué'}{' '}
+                      automatiquement à l’approbation définitive.
+                    </p>
+                    <details className="form-advanced">
+                      <summary>Reprendre un numéro déjà délivré (support papier)</summary>
+                      <label>
+                        N° de licence existant
+                        <input
+                          value={licence}
+                          onChange={(e) => setLicence(e.target.value)}
+                          placeholder="Laisser vide pour une attribution automatique"
+                        />
+                      </label>
+                    </details>
                     <label>
                       Mot de passe temporaire
                       <input
@@ -380,9 +408,7 @@ export default function DemandesPage({ token, onError }: Props) {
                         placeholder="Au moins 8 caractères"
                       />
                     </label>
-                    <button type="submit" disabled={loading}>
-                      Approuver et créer le compte
-                    </button>
+                    <button type="submit" className="btn-primary" disabled={loading}><IconCheckCircle size={16} /> Approuver et délivrer la licence</button>
                   </form>
                   <form className="stack-form" onSubmit={onRefuse} style={{ marginTop: 16 }}>
                     <h3>Refuser</h3>
@@ -396,12 +422,9 @@ export default function DemandesPage({ token, onError }: Props) {
                       />
                     </label>
                     <div className="row-actions">
-                      <button type="submit" className="ghost danger-ghost" disabled={loading}>
-                        Refuser
-                      </button>
-                      <button type="button" className="ghost" onClick={() => void onDelete()}>
-                        Supprimer
-                      </button>
+                      <button type="submit" className="ghost danger-ghost" disabled={loading}><IconXCircle size={16} /> Refuser</button>
+                      <button type="button" className="ghost" onClick={() =>
+              void onDelete()}><IconTrash size={16} /> Supprimer</button>
                     </div>
                   </form>
                 </>

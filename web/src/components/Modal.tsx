@@ -1,6 +1,8 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
+import Illustration, { type IllustrationName } from './Illustration';
+
 type Props = {
   open: boolean;
   title: string;
@@ -8,14 +10,22 @@ type Props = {
   children: ReactNode;
   wide?: boolean;
   footer?: ReactNode;
+  /** Illustration d'en-tête (remplace le logo) pour identifier l'action. */
+  illustration?: IllustrationName;
 };
 
 /**
  * Modale — Escape, overlay, focus initial + piège Tab.
  * Portal vers document.body pour échapper au flux / stacking des layouts.
+ *
+ * Important : le focus initial ne se relance que quand `open` passe à true.
+ * Ne pas dépendre de `onClose` (souvent recréé à chaque frappe du parent),
+ * sinon le focus revient au 1er champ et la saisie paraît cassée.
  */
-export default function Modal({ open, title, onClose, children, wide, footer }: Props) {
+export default function Modal({ open, title, onClose, children, wide, footer, illustration }: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -34,7 +44,7 @@ export default function Modal({ open, title, onClose, children, wide, footer }: 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -66,13 +76,18 @@ export default function Modal({ open, title, onClose, children, wide, footer }: 
       document.body.style.overflow = prev;
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return createPortal(
     <div className="modal-root" role="presentation">
-      <button type="button" className="modal-backdrop" aria-label="Fermer" onClick={onClose} />
+      <button
+        type="button"
+        className="modal-backdrop"
+        aria-label="Fermer"
+        onClick={() => onCloseRef.current()}
+      />
       <div
         ref={dialogRef}
         className={`modal-dialog glass-block${wide ? ' modal-wide' : ''}`}
@@ -82,10 +97,19 @@ export default function Modal({ open, title, onClose, children, wide, footer }: 
       >
         <header className="modal-head">
           <div className="modal-brand">
-            <img src="/logo-cbm-pigap.png" alt="" className="brand-logo brand-logo-sm" />
+            {illustration ? (
+              <Illustration name={illustration} size={56} className="modal-illustration" />
+            ) : (
+              <img src="/logo-cbm-pigap.png" alt="" className="brand-logo brand-logo-sm" />
+            )}
             <h2 id="modal-title">{title}</h2>
           </div>
-          <button type="button" className="ghost modal-close" onClick={onClose} aria-label="Fermer">
+          <button
+            type="button"
+            className="ghost modal-close"
+            onClick={() => onCloseRef.current()}
+            aria-label="Fermer"
+          >
             ×
           </button>
         </header>

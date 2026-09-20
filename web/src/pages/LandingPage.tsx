@@ -1,16 +1,7 @@
 import { FormEvent, useEffect, useState, type ComponentType } from 'react';
 
 import DemandeLicenceWizard from '../components/DemandeLicenceWizard';
-import {
-  IconAlert,
-  IconClose,
-  IconDashboard,
-  IconFish,
-  IconMenu,
-  IconShield,
-  IconShip,
-  IconUsers,
-} from '../components/Icons';
+import { IconAlert, IconClose, IconDashboard, IconFileText, IconFish, IconLogin, IconMenu, IconShield, IconShip, IconUsers } from '../components/Icons';
 import Modal from '../components/Modal';
 import { ILLUSTRATIONS } from '../media';
 
@@ -149,12 +140,8 @@ export default function LandingPage({
           <a href="#apropos">À propos</a>
         </nav>
         <div className="ds-fo-actions">
-          <button type="button" className="ghost" onClick={openLogin}>
-            Connexion autorités
-          </button>
-          <button type="button" className="btn-primary" onClick={openDemande}>
-            Demande de licence
-          </button>
+          <button type="button" className="ghost" onClick={openLogin}><IconLogin size={16} /> Connexion autorités</button>
+          <button type="button" className="btn-primary" onClick={openDemande}><IconFileText size={16} /> Demande de licence</button>
           <button
             type="button"
             className="ds-fo-menu-toggle"
@@ -191,12 +178,8 @@ export default function LandingPage({
           <a href="#apropos" onClick={() => setNavOpen(false)}>
             À propos
           </a>
-          <button type="button" className="ghost" onClick={openLogin}>
-            Connexion autorités
-          </button>
-          <button type="button" className="btn-primary" onClick={openDemande}>
-            Demande de licence
-          </button>
+          <button type="button" className="ghost" onClick={openLogin}><IconLogin size={16} /> Connexion autorités</button>
+          <button type="button" className="btn-primary" onClick={openDemande}><IconFileText size={16} /> Demande de licence</button>
         </nav>
       </aside>
 
@@ -217,12 +200,8 @@ export default function LandingPage({
             le Gabon.
           </p>
           <div className="ds-fo-cta-row">
-            <button type="button" className="btn-primary ds-fo-cta-main" onClick={openDemande}>
-              Demande de licence
-            </button>
-            <button type="button" className="ds-fo-cta-ghost" onClick={openLogin}>
-              Connexion autorités
-            </button>
+            <button type="button" className="btn-primary ds-fo-cta-main" onClick={openDemande}><IconFileText size={16} /> Demande de licence</button>
+            <button type="button" className="ds-fo-cta-ghost" onClick={openLogin}><IconLogin size={16} /> Connexion autorités</button>
           </div>
         </div>
       </section>
@@ -241,9 +220,7 @@ export default function LandingPage({
               <h3>{s.title}</h3>
               <p>{s.body}</p>
               {s.href === '#demande' ? (
-                <button type="button" className="linkish" onClick={openDemande}>
-                  Demander une licence →
-                </button>
+                <button type="button" className="linkish" onClick={openDemande}><IconFileText size={16} /> Demander une licence →</button>
               ) : null}
             </article>
           ))}
@@ -285,9 +262,7 @@ export default function LandingPage({
           <a href="#accueil">Accueil</a>
           <a href="#services">Services</a>
           <a href="#apropos">À propos</a>
-          <button type="button" className="linkish" onClick={openLogin}>
-            Connexion
-          </button>
+          <button type="button" className="linkish" onClick={openLogin}><IconLogin size={16} /> Connexion</button>
         </nav>
         <p className="ds-fo-flag">République Gabonaise — Une mer, une richesse, notre avenir</p>
       </footer>
@@ -299,6 +274,7 @@ export default function LandingPage({
             <input
               type="email"
               autoComplete="username"
+              placeholder="admin@example.com"
               value={email}
               onChange={(e) => onEmail(e.target.value)}
               required
@@ -309,15 +285,18 @@ export default function LandingPage({
             <input
               type="password"
               autoComplete="current-password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => onPassword(e.target.value)}
               required
             />
           </label>
+          <p className="hint" style={{ fontSize: 12, opacity: 0.75, marginTop: -4 }}>
+            Démo : admin@example.com / AdminPass123! · agent@example.com / AgentPass123! ·
+            autorite@example.com / AutoritePass123!
+          </p>
           {error ? <p className="error">{error}</p> : null}
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Connexion…' : 'Se connecter'}
-          </button>
+          <button type="submit" className="btn-primary" disabled={loading}><IconLogin size={16} /> {loading ? 'Connexion…' : 'Se connecter'}</button>
         </form>
       </Modal>
 

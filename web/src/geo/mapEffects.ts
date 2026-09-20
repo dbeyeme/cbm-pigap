@@ -168,66 +168,202 @@ export function placeAlertMarkers(
   for (const m of store) m.remove();
   store.length = 0;
   const max = opts?.max ?? 40;
-  for (const p of points.slice(0, max)) {
+  /** Regroupe les alertes quasi-identiques (évite une colonne d'épingles empilées). */
+  const clusters = new Map<string, { lng: number; lat: number; label: string; count: number }>();
+  for (const p of points) {
     if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue;
+    const key = `${p.lng.toFixed(3)},${p.lat.toFixed(3)}`;
+    const prev = clusters.get(key);
+    if (prev) {
+      prev.count += 1;
+      continue;
+    }
+    clusters.set(key, {
+      lng: p.lng,
+      lat: p.lat,
+      label: p.label ?? 'Alerte',
+      count: 1,
+    });
+  }
+  for (const c of [...clusters.values()].slice(0, max)) {
+    const label = c.count > 1 ? `${c.label} (×${c.count})` : c.label;
     const marker = new maplibregl.Marker({
-      element: createAlertMarkerElement({ label: p.label }),
+      element: createAlertMarkerElement({ label }),
       anchor: 'bottom',
     })
-      .setLngLat([p.lng, p.lat])
+      .setLngLat([c.lng, c.lat])
       .addTo(map);
     store.push(marker);
   }
 }
 
 /** Silhouette AIS (cargo / radar) — distincte des pirogues / chaloupes PIGAP. */
-function svgAis(): string {
-  return `<svg class="ais-marker-svg" viewBox="0 0 40 40" width="34" height="34" aria-hidden="true">
-    <ellipse cx="20" cy="31" rx="12" ry="2.4" fill="#431407" opacity="0.35"/>
-    <path d="M6 27h28l-3 5H9l-3-5Z" fill="#9a3412"/>
-    <path d="M10 27V17h16v10" fill="#c2410c"/>
-    <path d="M26 17h6v6h-6z" fill="#ea580c"/>
-    <rect x="12" y="13" width="3" height="4" rx="0.4" fill="#fed7aa"/>
-    <rect x="17" y="11" width="3" height="6" rx="0.4" fill="#fed7aa"/>
-    <rect x="22" y="14" width="3" height="3" rx="0.4" fill="#fed7aa"/>
-    <path d="M20 11V6" stroke="#fdba74" stroke-width="1.6" stroke-linecap="round"/>
-    <circle cx="20" cy="5" r="2" fill="#fbbf24"/>
+/* ---------------------------------------------------------------------------
+   Silhouettes de navires (vue de dessus) — cohérentes, orientées, dimensionnées.
+   Type AIS → forme ; cap → rotation ; longueur → taille ; statut → couleur.
+   --------------------------------------------------------------------------- */
+
+export type VesselSilhouette =
+  | 'cargo'
+  | 'tanker'
+  | 'peche'
+  | 'passagers'
+  | 'remorqueur'
+  | 'plaisance'
+  | 'pirogue'
+  | 'inconnu';
+
+export function silhouetteForType(typeLabel?: string | null, shipType?: string | null): VesselSilhouette {
+  const t = (typeLabel ?? '').toLowerCase();
+  const code = Number(shipType);
+  if (t.includes('pêche') || code === 30) return 'peche';
+  if (t.includes('pétrolier') || (code >= 80 && code <= 89)) return 'tanker';
+  if (t.includes('cargo') || (code >= 70 && code <= 79)) return 'cargo';
+  if (t.includes('passagers') || (code >= 60 && code <= 69)) return 'passagers';
+  if (t.includes('remorqueur') || t.includes('pilot') || code === 31 || code === 32 || code === 52 || code === 50) return 'remorqueur';
+  if (t.includes('voilier') || t.includes('plaisance') || code === 36 || code === 37) return 'plaisance';
+  return 'inconnu';
+}
+
+const STATUT_COLORS: Record<string, { hull: string; deck: string }> = {
+  a_quai: { hull: '#0d4f82', deck: '#7cc4ff' },
+  au_mouillage: { hull: '#1b6ca8', deck: '#bfdbfe' },
+  en_route: { hull: '#c2410c', deck: '#fed7aa' },
+  en_route_voile: { hull: '#c2410c', deck: '#fed7aa' },
+  en_peche: { hull: '#15803d', deck: '#bbf7d0' },
+  approche: { hull: '#475569', deck: '#cbd5e1' },
+  alerte: { hull: '#c81e1e', deck: '#fecaca' },
+  inconnu: { hull: '#64748b', deck: '#e2e8f0' },
+};
+
+/** Silhouette vue de dessus, proue vers le haut (0°). viewBox 40×40. */
+function svgHull(kind: VesselSilhouette, hull: string, deck: string): string {
+  switch (kind) {
+    case 'cargo':
+      return `<path d="M20 3 L27 11 V34 Q20 38 13 34 V11 Z" fill="${hull}"/>
+        <rect x="15" y="12" width="10" height="4" fill="${deck}"/><rect x="15" y="18" width="10" height="4" fill="${deck}"/>
+        <rect x="15" y="24" width="10" height="4" fill="${deck}"/><rect x="16" y="30" width="8" height="4" rx="1" fill="#fff"/>`;
+    case 'tanker':
+      return `<path d="M20 3 L27 10 V34 Q20 38 13 34 V10 Z" fill="${hull}"/>
+        <path d="M17 12 V29 M20 12 V29 M23 12 V29" stroke="${deck}" stroke-width="1.6"/>
+        <rect x="16" y="30" width="8" height="4" rx="1" fill="#fff"/>`;
+    case 'peche':
+      return `<path d="M20 4 L26 12 V32 Q20 37 14 32 V12 Z" fill="${hull}"/>
+        <rect x="16" y="13" width="8" height="7" rx="1.5" fill="#fff"/>
+        <path d="M20 21 V33 M14 27 H26" stroke="${deck}" stroke-width="1.6" stroke-linecap="round"/>`;
+    case 'passagers':
+      return `<path d="M20 3 L26 9 V34 Q20 38 14 34 V9 Z" fill="${hull}"/>
+        <rect x="15.5" y="10" width="9" height="22" rx="3" fill="#fff"/>
+        <path d="M18 14 H22 M18 18 H22 M18 22 H22 M18 26 H22" stroke="${deck}" stroke-width="1.4"/>`;
+    case 'remorqueur':
+      return `<path d="M20 6 L25 12 V31 Q20 36 15 31 V12 Z" fill="${hull}"/>
+        <rect x="16.5" y="12" width="7" height="8" rx="2" fill="#fff"/><circle cx="20" cy="27" r="2.5" fill="${deck}"/>`;
+    case 'plaisance':
+      return `<path d="M20 4 L24.5 14 V32 Q20 36 15.5 32 V14 Z" fill="${hull}"/>
+        <path d="M20 8 V30" stroke="#fff" stroke-width="1.5"/><path d="M20 10 L28 26 H20 Z" fill="${deck}" opacity="0.9"/>`;
+    case 'pirogue':
+      return `<path d="M20 5 Q25 14 24 30 Q20 36 16 30 Q15 14 20 5 Z" fill="${hull}"/>
+        <path d="M20 9 V31" stroke="${deck}" stroke-width="1.2" opacity="0.8"/>`;
+    default:
+      return `<path d="M20 4 L26 12 V33 Q20 38 14 33 V12 Z" fill="${hull}"/><circle cx="20" cy="22" r="3" fill="#fff"/>`;
+  }
+}
+
+function svgVessel(kind: VesselSilhouette, statut: string, headingDeg: number | null, px: number): string {
+  const c = STATUT_COLORS[statut] ?? STATUT_COLORS.inconnu;
+  const rot = headingDeg == null ? 0 : headingDeg;
+  const wake =
+    statut === 'en_route' || statut === 'en_route_voile' || statut === 'en_peche' || statut === 'approche'
+      ? `<path d="M16 36 Q20 44 24 36" stroke="${c.deck}" stroke-width="1.5" fill="none" opacity="0.8"/>
+         <path d="M14 38 Q20 48 26 38" stroke="${c.deck}" stroke-width="1" fill="none" opacity="0.45"/>`
+      : '';
+  return `<svg class="vessel-svg" viewBox="0 0 40 50" width="${px}" height="${Math.round(px * 1.25)}" aria-hidden="true">
+    <g transform="rotate(${rot} 20 22)">
+      <ellipse cx="20" cy="24" rx="9" ry="16" fill="#000" opacity="0.18"/>
+      ${svgHull(kind, c.hull, c.deck)}
+      ${wake}
+    </g>
   </svg>`;
 }
 
-/** Marqueur AIS open data — badge + silhouette distincte des GPS PIGAP. */
+/** Marqueur AIS : silhouette orientée + pastille pavillon + libellé. */
 export function createAisMarkerElement(opts?: {
   label?: string;
   demo?: boolean;
+  approche?: boolean;
+  onClick?: () => void;
+  kind?: VesselSilhouette;
+  statut?: string;
+  headingDeg?: number | null;
+  lengthM?: number | null;
+  flagCode?: string | null;
+  name?: string;
 }): HTMLDivElement {
   const el = document.createElement('div');
-  el.className = `ais-marker${opts?.demo ? ' ais-marker--demo' : ''}`;
-  const title = opts?.label
-    ? `<span class="ais-marker-label">${escapeHtml(opts.label)}</span>`
-    : '';
+  const statut = opts?.approche ? 'approche' : (opts?.statut ?? 'inconnu');
+  el.className = `ais-marker vessel-marker vessel-marker--${statut}${opts?.demo ? ' ais-marker--demo' : ''}${opts?.approche ? ' ais-marker--approche' : ''}${opts?.onClick ? ' ais-marker--clickable' : ''}`;
+  if (opts?.onClick) {
+    el.style.pointerEvents = 'auto';
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      opts.onClick?.();
+    });
+  }
+  const len = opts?.lengthM ?? null;
+  // Taille : 26 px pour une pirogue, jusqu'à 46 px pour un navire de 200 m et plus
+  const px = len == null ? 32 : Math.max(26, Math.min(46, 24 + Math.sqrt(len) * 1.6));
+  const kind = opts?.kind ?? 'inconnu';
+  const flag = opts?.flagCode ? `<span class="vessel-flag" title="Pavillon ${escapeHtml(opts.flagCode)}">${escapeHtml(opts.flagCode)}</span>` : '';
+  const name = opts?.name ? `<span class="vessel-name">${escapeHtml(opts.name)}</span>` : '';
+  const sub = opts?.label ? `<span class="vessel-sub">${escapeHtml(opts.label)}</span>` : '';
   el.innerHTML = `
     <span class="ais-pulse" aria-hidden="true"></span>
-    ${svgAis()}
-    <span class="ais-badge">${opts?.demo ? 'AIS démo' : 'AIS'}</span>
-    ${title}
+    ${svgVessel(kind, statut, opts?.headingDeg ?? null, px)}
+    <span class="vessel-chip">${flag}${name}${sub}</span>
   `;
-  if (opts?.label) el.title = opts.label;
+  if (opts?.name || opts?.label) el.title = [opts?.name, opts?.label].filter(Boolean).join(' · ');
   return el;
 }
 
 export function placeAisMarkers(
   map: MapLibreMap,
-  points: Array<{ lng: number; lat: number; label?: string; demo?: boolean }>,
+  points: Array<{
+    lng: number;
+    lat: number;
+    label?: string;
+    demo?: boolean;
+    approche?: boolean;
+    mmsi?: string;
+    kind?: VesselSilhouette;
+    statut?: string;
+    headingDeg?: number | null;
+    lengthM?: number | null;
+    flagCode?: string | null;
+    name?: string;
+  }>,
   store: Marker[],
-  opts?: { max?: number },
+  opts?: { max?: number; onSelect?: (mmsi: string) => void },
 ): void {
   for (const m of store) m.remove();
   store.length = 0;
-  const max = opts?.max ?? 48;
+  const max = opts?.max ?? 64;
   for (const p of points.slice(0, max)) {
     if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue;
+    const onSelect = opts?.onSelect;
     const marker = new maplibregl.Marker({
-      element: createAisMarkerElement({ label: p.label, demo: p.demo }),
+      element: createAisMarkerElement({
+        label: p.label,
+        demo: p.demo,
+        approche: p.approche,
+        onClick: onSelect && p.mmsi ? () => onSelect(p.mmsi as string) : undefined,
+        kind: p.kind,
+        statut: p.statut,
+        headingDeg: p.headingDeg,
+        lengthM: p.lengthM,
+        flagCode: p.flagCode,
+        name: p.name,
+      }),
       anchor: 'center',
     })
       .setLngLat([p.lng, p.lat])

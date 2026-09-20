@@ -17,6 +17,8 @@ import {
   updatePecheur,
 } from '../api';
 import CompactList from '../components/CompactList';
+import Modal from '../components/Modal';
+import { IconCheckCircle, IconEye, IconPlus, IconSave, IconSearch, IconTrash, IconXCircle } from '../components/Icons';
 import { useToast } from '../components/ToastProvider';
 import { MODULE_VISUALS } from '../media';
 
@@ -46,6 +48,7 @@ export default function LicencesPage({
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [numeroLicence, setNumeroLicence] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
   const [telephone, setTelephone] = useState('');
@@ -108,12 +111,11 @@ export default function LicencesPage({
     setLoading(true);
     onError(null);
     try {
-      if (!numeroLicence.trim()) throw new Error('Numéro de licence obligatoire');
       if (motDePasse.length < 8) throw new Error('Mot de passe : 8 caractères minimum');
       const created = await createPecheur(token, {
         nom: nom.trim(),
         prenom: prenom.trim(),
-        numero_licence: numeroLicence.trim(),
+        ...(numeroLicence.trim() ? { numero_licence: numeroLicence.trim() } : {}),
         email: email.trim() || null,
         mot_de_passe: motDePasse,
         telephone: telephone.trim() || null,
@@ -125,6 +127,7 @@ export default function LicencesPage({
       setMotDePasse('');
       setTelephone('');
       setStatus(`Pêcheur créé · licence ${created.numero_licence}`);
+      setCreateOpen(false);
       await refreshList(q || undefined);
       await selectPecheur(created);
     } catch (err) {
@@ -227,7 +230,7 @@ export default function LicencesPage({
       <div className="stage-head page-head-with-icon">
         <img src={MODULE_VISUALS.licences.src} alt="" className="page-module-icon" />
         <div>
-          <p className="eyebrow">Module M1</p>
+          <p className="eyebrow">Registre · Pêcheurs et licences</p>
           <h1>Licences & embarcations</h1>
           <p>Création pêcheur + licence + embarcation. Recherche courte, listes compactes.</p>
           <p className="status-line">{status}</p>
@@ -246,10 +249,9 @@ export default function LicencesPage({
                 placeholder="Ex. LIC-… ou nom"
               />
             </label>
-            <button type="submit" disabled={loading}>
-              {loading ? 'Recherche…' : 'Rechercher'}
-            </button>
+            <button type="submit" disabled={loading}><IconSearch size={16} /> {loading ? 'Recherche…' : 'Rechercher'}</button>
           </form>
+          <button type="button" className="btn-primary licences-new" onClick={() => setCreateOpen(true)}><IconPlus size={16} /> Nouveau pêcheur</button>
 
           {pecheurs.length === 0 ? (
             <p className="empty-list">Aucun pêcheur trouvé — créez-en un dans la colonne suivante.</p>
@@ -278,58 +280,6 @@ export default function LicencesPage({
         </div>
 
         <div className="licences-col">
-          <h2>Créer un pêcheur</h2>
-          <form className="login-form" onSubmit={onCreatePecheur}>
-            <label>
-              Nom
-              <input value={nom} onChange={(e) => setNom(e.target.value)} required />
-            </label>
-            <label>
-              Prénom
-              <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
-            </label>
-            <label>
-              N° de licence
-              <input
-                value={numeroLicence}
-                onChange={(e) => setNumeroLicence(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              E-mail
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="optionnel mais utile pour connexion"
-              />
-            </label>
-            <label>
-              Mot de passe
-              <input
-                type="password"
-                value={motDePasse}
-                onChange={(e) => setMotDePasse(e.target.value)}
-                required
-                minLength={8}
-              />
-            </label>
-            <label>
-              Téléphone
-              <input
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
-                placeholder="optionnel"
-              />
-            </label>
-            <button type="submit" disabled={loading}>
-              Enregistrer pêcheur + licence
-            </button>
-          </form>
-        </div>
-
-        <div className="licences-col">
           <h2>Dossier sélectionné</h2>
           {!selected ? (
             <p className="empty-list">Sélectionnez un pêcheur dans la liste de gauche.</p>
@@ -343,9 +293,8 @@ export default function LicencesPage({
                   Licence <strong>{selected.numero_licence}</strong> · {selected.statut}
                 </p>
                 <div className="zone-actions">
-                  <button type="button" className="ghost compact" onClick={() => void onViewDossier()}>
-                    Voir trajectoires
-                  </button>
+                  <button type="button" className="ghost compact" onClick={() =>
+              void onViewDossier()}><IconEye size={16} /> Voir trajectoires</button>
                   <button
                     type="button"
                     className="ghost compact"
@@ -380,12 +329,9 @@ export default function LicencesPage({
                   >
                     {docBusy === 'Bilan PDF' ? 'PDF…' : 'Bilan PDF'}
                   </button>
-                  <button type="button" className="ghost compact" onClick={() => void onToggleStatut()}>
-                    {selected.statut === 'actif' ? 'Suspendre' : 'Réactiver'}
-                  </button>
-                  <button type="button" className="ghost compact" onClick={() => void onDelete()}>
-                    Supprimer
-                  </button>
+                  <button type="button" className="ghost compact" onClick={() => void onToggleStatut()}><IconCheckCircle size={16} /> {selected.statut === 'actif' ? 'Suspendre' : 'Réactiver'}</button>
+                  <button type="button" className="ghost compact" onClick={() =>
+              void onDelete()}><IconTrash size={16} /> Supprimer</button>
                 </div>
               </div>
 
@@ -429,9 +375,7 @@ export default function LicencesPage({
                     placeholder="pirogue, chaloupe…"
                   />
                 </label>
-                <button type="submit" disabled={loading}>
-                  Ajouter embarcation
-                </button>
+                <button type="submit" disabled={loading}><IconPlus size={16} /> Ajouter embarcation</button>
               </form>
             </>
           )}
@@ -471,6 +415,66 @@ export default function LicencesPage({
           ) : null}
         </div>
       </div>
+      <Modal
+        open={createOpen}
+        title="Enregistrer un pêcheur"
+        onClose={() => setCreateOpen(false)}
+        illustration="licence"
+      >
+        <p className="form-hint form-hint--auto">
+          Le numéro de licence est attribué automatiquement ; renseignez-le seulement pour reprendre
+          un numéro déjà délivré sur support papier.
+        </p>
+<form className="stack-form" onSubmit={onCreatePecheur}>
+            <label>
+              Nom
+              <input value={nom} onChange={(e) => setNom(e.target.value)} required />
+            </label>
+            <label>
+              Prénom
+              <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+            </label>
+            <label>
+              N° de licence
+              <input
+                value={numeroLicence}
+                onChange={(e) => setNumeroLicence(e.target.value)}
+                placeholder="Laisser vide : attribution automatique"
+              />
+            </label>
+            <label>
+              E-mail
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="optionnel mais utile pour connexion"
+              />
+            </label>
+            <label>
+              Mot de passe
+              <input
+                type="password"
+                value={motDePasse}
+                onChange={(e) => setMotDePasse(e.target.value)}
+                required
+                minLength={8}
+              />
+            </label>
+            <label>
+              Téléphone
+              <input
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+                placeholder="optionnel"
+              />
+            </label>
+            <div className="row-actions">
+              <button type="button" className="ghost" onClick={() => setCreateOpen(false)}><IconXCircle size={16} /> Annuler</button>
+              <button type="submit" className="btn-primary" disabled={loading}><IconSave size={16} /> Enregistrer et délivrer la licence</button>
+            </div>
+          </form>
+      </Modal>
     </section>
   );
 }

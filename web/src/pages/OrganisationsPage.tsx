@@ -7,7 +7,9 @@ import {
   updateOrganisation,
 } from '../api';
 import CompactList from '../components/CompactList';
-import { MODULE_VISUALS } from '../media';
+import Modal from '../components/Modal';
+import Illustration from '../components/Illustration';
+import { IconCheckCircle, IconPlus } from '../components/Icons';
 
 type Props = {
   token: string;
@@ -41,7 +43,10 @@ export default function OrganisationsPage({ token, onError }: Props) {
       .finally(() => setLoading(false));
   }, [refresh, onError]);
 
+  const [panelOpen, setPanelOpen] = useState(false);
+
   function fill(o: Organisation | null) {
+    setPanelOpen(true);
     setSelected(o);
     if (!o) {
       setNom('');
@@ -91,6 +96,7 @@ export default function OrganisationsPage({ token, onError }: Props) {
         setStatus('Organisation créée');
       }
       fill(null);
+      setPanelOpen(false);
       await refresh();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Enregistrement impossible');
@@ -105,6 +111,7 @@ export default function OrganisationsPage({ token, onError }: Props) {
     try {
       await updateOrganisation(token, selected.id, { actif: !selected.actif });
       fill(null);
+      setPanelOpen(false);
       await refresh();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Mise à jour impossible');
@@ -116,11 +123,11 @@ export default function OrganisationsPage({ token, onError }: Props) {
   return (
     <section className="stage stage-wide">
       <header className="stage-head page-head-with-icon glass-block team-hero">
-        <img src={MODULE_VISUALS.quotas.src} alt="" className="page-module-icon" />
+        <Illustration name="organisation" size={96} className="page-illustration" />
         <div>
-          <p className="eyebrow">Personnes morales</p>
+          <p className="eyebrow">Registre · Organisations</p>
           <h1>Organisations</h1>
-          <p>CRUD des coopératives, sociétés et associations liées aux licences.</p>
+          <p>Coopératives, sociétés et associations rattachées aux licences et aux abonnements.</p>
           <p className="status-line">{status}</p>
         </div>
       </header>
@@ -128,9 +135,8 @@ export default function OrganisationsPage({ token, onError }: Props) {
       <div className="split-body team-split">
         <aside className="glass-block team-side">
           <h2>Liste</h2>
-          <button type="button" className="ghost" onClick={() => fill(null)}>
-            Nouvelle organisation
-          </button>
+          <button type="button" className="ghost" onClick={() =>
+              fill(null)}><IconPlus size={16} /> Nouvelle organisation</button>
           <CompactList
             items={rows}
             getKey={(o) => o.id}
@@ -157,9 +163,14 @@ export default function OrganisationsPage({ token, onError }: Props) {
           />
         </aside>
 
-        <div className="glass-block team-panel">
-          <h2>{selected ? `Modifier — ${selected.nom}` : 'Nouvelle organisation'}</h2>
-          <form className="stack-form" onSubmit={onSubmit}>
+      </div>
+      <Modal
+        open={panelOpen}
+        title={selected ? `Modifier — ${selected.nom}` : 'Nouvelle organisation'}
+        onClose={() => setPanelOpen(false)}
+        illustration="organisation"
+      >
+        <form className="stack-form" onSubmit={onSubmit}>
             <label>
               Nom
               <input required value={nom} onChange={(e) => setNom(e.target.value)} />
@@ -194,18 +205,13 @@ export default function OrganisationsPage({ token, onError }: Props) {
               <input value={zone} onChange={(e) => setZone(e.target.value)} />
             </label>
             <div className="row-actions">
-              <button type="submit" disabled={loading}>
-                {selected ? 'Enregistrer' : 'Créer'}
-              </button>
+              <button type="submit" className="btn-primary" disabled={loading}><IconPlus size={16} /> {selected ? 'Enregistrer' : 'Créer l’organisation'}</button>
               {selected ? (
-                <button type="button" className="ghost" onClick={() => void onToggleActif()}>
-                  {selected.actif ? 'Désactiver' : 'Réactiver'}
-                </button>
+                <button type="button" className="ghost" onClick={() => void onToggleActif()}><IconCheckCircle size={16} /> {selected.actif ? 'Désactiver' : 'Réactiver'}</button>
               ) : null}
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
     </section>
   );
 }

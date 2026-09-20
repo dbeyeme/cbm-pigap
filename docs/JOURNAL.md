@@ -5,6 +5,200 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-09-20] — Météo-marine : bulletin, zones calculées, alertes automatiques, aides contextuelles
+
+**Ce qui a été construit :**
+- Module `meteo_marine` (ADR-008) : houle et maximum 24 h, période, courant de surface, vent et rafales, pluie, visibilité, température de surface, hauteur d'eau et tendance de marée par secteur (8 secteurs du littoral), débit et tendance des fleuves (4 stations GloFAS) ; sources Open-Meteo CC BY 4.0, sans clé, réponse en 0,5 s
+- Croisements : captures déclarées 30 jours par secteur, quotas des zones réglementées (pression 75 %, surexploitation 90 %), zones interdites → classes danger / prudence / favorable / surexploitée / ordinaire avec motifs et conseil en langage clair ; risque distinct pirogues / navires
+- Alertes automatiques (`anomalie`, règles `meteo_marine`, `crue_fleuve`) par bloc de 6 h, notifications ; `GET /meteo/bulletin`, `/meteo/zones`, `/meteo/avis?lon&lat`
+- Web : panneau « État de la mer et des fleuves » (Surveillance / Navires), couche carte « Zones calculées » colorée avec étiquettes, bandeau « Bulletin de mer » du tableau de bord, libellés des nouvelles alertes ; composant `HelpTip` (infobulles pédagogiques et encarts « Comment exploiter ») posé sur le tableau de bord, le panneau mer et les calques
+- Mobile : carte « Avis de mer » sur l'accueil pêcheur (niveau, conseil, conditions clés, fleuve proche)
+
+**Pourquoi :**
+- Demande porteur : signaler automatiquement risques et opportunités (état de mer, courants, niveaux), présenter zones de danger / favorables / surexploitées par croisement de données, édifier les utilisateurs par des aides contextuelles
+
+**Tests réalisés :**
+- `pytest` : 129 passed (9 tests météo : Douglas, risque, opportunité, crue, endpoints, alertes idempotentes) ; instabilité connue de `test_predictions` sur base partagée
+- Bulletin réel vérifié : Cap Lopez classé danger (zone interdite de test), sud du littoral en prudence (houle 1,8 à 2 m), estuaire favorable
+- `tsc -b` + `vite build` web, `tsc --noEmit` mobile OK
+
+**Points ouverts :**
+- Station Komo retirée (cellule GloFAS irréaliste) ; recaler les cellules avec la Direction de la météorologie
+- **Correctif déploiement** : l'image Docker du backend ne contenait pas `data/open-data/gabon/` (ZEE, masque d'eau, ports, secteurs) : en production le filtre ZEE rejetait tout et le bulletin était vide. Copie embarquée dans `backend/app/data/gabon/` (`scripts/sync_data.py`), résolution par `app/core/datafiles.py`, test de synchronisation `test_datafiles.py`
+- Pas de chlorophylle ni de validation locale des modèles : afficher comme aide à la décision (fait) et comparer avec les observations des pêcheurs en Phase 3
+
+---
+
+## [2026-09-20] — Ergonomie : icônes, abonnements, sidebar repliable, modales, illustrations, responsive, navires
+
+**Ce qui a été construit :**
+- Icônes sur tous les boutons et onglets (`HubTabs` exige une icône ; 25 icônes d'action ajoutées ; injection automatique par libellé sur 14 fichiers)
+- Page Abonnements refondue : « Licences pêcheurs / Abonnements organisations / Modules par organisation » à la place de B2C / B2B ; indicateurs, filtre et recherche, cartes par contrat (titulaire, formule, montant, échéance, statut lisible), activation en modale, résolution des titulaires hors liste paginée
+- Sidebar repliable (bouton, état mémorisé) n'affichant que les icônes ; dépliage temporaire au survol sur écran large
+- Formulaires de création en modales illustrées : pêcheur, compte d'équipe, organisation, activation d'abonnement ; en-têtes de page illustrés (Acteurs, Rapports, Équipe, Organisations, Navires, Surveillance) et états vides illustrés ; composant `Illustration` (15 scènes SVG maritimes)
+- Responsive tablette et mobile : sidebar en tiroir, vue carte empilée (panneau puis carte), grilles en une colonne, onglets défilants, tiroir navire en bas d'écran, tableaux défilants
+- Navires : silhouettes vues de dessus par type (cargo, pétrolier, pêche, passagers, remorqueur, plaisance, pirogue), orientées par le cap, dimensionnées par la longueur, colorées par statut, sillage si en route, étiquette pavillon + nom + statut ; correctif de positionnement des marqueurs et resynchronisation du canevas au redimensionnement ; libellés métier des alertes sur le tableau de bord
+
+**Pourquoi :**
+- Retour porteur : boutons et onglets sans icône, vocabulaire B2B/B2C inadapté, onglet Abonnements dégradant la qualité, sidebar à replier, formulaires et filtres à réorganiser, plateforme à illustrer, responsive manquant, navires peu réalistes
+
+**Tests réalisés :**
+- `tsc -b` + `vite build` OK ; vérification visuelle desktop (Acteurs, Abonnements, Rapports, Navires, sidebar repliée) et mobile (375 px)
+
+**Points ouverts :**
+- Icônes injectées d'après le libellé : à relire ponctuellement (un libellé inhabituel reçoit l'icône par défaut du mot-clé)
+- Formulaires Quotas et Zones encore en ligne (pas en modale) : à traiter dans un second lot
+
+---
+
+## [2026-09-20] — Fiche navire AIS, veille golfe de Guinée, navires en approche
+
+**Ce qui a été construit :**
+- `GET /ais/vessels/{mmsi}` : fiche navire complète (identification, pavillon UIT via `flags.py`, correspondance registre PIGAP, zones réglementées PostGIS, statut, route récente, position estimée) avec verdict conforme / à vérifier / alerte et motifs
+- Zone de veille élargie au golfe de Guinée (`AIS_WIDE_BBOX`) et extrapolation de route (`navigation.py`) : navires hors ZEE annoncés dans `approches` avec heure et point d'entrée prévus (réponse à la question du porteur sur le croisement des signaux nord / sud du golfe)
+- Web : fiche navire au clic (marqueurs et listes), trace jaune du navire sélectionné, couche « approche » avec route pointillée jusqu'au point d'entrée, bascule d'emprise Eaux gabonaises / Golfe de Guinée, panneau AIS enrichi (pavillon, approches)
+- Carte : fond Carto continu sous l'imagerie Esri (tuiles « Map data not available » en pleine mer au zoom 8 sur le golfe), emprise navigable étendue au golfe de Guinée, vue carte bornée à la hauteur de l'écran (le panneau latéral étirait la carte sur 2 900 px)
+- Déployé : backend Railway (route `/ais/vessels/{mmsi}`) et web Vercel ; `AIS_INGEST_KEY` de développement ajoutée au `.env` local pour tester l'ingestion
+
+**Pourquoi :**
+- Demande porteur après consultation de Copernicus Marine In Situ : cliquer sur un navire et voir identification, régularité, localisation ; représenter plus largement l'espace maritime gabonais et le golfe ; utiliser les signaux lointains pour anticiper les entrées. Précision apportée : Copernicus In Situ montre des plateformes océanographiques (flotteurs, bouées, navires d'opportunité), pas la flotte de pêche
+
+**Tests réalisés :**
+- `pytest` : 121 passed (nouveaux : pavillon MMSI, estime, entrée prévue depuis le Nigeria, approches séparées, fiche navire hors / dans registre, 404)
+- `tsc -b` + `vite build` OK ; vérification locale avec trois navires injectés par `/ais/ingest`
+
+**Points ouverts :**
+- `test_predictions::test_intrusion_zone_la_plus_frequente_en_tete` instable sur la base de développement partagée (passe isolé), indépendant de ce lot
+- Rapprochement registre limité au nom, à l'indicatif et au MMSI : ajouter un champ MMSI / IMO sur les embarcations enregistrées pour une correspondance certaine
+
+---
+
+## [2026-09-20] — Présence au port calculée depuis le GPS PIGAP (sans matériel)
+
+**Ce qui a été construit :**
+- `geolocalisation/presence.py` + `GET /positions/presence-ports` : à quai / en manœuvre / en mer / sans signal par embarcation, arrivées et départs sur la fenêtre, rapprochement des déclarations de captures (point de débarquement → port) avec la présence GPS (`coherente` / `incoherente` / `non_verifiable`)
+- Référentiel ports partagé AIS / flotte PIGAP ; `port_from_text` (texte libre → port) ; `rayon_quai_km` et correction du port môle de Libreville sur le littoral (9,418 E / 0,387 N)
+- Masque d'eau : acceptation des positions GPS dans le rayon de quai des ports hors polygone ZEE (Port-Gentil, Libreville, Mayumba…) — auparavant refusées (`POSITION_HORS_EAU`), ce qui rendait toute présence au port impossible
+- Web : `PortPresencePanel` dans la vue Surveillance / Navires (puces par port, liste à quai avec durée, embarcations en mer avec port de départ, déclarations à vérifier), rafraîchi avec le polling live
+
+**Pourquoi :**
+- Recommandation retenue par le porteur : pallier l'absence de couverture AIS par le croisement des données déjà détenues (GPS mobile, déclarations), avant tout capteur (Bluetooth, LoRa, radar)
+
+**Tests réalisés :**
+- `pytest` : 116 passed (5 nouveaux : quais hors ZEE acceptés, texte → port, à quai / en manœuvre / en mer / départ, déclaration incohérente signalée, auth)
+- `tsc -b` + `vite build` OK
+
+**Points ouverts :**
+- Rade intérieure de Port-Gentil au-delà de 2,5 km du quai encore hors masque d'eau (polygone portuaire dédié à ajouter)
+- Étape suivante de la recommandation : pointage géorepéré et journal de connectivité dans l'application mobile, puis pilote balises Bluetooth / Meshtastic (`source=balise`)
+
+---
+
+## [2026-09-20] — AIS temps réel (ports), numérotation automatique, couche design
+
+**Ce qui a été construit :**
+- `ais_gabon` : connexion AISStream permanente + état de flotte accumulé (`fleet.py`, TTL 30/180 min), marge côtière sur la ZEE (Port-Gentil et Owendo inclus), référentiel `ports.json`, statut opérationnel par navire (à quai, au mouillage, en route, en pêche), `GET /ais/ports`, `GET /ais/status`, `POST /ais/ingest` (récepteurs AIS locaux, AIS-catcher JSON ou NMEA via `pyais`)
+- Numérotation automatique à l'approbation définitive : table `compteurs` (incrément atomique), `numero_licence_attribue` / `immatriculation_attribuee` sur les demandes, formats paramétrables (`GA-PA-{annee}-{seq:05d}`, `GA-{zone}-{annee}-{seq:04d}`), champ numéro devenu optionnel (web, mobile, API) avec reprise possible d'un numéro papier — migration `b8f2a7d35677`
+- Web : couche design `styles/ui-kit.css` (système de boutons unique, suppression des conflits de survol hérités du `button:hover` global et des teintes ocre / turquoise, barre latérale par sections avec état système, transitions de page, modales, toasts, tableaux), panneau `AisPanel` (état du flux, présence par port), libellés professionnels (plus de « semis », « simulateur », « Module Mx », codes bruts d'alerte)
+
+**Pourquoi :**
+- Mesure 2026-09-20 : clé AISStream valide (Manche : 64 navires en 15 s) mais 0 message sur le Gabon en 150 s et Open Waters vide → aucune station communautaire sur le littoral gabonais ; la fenêtre de 25 s ne pouvait de toute façon pas voir les navires à quai (émission toutes les 3 min)
+- Demande porteur : identifiants attribués automatiquement à l'approbation ; interface jugée non professionnelle (survols, boutons, barre latérale, transitions)
+
+**Tests réalisés :**
+- `pytest` backend : 111 passed (18 tests AIS, 7 tests numérotation dont concurrence)
+- `tsc -b` + `vite build` web OK ; vérification visuelle (tableau de bord, surveillance, demandes)
+
+**Points ouverts :**
+- Raccorder un récepteur AIS physique à Owendo et à Port-Gentil (`AIS_INGEST_KEY`) — sans lui, la présence au port reste vide et l'interface le dit
+- Valider les formats de numérotation et les coordonnées des ports avec la DGPA / OPRAG
+- ~~Mobile : erreur TypeScript `AbonnementScreen.tsx`~~ corrigée (type `paiement.operateur` ajouté dans `mobile/src/api.ts`) ; test `test_m1_pecheurs` rendu indépendant du volume de la base partagée (nom unique)
+- ~~Déployer~~ **Déployé le 2026-09-20** : backend Railway `cbm-pigap` (migration `b8f2a7d35677` exécutée, `pyais` dans l'image, variables `AISSTREAM_API_KEY`, `AIS_INGEST_KEY`, `AIS_COASTAL_BUFFER_DEG` posées) ; web Vercel `cbm-pigap-web` en production. Flux AISStream connecté en prod, 0 message Gabon (attendu sans récepteur local)
+
+---
+
+## [2026-09-18] — PawaPay live (Airtel Money Gabon)
+
+**Ce qui a été construit :**
+- Client `pawapay.py` : dépôt `/v2/deposits`, check statut, normalisation MSISDN `241…`
+- Mode `MOBILE_MONEY_MODE=live` : init B2C/B2B → push PIN Airtel (AIRTEL_GAB / XAF)
+- Webhook `POST /abonnements/webhook/pawapay/deposits` + `POST …/paiements/{id}/synchroniser`
+- `GET /abonnements/paiement-config` ; mobile + web attendent le PIN puis poll
+- Token `PAWAPAY_API_TOKEN` en env (local + Railway)
+
+**Pourquoi :**
+- Paiements réels abonnement / licence au Gabon (hors MVP cahier, demandé porteur)
+
+**Tests réalisés :**
+- `pytest test_pawapay.py test_abonnements.py` — 10 passed
+- Token prod validé antérieurement (AIRTEL_GAB)
+
+**Points ouverts :**
+- Configurer l’URL callback dans le **dashboard PawaPay** :
+  `https://cbm-pigap-production.up.railway.app/api/v1/abonnements/webhook/pawapay/deposits`
+- Moov Money non couvert par PawaPay Gabon (Airtel seul)
+
+---
+
+## [2026-09-15] — Fix paiement démo B2C (« Paiement introuvable »)
+
+**Ce qui a été construit :**
+- `abonnements/service.py` : `await db.commit()` après init / confirmer / webhook / annuler / modules / activer (la session `get_db` ne committait jamais → rollback après 201)
+- Mobile Abonnement : licence optionnelle pour le pêcheur (JWT) ; CTA « Payer et activer (demo) »
+
+**Pourquoi :**
+- pecheur1 : init OK puis confirmer-demo 404 Paiement introuvable
+
+**Tests réalisés :**
+- Local : init + confirmer-demo → abonnement `actif`
+- Prod Railway (déployé depuis `backend/`) : même parcours OK
+
+**Points ouverts :**
+- Aucun
+
+---
+
+## [2026-09-15] — Mobile multi-rôles (pêcheur / agent)
+
+**Ce qui a été construit :**
+- Login → `fetchMe` → shells distincts : PecheurHome vs AgentHome
+- BottomNav par rôle ; Captures / Tracking en mode `pecheur` | `agent`
+- Refus des rôles web-only (admin, autorité, organisation) avec message clair
+- Pas de rebuild Docker (Expo ; API `/auth/me` déjà en place)
+
+**Pourquoi :**
+- Demande porteur : pêcheurs et agents doivent avoir des fonctionnalités distinctes sur mobile
+
+**Tests réalisés :**
+- `tsc` mobile OK
+- Login API local : agent → `agent_controle`, pecheur1 → `pecheur`, admin → refus côté app
+
+**Points ouverts :**
+- Persistance SecureStore ; parcours org mobile si besoin Phase 3
+
+---
+
+## [2026-09-15] — Crash mobile + admin B2C + modules B2B + portail org
+
+**Ce qui a été construit :**
+- Fix mobile : espaces Unicode / locale / ErrorBoundary / transition sans `exiting` (crash iOS)
+- Admin Abonnements : suivi B2C (filtres, activer/annuler), onglet Modules B2B (superadmin)
+- Rôle `organisation` + `utilisateurs.organisation_id` ; compte créé à l’approbation personne morale
+- Portail org : inscription validée → paiement B2B démo → modules inclus
+- Migration `a7e1f6c24566`
+
+**Pourquoi :**
+- Demande porteur : crash mobile + gestion B2C + modules par formule + espace org
+
+**Tests réalisés :**
+- `pytest` catalog + modules : 6 passed
+- `tsc` web + mobile OK
+
+**Points ouverts :**
+- Brancher SingPay live ; déployer migration Railway ; UX org élargie (liste pêcheurs détaillée)
+
+---
+
 ## [2026-09-15] — Abonnements B2C/B2B + Mobile Money (démo)
 
 **Ce qui a été construit :**

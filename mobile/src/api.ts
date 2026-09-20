@@ -61,12 +61,27 @@ export function login(email: string, mot_de_passe: string) {
   });
 }
 
+export type UtilisateurMe = {
+  id: string;
+  nom: string;
+  role: string;
+  telephone: string | null;
+  email: string | null;
+  organisation_id: string | null;
+  date_creation: string;
+};
+
+export function fetchMe(token: string) {
+  return request<UtilisateurMe>('/api/v1/auth/me', { token });
+}
+
 export function createPecheur(
   token: string,
   payload: {
     nom: string;
     prenom: string;
-    numero_licence: string;
+    /** Omis = numéro attribué automatiquement par la plateforme */
+    numero_licence?: string;
     telephone?: string;
     email?: string;
     mot_de_passe: string;
@@ -255,6 +270,8 @@ export type InitierAbonnementResponse = {
     reference_interne: string;
     instructions: string | null;
     statut: string;
+    operateur: string;
+    msisdn?: string | null;
   };
 };
 
@@ -303,4 +320,57 @@ export function confirmerPaiementDemo(token: string, paiementId: string) {
       body: JSON.stringify({}),
     },
   );
+}
+
+export type PaiementConfig = {
+  mode: 'demo' | 'live' | string;
+  msisdn_required: boolean;
+  operateurs: string[];
+  provider: string | null;
+  devise: string;
+  pays: string;
+};
+
+export function getPaiementConfig() {
+  return request<PaiementConfig>('/api/v1/abonnements/paiement-config');
+}
+
+export function synchroniserPaiement(token: string, paiementId: string) {
+  return request<InitierAbonnementResponse>(
+    `/api/v1/abonnements/paiements/${paiementId}/synchroniser`,
+    {
+      method: 'POST',
+      token,
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+
+/* ——— Météo-marine : avis pour la position du pêcheur ——— */
+
+export type AvisMer = {
+  niveau: 'vert' | 'orange' | 'rouge' | string;
+  message: string;
+  distance_km: number | null;
+  secteur: {
+    id: string;
+    nom: string;
+    conseil: string;
+    conditions: {
+      etat_mer: string;
+      houle_m: number | null;
+      vent_noeuds: number | null;
+      rafales_max_24h_noeuds: number | null;
+      courant_noeuds: number | null;
+      maree: string | null;
+      temperature_mer_c: number | null;
+    };
+    opportunite: { classe: string; score: number; motifs: string[] };
+  } | null;
+  fleuve_proche: { nom: string; niveau: string; conseil: string } | null;
+};
+
+export function getAvisMer(token: string, lon: number, lat: number) {
+  return request<AvisMer>(`/api/v1/meteo/avis?lon=${lon}&lat=${lat}`, { token });
 }

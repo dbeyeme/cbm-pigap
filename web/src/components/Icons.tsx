@@ -291,3 +291,229 @@ export const NAV_ICONS = {
   cartographie: IconMap,
   admin: IconSettings,
 } as const;
+
+/* ——— Icônes d'action (boutons, onglets) ——— */
+
+export function IconCheck(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4.5 12.5l4.5 4.5L19.5 6.5" />
+    </Svg>
+  );
+}
+
+export function IconCheckCircle(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M8.2 12.2l2.5 2.5 5-5.4" />
+    </Svg>
+  );
+}
+
+export function IconXCircle(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </Svg>
+  );
+}
+
+export function IconTrash(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l.8 12.2a1.3 1.3 0 001.3 1.3h6.8a1.3 1.3 0 001.3-1.3L17.5 7" />
+      <path d="M10 11v6M14 11v6" />
+    </Svg>
+  );
+}
+
+export function IconFilter(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 5.5h16L14 13v5.5l-4 2V13L4 5.5Z" />
+    </Svg>
+  );
+}
+
+export function IconDownload(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M4.5 18.5h15" />
+    </Svg>
+  );
+}
+
+export function IconUpload(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4.5 18.5h15" />
+    </Svg>
+  );
+}
+
+export function IconEdit(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4.5 19.5h4l10-10a2.1 2.1 0 00-3-3l-10 10v3Z" />
+      <path d="M13.5 8.5l2 2" />
+    </Svg>
+  );
+}
+
+export function IconEye(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+      <circle cx="12" cy="12" r="2.6" />
+    </Svg>
+  );
+}
+
+export function IconSave(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M5 4.5h11l3 3v12H5v-15Z" />
+      <path d="M8 4.5v5h7v-5M8.5 19.5v-5.5h7v5.5" />
+    </Svg>
+  );
+}
+
+export function IconUserPlus(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="10" cy="8" r="3.5" />
+      <path d="M3.5 19.5c0-3.3 2.9-5.5 6.5-5.5 1.3 0 2.5.3 3.5.8M18 13v6M15 16h6" />
+    </Svg>
+  );
+}
+
+export function IconBuilding(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 20.5V5.5l8-2.5v17.5M12 9.5l8 2v9" />
+      <path d="M7 8.5h2M7 12h2M7 15.5h2M15.5 14h2M15.5 17h2M4 20.5h16" />
+    </Svg>
+  );
+}
+
+export function IconCard(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="3" y="6" width="18" height="12" rx="2.2" />
+      <path d="M3 10.5h18M7 14.5h4" />
+    </Svg>
+  );
+}
+
+export function IconReceipt(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M6 3.5h12v17l-2.5-1.5-2 1.5-1.5-1.5-1.5 1.5-2-1.5L6 20.5v-17Z" />
+      <path d="M9 8.5h6M9 12h6M9 15.5h4" />
+    </Svg>
+  );
+}
+
+export function IconPuzzle(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M9.5 4.5a2 2 0 014 0V6h3.5v3.5h1.5a2 2 0 010 4H17V17h-3.5v1.5a2 2 0 01-4 0V17H6v-3.5H4.5a2 2 0 010-4H6V6h3.5V4.5Z" />
+    </Svg>
+  );
+}
+
+export function IconLogin(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M10 4.5H5.5v15H10M9 12h11M16.5 8.5L20 12l-3.5 3.5" />
+    </Svg>
+  );
+}
+
+export function IconArrowRight(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4.5 12h15M13.5 6l6 6-6 6" />
+    </Svg>
+  );
+}
+
+export function IconArrowLeft(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M19.5 12h-15M10.5 6l-6 6 6 6" />
+    </Svg>
+  );
+}
+
+export function IconFileText(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M7 3.5h7l4 4v13H7v-17Z" />
+      <path d="M14 3.5v4h4M9.5 12h5M9.5 15.5h5" />
+    </Svg>
+  );
+}
+
+export function IconInbox(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 13.5l2-8h12l2 8v6H4v-6Z" />
+      <path d="M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20" />
+    </Svg>
+  );
+}
+
+export function IconBadge(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3l2.4 1.7 2.9-.3 1 2.8 2.6 1.4-.9 2.8.9 2.8-2.6 1.4-1 2.8-2.9-.3L12 19.5l-2.4-1.7-2.9.3-1-2.8-2.6-1.4.9-2.8-.9-2.8 2.6-1.4 1-2.8 2.9.3L12 3Z" />
+      <path d="M9.5 11.5l1.8 1.8 3.4-3.6" />
+    </Svg>
+  );
+}
+
+export function IconSparkle(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8L12 3.5Z" />
+      <path d="M18.5 16.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z" />
+    </Svg>
+  );
+}
+
+export function IconCollapse(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4.5 5.5v13M20 12H9M13 8l-4 4 4 4" />
+    </Svg>
+  );
+}
+
+export function IconExpand(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4.5 5.5v13M9 12h11M16 8l4 4-4 4" />
+    </Svg>
+  );
+}
+
+export function IconAnchor(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="5.5" r="2" />
+      <path d="M12 7.5v13M5 12.5c0 4.4 3.1 8 7 8s7-3.6 7-8M4 11.5l1 1 1-1M18 11.5l1 1 1-1M8.5 10.5h7" />
+    </Svg>
+  );
+}
+
+export function IconGlobe(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.8 2.6 4 5.4 4 8.5s-1.2 5.9-4 8.5c-2.8-2.6-4-5.4-4-8.5s1.2-5.9 4-8.5Z" />
+    </Svg>
+  );
+}

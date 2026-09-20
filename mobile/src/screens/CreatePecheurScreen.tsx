@@ -43,11 +43,6 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       setLoading(false);
       return;
     }
-    if (!licence.trim()) {
-      setError('Le numéro de licence est obligatoire.');
-      setLoading(false);
-      return;
-    }
     if (password.length < 8) {
       setError('Mot de passe : saisissez au moins 8 caractères.');
       setLoading(false);
@@ -62,13 +57,13 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       const pecheur = await createPecheur(token, {
         nom: nom.trim(),
         prenom: prenom.trim(),
-        numero_licence: licence.trim(),
+        ...(licence.trim() ? { numero_licence: licence.trim() } : {}),
         email: email.trim() || undefined,
         mot_de_passe: password,
       });
       await createEmbarcation(token, {
         pecheur_id: pecheur.id,
-        nom: bateau.trim() || `Embarcation ${licence.trim()}`,
+        nom: bateau.trim() || `Embarcation ${pecheur.numero_licence}`,
         immatriculation: immat.trim(),
         type: 'pirogue',
       });
@@ -109,7 +104,7 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
             icon="ribbon-outline"
             value={licence}
             onChangeText={setLicence}
-            placeholder="Obligatoire"
+            placeholder="Laisser vide : attribution automatique"
           />
           <GlassField
             label="E-mail compte"

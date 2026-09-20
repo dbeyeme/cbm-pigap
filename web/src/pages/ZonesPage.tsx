@@ -23,6 +23,7 @@ import {
   zoneColor,
 } from '../geo/zoneMap';
 import { MODULE_VISUALS } from '../media';
+import { IconDownload, IconRefresh, IconSave, IconTrash, IconUpload } from '../components/Icons';
 
 function escapeHtml(value: string): string {
   return value
@@ -571,24 +572,22 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
         <header className="zones-head page-head-with-icon zones-head-icon">
           <img src={MODULE_VISUALS.zones.src} alt="" className="page-module-icon sm" />
           <div>
-            <p className="eyebrow">Module M3</p>
+            <p className="eyebrow">Cartographie · Zones réglementées</p>
             <h2>Zones</h2>
             <p className="side-status">Secteurs ciblés — pas toute la côte.</p>
           </div>
         </header>
 
         <div className="preset-row">
-          <button type="button" className="ghost compact" disabled={loading} onClick={() => void loadDemoPresets()}>
-            Charger 3 presets démo
-          </button>
+          <button type="button" className="ghost compact" disabled={loading} onClick={() =>
+              void loadDemoPresets()}><IconDownload size={16} /> Charger 3 presets démo</button>
           <button
             type="button"
             className="ghost compact"
             disabled={loading || overlapIds.size === 0}
-            onClick={() => void purgeOverlapsKeepOne()}
-          >
-            Purger doublons
-          </button>
+            onClick={() =>
+              void purgeOverlapsKeepOne()}
+          ><IconTrash size={16} /> Purger doublons</button>
         </div>
         <div className="preset-chips">
           {ZONE_PRESETS.map((p) => (
@@ -671,12 +670,8 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
               </select>
             </label>
             <div className="zone-actions">
-              <button type="submit" disabled={loading || !draftBbox}>
-                {loading ? 'Création…' : 'Enregistrer la zone'}
-              </button>
-              <button type="button" className="ghost compact" onClick={resetDraw}>
-                Recommencer
-              </button>
+              <button type="submit" disabled={loading || !draftBbox}><IconSave size={16} /> {loading ? 'Création…' : 'Enregistrer la zone'}</button>
+              <button type="button" className="ghost compact" onClick={resetDraw}><IconRefresh size={16} /> Recommencer</button>
             </div>
           </form>
         ) : null}
@@ -801,9 +796,7 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
                 style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem' }}
               />
             </label>
-            <button type="submit" disabled={loading}>
-              Importer
-            </button>
+            <button type="submit" disabled={loading}><IconUpload size={16} /> Importer</button>
           </form>
         ) : null}
       </aside>

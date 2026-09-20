@@ -13,6 +13,7 @@ import {
 } from '../api';
 import CompactList from '../components/CompactList';
 import { MODULE_VISUALS } from '../media';
+import { IconPlus, IconTrash } from '../components/Icons';
 
 type Props = {
   token: string;
@@ -113,7 +114,7 @@ export default function QuotasPage({ token, onError }: Props) {
       <div className="stage-head page-head-with-icon">
         <img src={MODULE_VISUALS.quotas.src} alt="" className="page-module-icon" />
         <div>
-          <p className="eyebrow">Module M5</p>
+          <p className="eyebrow">Pêches et ressources · Gestion des quotas</p>
           <h1>Quotas</h1>
           <p>Seuils par espèce · consommation auto · alertes à 90 % et 100 %.</p>
           <p className="status-line">{status}</p>
@@ -179,9 +180,7 @@ export default function QuotasPage({ token, onError }: Props) {
                 required
               />
             </label>
-            <button type="submit" disabled={loading}>
-              {loading ? 'Enregistrement…' : 'Créer le quota'}
-            </button>
+            <button type="submit" disabled={loading}><IconPlus size={16} /> {loading ? 'Enregistrement…' : 'Créer le quota'}</button>
           </form>
         </div>
 
@@ -209,10 +208,9 @@ export default function QuotasPage({ token, onError }: Props) {
                     type="button"
                     className="ghost compact danger-ghost"
                     disabled={loading}
-                    onClick={() => void onDelete(q.id)}
-                  >
-                    Supprimer
-                  </button>
+                    onClick={() =>
+              void onDelete(q.id)}
+                  ><IconTrash size={16} /> Supprimer</button>
                 </div>
               </div>
             )}

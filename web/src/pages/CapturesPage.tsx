@@ -14,6 +14,7 @@ import {
 } from '../api';
 import CompactList from '../components/CompactList';
 import { MODULE_VISUALS } from '../media';
+import { IconEdit, IconPlus, IconRefresh, IconTrash, IconXCircle } from '../components/Icons';
 
 type Props = {
   token: string;
@@ -227,7 +228,7 @@ export default function CapturesPage({ token, onError }: Props) {
       <div className="stage-head page-head-with-icon">
         <img src={MODULE_VISUALS.captures.src} alt="" className="page-module-icon" />
         <div>
-          <p className="eyebrow">Module M4</p>
+          <p className="eyebrow">Pêches et ressources · Déclarations</p>
           <h1>Captures</h1>
           <p>Déclarer ou corriger depuis le web · mobile offline en priorité.</p>
           <p className="status-line">{status}</p>
@@ -326,13 +327,9 @@ export default function CapturesPage({ token, onError }: Props) {
               />
             </label>
             <div className="zone-actions">
-              <button type="submit" disabled={loading || !pecheurs.length}>
-                {loading ? 'Enregistrement…' : editingId ? 'Enregistrer la correction' : 'Créer la capture'}
-              </button>
+              <button type="submit" disabled={loading || !pecheurs.length}><IconPlus size={16} /> {loading ? 'Enregistrement…' : editingId ? 'Enregistrer la correction' : 'Créer la capture'}</button>
               {editingId ? (
-                <button type="button" className="ghost compact" onClick={resetForm}>
-                  Annuler
-                </button>
+                <button type="button" className="ghost compact" onClick={resetForm}><IconXCircle size={16} /> Annuler</button>
               ) : null}
             </div>
           </form>
@@ -352,9 +349,7 @@ export default function CapturesPage({ token, onError }: Props) {
                 ))}
               </select>
             </label>
-            <button type="submit" disabled={loading}>
-              {loading ? 'Chargement…' : 'Actualiser'}
-            </button>
+            <button type="submit" disabled={loading}><IconRefresh size={16} /> {loading ? 'Chargement…' : 'Actualiser'}</button>
           </form>
 
           {rows.length === 0 ? (
@@ -383,18 +378,16 @@ export default function CapturesPage({ token, onError }: Props) {
                       type="button"
                       className="ghost compact"
                       disabled={loading}
-                      onClick={() => startEdit(c)}
-                    >
-                      Éditer
-                    </button>
+                      onClick={() =>
+              startEdit(c)}
+                    ><IconEdit size={16} /> Éditer</button>
                     <button
                       type="button"
                       className="ghost compact danger-ghost"
                       disabled={loading}
-                      onClick={() => void onDelete(c.id)}
-                    >
-                      Supprimer
-                    </button>
+                      onClick={() =>
+              void onDelete(c.id)}
+                    ><IconTrash size={16} /> Supprimer</button>
                   </div>
                 </div>
               )}

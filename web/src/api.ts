@@ -28,7 +28,8 @@ export type Pecheur = {
 export type PecheurCreate = {
   nom: string;
   prenom: string;
-  numero_licence: string;
+  /** Omis = attribution automatique par la plateforme */
+  numero_licence?: string;
   email?: string | null;
   mot_de_passe: string;
   telephone?: string | null;
@@ -82,6 +83,15 @@ export type LiveVessel = {
   secteur: 'cote' | 'bras_mer' | 'fleuve' | string;
 };
 
+export type AisStatutNav =
+  | 'a_quai'
+  | 'au_mouillage'
+  | 'en_route'
+  | 'en_peche'
+  | 'en_route_voile'
+  | 'inconnu'
+  | string;
+
 export type AisVessel = {
   mmsi: string;
   nom: string;
@@ -89,9 +99,80 @@ export type AisVessel = {
   horodatage: string;
   sog_kn?: number | null;
   cog_deg?: number | null;
+  heading_deg?: number | null;
   ship_type?: string | null;
+  type_label?: string | null;
+  statut_nav: AisStatutNav;
+  statut_nav_code?: number | null;
+  destination?: string | null;
+  imo?: string | null;
+  callsign?: string | null;
+  longueur_m?: number | null;
+  port_id?: string | null;
+  port_proche?: string | null;
+  distance_port_km?: number | null;
+  age_s: number;
   provider: string;
   demo: boolean;
+  pavillon?: string | null;
+  pavillon_code?: string | null;
+  dans_eaux_gabon: boolean;
+  entree_prevue_h?: number | null;
+  entree_prevue_position?: { type: 'Point'; coordinates: [number, number] } | null;
+  position_estimee?: { type: 'Point'; coordinates: [number, number] } | null;
+};
+
+export type AisTrackPoint = {
+  horodatage: string;
+  position: { type: 'Point'; coordinates: [number, number] };
+  sog_kn?: number | null;
+  cog_deg?: number | null;
+};
+
+export type AisRegistreCorrespondance = {
+  embarcation_id: string;
+  embarcation_nom: string;
+  immatriculation: string;
+  pecheur_nom: string | null;
+  numero_licence: string | null;
+  statut_pecheur: string | null;
+  organisation: string | null;
+  methode: string;
+};
+
+export type AisVesselDetail = {
+  vessel: AisVessel;
+  track: AisTrackPoint[];
+  zones_reglementees: { id: string; nom: string; type: string }[];
+  registre: AisRegistreCorrespondance | null;
+  regularite: 'conforme' | 'a_verifier' | 'alerte' | string;
+  motifs: string[];
+  libre_immatriculation: boolean;
+};
+
+export type AisStreamStatus = {
+  provider: string;
+  configured: boolean;
+  connected: boolean;
+  since: string | null;
+  last_message_at: string | null;
+  messages: number;
+  reconnects: number;
+  last_error: string | null;
+};
+
+export type AisPortSummary = {
+  id: string;
+  nom: string;
+  type: string;
+  lon: number;
+  lat: number;
+  rayon_km: number;
+  navires: number;
+  a_quai: number;
+  au_mouillage: number;
+  en_route: number;
+  en_peche: number;
 };
 
 export type AisLiveResponse = {
@@ -101,7 +182,33 @@ export type AisLiveResponse = {
   source: string;
   note: string;
   eez_filter: boolean;
+  stream?: AisStreamStatus | null;
+  ports?: AisPortSummary[];
+  recepteurs_locaux?: number;
+  approches?: AisVessel[];
 };
+
+export const AIS_STATUT_LABELS: Record<string, string> = {
+  a_quai: 'À quai',
+  au_mouillage: 'Au mouillage',
+  en_route: 'En route',
+  en_peche: 'En pêche',
+  en_route_voile: 'En route (voile)',
+  non_maitre_manoeuvre: 'Non maître de sa manœuvre',
+  manoeuvrabilite_restreinte: 'Manœuvrabilité restreinte',
+  contraint_tirant_eau: 'Contraint par son tirant d’eau',
+  echoue: 'Échoué',
+  detresse: 'En détresse',
+  inconnu: 'Statut inconnu',
+};
+
+export function getAisVessel(token: string, mmsi: string) {
+  return request<AisVesselDetail>(`/api/v1/ais/vessels/${encodeURIComponent(mmsi)}`, token);
+}
+
+export function aisStatutLabel(statut: string | null | undefined): string {
+  return AIS_STATUT_LABELS[statut ?? 'inconnu'] ?? 'Statut inconnu';
+}
 
 export type LicenceDossier = {
   pecheur_id: string;
@@ -211,6 +318,66 @@ export function listTrajectories(token: string, embarcationId?: string) {
 }
 
 /** Circulation near-live (dernière position / embarcation). Poller 15–30 s. */
+/* ——— Présence au port (flotte PIGAP, calcul GPS) ——— */
+
+export type DeclarationPresence = {
+  embarcation_id: string;
+  embarcation_nom: string;
+  port_id: string;
+  port_nom: string;
+  date: string;
+  quantite_kg: number;
+  coherence: 'coherente' | 'incoherente' | 'non_verifiable' | string;
+};
+
+export type EmbarcationPresence = {
+  embarcation_id: string;
+  nom: string;
+  immatriculation: string;
+  type: string | null;
+  statut: 'a_quai' | 'en_manoeuvre' | 'en_mer' | 'sans_signal' | string;
+  port_id: string | null;
+  port_nom: string | null;
+  depuis: string | null;
+  derniere_position: string | null;
+  age_s: number | null;
+  dernier_port_id: string | null;
+  dernier_port_nom: string | null;
+  dernier_depart: string | null;
+  declaration: DeclarationPresence | null;
+};
+
+export type PortPresence = {
+  id: string;
+  nom: string;
+  type: string;
+  lon: number;
+  lat: number;
+  rayon_km: number;
+  a_quai: number;
+  en_manoeuvre: number;
+  arrivees: number;
+  departs: number;
+  debarquements_declares: number;
+  embarcations: EmbarcationPresence[];
+};
+
+export type PortPresenceResponse = {
+  fetched_at: string;
+  fenetre_heures: number;
+  seuil_minutes: number;
+  ports: PortPresence[];
+  en_mer: EmbarcationPresence[];
+  sans_signal: number;
+  total_suivies: number;
+  incoherences: DeclarationPresence[];
+};
+
+export function getPortPresence(token: string, fenetreHeures = 24) {
+  const params = new URLSearchParams({ fenetre_heures: String(fenetreHeures) });
+  return request<PortPresenceResponse>(`/api/v1/positions/presence-ports?${params}`, token);
+}
+
 export function listLiveVessels(token: string, sinceMinutes = 360) {
   const params = new URLSearchParams({ since_minutes: String(sinceMinutes) });
   return request<LiveVessel[]>(`/api/v1/positions/live?${params}`, token);
@@ -227,6 +394,10 @@ export function listAisLive(token: string, refresh = false) {
 export function getLicenceDossier(token: string, licence: string) {
   const params = new URLSearchParams({ licence });
   return request<LicenceDossier>(`/api/v1/positions/dossier?${params}`, token);
+}
+
+export function getPecheur(token: string, id: string) {
+  return request<Pecheur>(`/api/v1/pecheurs/${id}`, token);
 }
 
 export function listPecheurs(token: string, q?: string) {
@@ -727,6 +898,9 @@ export type DemandeLicence = {
   traite_par_id: string | null;
   date_creation: string;
   date_traitement: string | null;
+  /** Attribués automatiquement à l'approbation définitive */
+  numero_licence_attribue?: string | null;
+  immatriculation_attribuee?: string | null;
 };
 
 export type PieceJointe = {
@@ -809,7 +983,13 @@ export function listDemandesLicence(
 export function approveDemandeLicence(
   token: string,
   id: string,
-  body: { numero_licence: string; mot_de_passe: string; creer_embarcation?: boolean },
+  body: {
+    /** Optionnel : reprise d'un numéro déjà délivré. Omis = attribution automatique. */
+    numero_licence?: string;
+    immatriculation?: string;
+    mot_de_passe: string;
+    creer_embarcation?: boolean;
+  },
 ) {
   return request<DemandeLicence>(`/api/v1/demandes-licence/${id}/approve`, token, {
     method: 'POST',
@@ -1013,11 +1193,84 @@ export function confirmerPaiementDemo(token: string, paiementId: string) {
   );
 }
 
+export type PaiementConfig = {
+  mode: string;
+  msisdn_required: boolean;
+  operateurs: string[];
+  provider: string | null;
+  devise: string;
+  pays: string;
+};
+
+export function getPaiementConfig() {
+  return request<PaiementConfig>('/api/v1/abonnements/paiement-config');
+}
+
+export function synchroniserPaiement(token: string, paiementId: string) {
+  return request<InitierAbonnementResponse>(
+    `/api/v1/abonnements/paiements/${paiementId}/synchroniser`,
+    token,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+}
+
 export function activerAbonnementManuel(token: string, abonnementId: string, notes?: string) {
   const q = notes ? `?notes=${encodeURIComponent(notes)}` : '';
   return request<Abonnement>(`/api/v1/abonnements/${abonnementId}/activer-manuel${q}`, token, {
     method: 'POST',
   });
+}
+
+export function annulerAbonnement(token: string, abonnementId: string, notes?: string) {
+  const q = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+  return request<Abonnement>(`/api/v1/abonnements/${abonnementId}/annuler${q}`, token, {
+    method: 'POST',
+  });
+}
+
+export type OrgModulesRead = {
+  organisation_id: string;
+  modules: Record<string, boolean>;
+  catalog: Array<{ key: string; label: string }>;
+  inscription_validee: boolean;
+  abonnement: Abonnement | null;
+  couvert: boolean;
+  motif: string;
+};
+
+export type OrgPortalRead = {
+  organisation_id: string;
+  organisation_nom: string;
+  inscription_validee: boolean;
+  couvert: boolean;
+  motif: string;
+  abonnement: Abonnement | null;
+  modules: Record<string, boolean>;
+  pecheurs_count: number;
+  embarcations_count: number;
+};
+
+export function getOrgModules(token: string, organisationId: string) {
+  return request<OrgModulesRead>(
+    `/api/v1/abonnements/organisations/${organisationId}/modules`,
+    token,
+  );
+}
+
+export function patchOrgModules(
+  token: string,
+  organisationId: string,
+  modules: Record<string, boolean>,
+) {
+  return request<OrgModulesRead>(
+    `/api/v1/abonnements/organisations/${organisationId}/modules`,
+    token,
+    { method: 'PATCH', body: JSON.stringify({ modules }) },
+  );
+}
+
+export function getOrgPortalMe(token: string) {
+  return request<OrgPortalRead>('/api/v1/abonnements/portail/me', token);
 }
 
 /**
@@ -1085,3 +1338,150 @@ export function openNotificationStream(
     signal?.removeEventListener('abort', onAbort);
   };
 }
+
+
+/* ——— Libellés métier des alertes (aucun code brut à l'écran) ——— */
+
+export const ALERT_TYPE_LABELS: Record<string, string> = {
+  zone_interdite: 'Intrusion en zone interdite',
+  depassement_quota: 'Dépassement de quota',
+  anomalie: 'Activité inhabituelle',
+};
+
+export const ALERT_RULE_LABELS: Record<string, string> = {
+  intrusion_zone_interdite: 'Position relevée dans une zone interdite',
+  depassement_quota: 'Volume déclaré supérieur au quota autorisé',
+  activite_inhabituelle: 'Activité inhabituelle détectée',
+  silence_gps: 'Absence de signal GPS prolongée',
+  meteo_marine: 'Conditions de mer dangereuses pour les pirogues',
+  crue_fleuve: 'Crue annoncée sur le fleuve',
+};
+
+export const GRAVITE_LABELS: Record<string, string> = {
+  info: 'Information',
+  attention: 'Attention',
+  critique: 'Critique',
+};
+
+export function alertTypeLabel(type: string | null | undefined): string {
+  if (!type) return '—';
+  return ALERT_TYPE_LABELS[type] ?? type.replaceAll('_', ' ');
+}
+
+export function alertRuleLabel(code: unknown): string {
+  if (code === null || code === undefined) return '—';
+  const text = String(code);
+  return ALERT_RULE_LABELS[text] ?? text.replaceAll('_', ' ');
+}
+
+export function graviteLabel(g: string | null | undefined): string {
+  if (!g) return '—';
+  return GRAVITE_LABELS[g] ?? g;
+}
+
+
+/* ——— Météo-marine : bulletin, zones calculées, avis ——— */
+
+export type ConditionsMer = {
+  horodatage: string;
+  houle_m: number | null;
+  houle_max_24h_m: number | null;
+  houle_direction_deg: number | null;
+  periode_s: number | null;
+  courant_noeuds: number | null;
+  courant_direction_deg: number | null;
+  vent_noeuds: number | null;
+  rafales_noeuds: number | null;
+  rafales_max_24h_noeuds: number | null;
+  vent_direction_deg: number | null;
+  pluie_mm_h: number | null;
+  visibilite_km: number | null;
+  temperature_mer_c: number | null;
+  niveau_mer_m: number | null;
+  maree: string | null;
+  prochaine_pleine_mer: string | null;
+  prochaine_basse_mer: string | null;
+  etat_mer: string;
+};
+
+export type SecteurBulletin = {
+  id: string;
+  nom: string;
+  type: string;
+  lon: number;
+  lat: number;
+  rayon_km: number;
+  conditions: ConditionsMer;
+  risque: { niveau_pirogue: 'vert' | 'orange' | 'rouge' | string; niveau_navire: string; motifs: string[] };
+  opportunite: {
+    score: number;
+    classe: 'favorable' | 'prudence' | 'surexploitee' | 'danger' | 'neutre' | string;
+    motifs: string[];
+    captures_30j_kg: number;
+    sorties_30j: number;
+    quota_max_taux: number | null;
+    especes_sous_pression: string[];
+  };
+  conseil: string;
+};
+
+export type FleuveBulletin = {
+  id: string;
+  nom: string;
+  fleuve: string;
+  lon: number;
+  lat: number;
+  debit_m3s: number | null;
+  debit_j3_m3s: number | null;
+  debit_max_7j_m3s: number | null;
+  tendance: string;
+  variation_pct: number | null;
+  niveau: 'bas' | 'normal' | 'haut' | 'crue' | string;
+  conseil: string;
+};
+
+export type BulletinMeteoMarine = {
+  genere_a: string;
+  valide_jusqua: string;
+  source: string;
+  disponible: boolean;
+  note: string;
+  synthese: string;
+  secteurs: SecteurBulletin[];
+  fleuves: FleuveBulletin[];
+  alertes_emises: number;
+};
+
+export type ZoneCalculee = {
+  id: string;
+  nom: string;
+  classe: string;
+  niveau_pirogue: string;
+  score: number;
+  motifs: string[];
+  centre: [number, number];
+  rayon_km: number;
+  polygone: [number, number][];
+};
+
+export type ZonesCalculeesResponse = {
+  genere_a: string;
+  zones: ZoneCalculee[];
+  legende: Record<string, string>;
+};
+
+export function getBulletinMeteo(token: string, refresh = false) {
+  return request<BulletinMeteoMarine>(`/api/v1/meteo/bulletin${refresh ? '?refresh=true' : ''}`, token);
+}
+
+export function getZonesCalculees(token: string) {
+  return request<ZonesCalculeesResponse>('/api/v1/meteo/zones', token);
+}
+
+export const ZONE_CLASSE_COLORS: Record<string, string> = {
+  danger: '#c81e1e',
+  prudence: '#ea580c',
+  favorable: '#15803d',
+  surexploitee: '#7c3aed',
+  neutre: '#64748b',
+};

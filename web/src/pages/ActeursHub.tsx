@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import HubTabs from '../components/HubTabs';
+import { IconBuilding, IconCard, IconBadge, IconInbox } from '../components/Icons';
+import Illustration from '../components/Illustration';
 import AbonnementsPage from './AbonnementsPage';
 import DemandesPage from './DemandesPage';
 import LicencesPage from './LicencesPage';
@@ -16,6 +18,7 @@ type Props = {
   colorFor: (id: string) => string;
   onOpenTrajectory: (s: TrajectorySegment) => void;
   initialTab?: Tab;
+  isSuperAdmin?: boolean;
 };
 
 export default function ActeursHub({
@@ -25,22 +28,26 @@ export default function ActeursHub({
   colorFor,
   onOpenTrajectory,
   initialTab = 'demandes',
+  isSuperAdmin = false,
 }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
 
   return (
     <section className="stage stage-wide ds-hub">
-      <div className="stage-head">
-        <p className="eyebrow">Registre</p>
-        <h1>Acteurs</h1>
-        <p>Demandes de licence, pêcheurs, organisations et abonnements.</p>
+      <div className="stage-head page-head-with-icon page-head-illustrated">
+        <Illustration name="acteurs" size={104} className="page-illustration" />
+        <div>
+          <p className="eyebrow">Registre</p>
+          <h1>Acteurs</h1>
+          <p>Demandes de licence, pêcheurs, organisations et abonnements.</p>
+        </div>
       </div>
       <HubTabs
         tabs={[
-          { id: 'demandes', label: 'Demandes', badge: demandesBadge },
-          { id: 'licences', label: 'Licences' },
-          { id: 'organisations', label: 'Organisations' },
-          { id: 'abonnements', label: 'Abonnements' },
+          { id: 'demandes', label: 'Demandes', badge: demandesBadge, icon: IconInbox, hint: 'Demandes de licence à traiter' },
+          { id: 'licences', label: 'Pêcheurs et licences', icon: IconBadge, hint: 'Registre des pêcheurs' },
+          { id: 'organisations', label: 'Organisations', icon: IconBuilding, hint: 'Coopératives, sociétés, associations' },
+          { id: 'abonnements', label: 'Abonnements', icon: IconCard, hint: 'Licences et abonnements réglés' },
         ]}
         active={tab}
         onChange={setTab}
@@ -56,7 +63,9 @@ export default function ActeursHub({
           />
         ) : null}
         {tab === 'organisations' ? <OrganisationsPage token={token} onError={onError} /> : null}
-        {tab === 'abonnements' ? <AbonnementsPage token={token} onError={onError} /> : null}
+        {tab === 'abonnements' ? (
+          <AbonnementsPage token={token} onError={onError} isSuperAdmin={isSuperAdmin} />
+        ) : null}
       </div>
     </section>
   );

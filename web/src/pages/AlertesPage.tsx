@@ -5,6 +5,34 @@ import CompactList from '../components/CompactList';
 import { useToast } from '../components/ToastProvider';
 import { friendlyApiError } from '../lib/apiErrors';
 import { MODULE_VISUALS } from '../media';
+import { IconCheckCircle, IconXCircle } from '../components/Icons';
+
+const TYPE_LABELS: Record<string, string> = {
+  zone_interdite: 'Intrusion en zone interdite',
+  depassement_quota: 'Dépassement de quota',
+  anomalie: 'Activité inhabituelle',
+};
+
+const GRAVITE_LABELS: Record<string, string> = {
+  info: 'Information',
+  attention: 'Attention',
+  critique: 'Critique',
+};
+
+const REGLE_LABELS: Record<string, string> = {
+  intrusion_zone_interdite: 'Position relevée à l’intérieur d’une zone interdite',
+  depassement_quota: 'Volume déclaré supérieur au quota autorisé',
+  activite_inhabituelle: 'Activité inhabituelle détectée',
+  silence_gps: 'Absence de signal GPS prolongée',
+  meteo_marine: 'Conditions de mer dangereuses pour les pirogues',
+  crue_fleuve: 'Crue annoncée sur le fleuve',
+};
+
+function humanize(code: unknown): string {
+  if (code === null || code === undefined) return '—';
+  const text = String(code);
+  return REGLE_LABELS[text] ?? text.replaceAll('_', ' ').replace(/^\w/u, (c) => c.toUpperCase());
+}
 
 type Props = {
   token: string;
@@ -29,7 +57,11 @@ export default function AlertesPage({ token, onError }: Props) {
   const refresh = useCallback(async () => {
     const list = await listAlertes(token, { statut: 'nouvelle' });
     setRows(list);
-    setStatus(`${list.length} alerte(s) nouvelle(s)`);
+    setStatus(
+      list.length === 0
+        ? 'Aucune alerte en attente de traitement'
+        : `${list.length} alerte${list.length > 1 ? 's' : ''} en attente de traitement`,
+    );
   }, [token]);
 
   useEffect(() => {
@@ -59,11 +91,11 @@ export default function AlertesPage({ token, onError }: Props) {
       <div className="stage-head page-head-with-icon">
         <img src={MODULE_VISUALS.alertes.src} alt="" className="page-module-icon" />
         <div>
-          <p className="eyebrow">Module M7 · Règles explicites</p>
+          <p className="eyebrow">Opérations · Événements à traiter</p>
           <h1>Alertes</h1>
           <p>
-            Zone interdite · dépassement quota · activité inhabituelle — chaque alerte porte son
-            déclencheur.
+            Intrusions en zone interdite, dépassements de quota et activités inhabituelles.
+            Chaque alerte indique la règle qui l’a déclenchée.
           </p>
           <p className="status-line">{status}</p>
         </div>
@@ -79,34 +111,38 @@ export default function AlertesPage({ token, onError }: Props) {
             className={`dashboard-alert pending-pulse ${a.niveau_gravite === 'critique' ? 'danger' : 'warn'}`}
           >
             <strong>
-              {a.type.replaceAll('_', ' ')} · {a.niveau_gravite}
+              {TYPE_LABELS[a.type] ?? humanize(a.type)}
+              <span className={`alert-level alert-level--${a.niveau_gravite}`}>
+                {GRAVITE_LABELS[a.niveau_gravite] ?? a.niveau_gravite}
+              </span>
             </strong>
             <span>
-              {String(
-                a.declencheur.regle ??
-                  a.declencheur.espece ??
-                  a.declencheur.zone_nom ??
-                  '—',
-              )}{' '}
-              · {new Date(a.horodatage).toLocaleString('fr-FR')}
+              {humanize(a.declencheur.regle ?? a.declencheur.espece ?? a.declencheur.zone_nom)}
+              {a.declencheur.secteur ? ` · ${String(a.declencheur.secteur)}` : ''}
+              {a.declencheur.station ? ` · ${String(a.declencheur.station)}` : ''}
+              {' · '}
+              {new Date(a.horodatage).toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </span>
             <div className="zone-actions" style={{ marginTop: 8 }}>
               <button
                 type="button"
                 className="ghost compact"
                 disabled={loading}
-                onClick={() => void setStatut(a.id, 'traitee')}
-              >
-                Traiter
-              </button>
+                onClick={() =>
+              void setStatut(a.id, 'traitee')}
+              ><IconCheckCircle size={16} /> Marquer comme traitée</button>
               <button
                 type="button"
                 className="ghost compact"
                 disabled={loading}
-                onClick={() => void setStatut(a.id, 'ignoree')}
-              >
-                Ignorer
-              </button>
+                onClick={() =>
+              void setStatut(a.id, 'ignoree')}
+              ><IconXCircle size={16} /> Ignorer</button>
             </div>
           </div>
         )}

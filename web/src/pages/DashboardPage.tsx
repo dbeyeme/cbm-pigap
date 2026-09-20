@@ -1,7 +1,21 @@
 import maplibregl from 'maplibre-gl';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
-import { DashboardRead, DashboardSeries, getDashboard, getDashboardSeries, getPredictions, listLiveVessels, LiveVessel, PredictionsRead } from '../api';
+import {
+  DashboardRead,
+  DashboardSeries,
+  getDashboard,
+  getDashboardSeries,
+  getPredictions,
+  listLiveVessels,
+  LiveVessel,
+  PredictionsRead,
+  alertTypeLabel,
+  alertRuleLabel,
+  graviteLabel,
+  getBulletinMeteo,
+  type BulletinMeteoMarine,
+} from '../api';
 import CompactList from '../components/CompactList';
 import KpiCard from '../components/KpiCard';
 import PredictionStrip from '../components/PredictionStrip';
@@ -31,6 +45,8 @@ import {
 } from '../geo/mapEffects';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
 import type { NavId } from '../nav';
+import BulletinStrip from '../components/BulletinStrip';
+import HelpTip from '../components/HelpTip';
 
 type Sector = 'cotes' | 'fleuves' | 'bras';
 
@@ -96,6 +112,26 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
   const [preds, setPreds] = useState<PredictionsRead | null>(null);
   const [live, setLive] = useState<LiveVessel[]>([]);
   const [loading, setLoading] = useState(false);
+  const [bulletin, setBulletin] = useState<BulletinMeteoMarine | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getBulletinMeteo(token)
+      .then((b) => {
+        if (!cancelled) setBulletin(b);
+      })
+      .catch(() => undefined);
+    const id = window.setInterval(() => {
+      getBulletinMeteo(token)
+        .then((b) => {
+          if (!cancelled) setBulletin(b);
+        })
+        .catch(() => undefined);
+    }, 10 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [token]);
   const [sector, setSector] = useState<Sector>('cotes');
   const [recordsTab, setRecordsTab] = useState<'foyers' | 'especes' | 'alertes'>('foyers');
   const mapRef = useRef<HTMLDivElement | null>(null);
@@ -270,7 +306,7 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
           return {
             lng: c[0],
             lat: c[1],
-            label: `${a.type.replaceAll('_', ' ')} · ${a.niveau_gravite}`,
+            label: `${alertTypeLabel(a.type)} · ${graviteLabel(a.niveau_gravite)}`,
           };
         })
         .filter((p): p is { lng: number; lat: number; label: string } => p != null);
@@ -306,10 +342,10 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
 
   const sectorHint =
     sector === 'cotes'
-      ? `Littoral Atlantique — ${liveFiltered.length} signal(aux) live`
+      ? `Littoral atlantique · ${liveFiltered.length} position${liveFiltered.length > 1 ? 's' : ''} GPS récente${liveFiltered.length > 1 ? 's' : ''}`
       : sector === 'fleuves'
-        ? `Corridors fluviaux — ${liveFiltered.length} signal(aux) live`
-        : `Bras de mer / estuaires — ${liveFiltered.length} signal(aux) live`;
+        ? `Corridors fluviaux · ${liveFiltered.length} position${liveFiltered.length > 1 ? 's' : ''} GPS récente${liveFiltered.length > 1 ? 's' : ''}`
+        : `Bras de mer et estuaires · ${liveFiltered.length} position${liveFiltered.length > 1 ? 's' : ''} GPS récente${liveFiltered.length > 1 ? 's' : ''}`;
 
   return (
     <section className="dash dash-dense dash-scenic">
@@ -365,6 +401,29 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
           icon={<IconAlert size={22} />}
         />
       </div>
+
+      <BulletinStrip bulletin={bulletin} onNavigate={onNavigate} />
+
+      <HelpTip title="Comment exploiter le tableau de bord" variant="encart" className="dash-guide">
+        <ul>
+          <li>
+            <strong>Indicateurs</strong> : effectifs, foyers d'activité, volumes déclarés et alertes
+            sur la période choisie en haut à droite.
+          </li>
+          <li>
+            <strong>Bulletin de mer</strong> : secteurs à risque, favorables ou surexploités,
+            recalculés toutes les trente minutes ; les pêcheurs reçoivent le même avis sur mobile.
+          </li>
+          <li>
+            <strong>Carte</strong> : basculez côtes, fleuves et bras de mer ; cliquez un navire pour
+            sa fiche complète dans la vue Navires.
+          </li>
+          <li>
+            <strong>Alertes</strong> : traitez-les depuis la colonne de droite ou la page Alertes ;
+            chaque alerte indique la règle qui l'a déclenchée.
+          </li>
+        </ul>
+      </HelpTip>
 
       <div className="dash-main-grid dash-main-grid-hero">
         <div className="ds-panel dash-map-panel dash-map-panel-v2 dash-map-hero">
@@ -480,10 +539,10 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
                       <IconAlert size={16} />
                     </span>
                     <div className="ds-alert-body">
-                      <StatusPill label={a.niveau_gravite} tone={tone} />
-                      <strong>{a.type.replaceAll('_', ' ')}</strong>
+                      <StatusPill label={graviteLabel(a.niveau_gravite)} tone={tone} />
+                      <strong>{alertTypeLabel(a.type)}</strong>
                       <span>
-                        {String(a.declencheur.espece ?? a.declencheur.regle ?? '—')} ·{' '}
+                        {alertRuleLabel(a.declencheur.espece ?? a.declencheur.regle)} ·{' '}
                         {new Date(a.horodatage).toLocaleString('fr-FR')}
                       </span>
                     </div>
@@ -569,11 +628,11 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
               {(data?.alertes_actives ?? []).slice(0, 8).map((a) => (
                 <tr key={a.id}>
                   <td>{new Date(a.horodatage).toLocaleString('fr-FR')}</td>
-                  <td>{a.type.replaceAll('_', ' ')}</td>
+                  <td>{alertTypeLabel(a.type)}</td>
                   <td>
-                    <StatusPill label={a.niveau_gravite} tone={graviteTone(a.niveau_gravite)} />
+                    <StatusPill label={graviteLabel(a.niveau_gravite)} tone={graviteTone(a.niveau_gravite)} />
                   </td>
-                  <td>{String(a.declencheur.espece ?? a.declencheur.regle ?? '—')}</td>
+                  <td>{alertRuleLabel(a.declencheur.espece ?? a.declencheur.regle)}</td>
                 </tr>
               ))}
               {!data?.alertes_actives.length ? (
