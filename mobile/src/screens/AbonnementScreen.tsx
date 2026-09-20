@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, PropsWithChildren, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,9 +11,12 @@ import {
 
 import {
   confirmerPaiementDemo,
+  getPaiementConfig,
   initierAbonnementB2C,
   listOffresAbonnement,
   OffreAbonnement,
+  PaiementConfig,
+  synchroniserPaiement,
 } from '../api';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
@@ -25,11 +28,58 @@ type Props = {
 };
 
 function formatFcfa(n: number): string {
-  return `${n.toLocaleString('fr-FR')} FCFA`;
+  try {
+    return `${Number(n).toLocaleString('fr-FR')} FCFA`;
+  } catch {
+    return `${n} FCFA`;
+  }
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('fr-FR');
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+/** Evite un crash silencieux si le catalogue ou le paiement echoue. */
+class ScreenSafe extends Component<
+  PropsWithChildren<{ onBack: () => void }>,
+  { error: string | null }
+> {
+  state = { error: null as string | null };
+
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message || 'Erreur ecran abonnement' };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={styles.container}>
+          <Pressable onPress={this.props.onBack} hitSlop={12}>
+            <Text style={styles.back}>Retour</Text>
+          </Pressable>
+          <Text style={styles.error}>{this.state.error}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export function AbonnementScreen({ token, onBack }: Props) {
+  return (
+    <ScreenSafe onBack={onBack}>
+      <AbonnementBody token={token} onBack={onBack} />
+    </ScreenSafe>
+  );
+}
+
+function AbonnementBody({ token, onBack }: Props) {
   const [offres, setOffres] = useState<OffreAbonnement[]>([]);
+  const [config, setConfig] = useState<PaiementConfig | null>(null);
   const [code, setCode] = useState('b2c_annuel');
   const [licence, setLicence] = useState('');
   const [msisdn, setMsisdn] = useState('');
@@ -37,29 +87,69 @@ export function AbonnementScreen({ token, onBack }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const live = config?.mode === 'live';
+
   useEffect(() => {
-    void listOffresAbonnement()
-      .then((list) => setOffres(list.filter((o) => o.canal === 'b2c')))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Catalogue indisponible'));
+    let cancelled = false;
+    void Promise.all([listOffresAbonnement(), getPaiementConfig()])
+      .then(([list, cfg]) => {
+        if (cancelled) return;
+        const b2c = (list || []).filter((o) => o.canal === 'b2c');
+        setOffres(b2c);
+        setConfig(cfg);
+        if (b2c.length) {
+          setCode((prev) => (b2c.some((o) => o.code === prev) ? prev : b2c[0].code));
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Catalogue indisponible');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  async function waitLivePayment(paiementId: string) {
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+      const done = await synchroniserPaiement(token, paiementId);
+      if (done.paiement.statut === 'reussi') return done;
+      if (done.paiement.statut === 'echoue' || done.paiement.statut === 'expire') {
+        throw new Error('Paiement refuse ou expire — reessayez');
+      }
+      setMessage('Validez le code PIN Airtel Money sur votre telephone…');
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    throw new Error('Delai depasse — si le debit a eu lieu, reouvrez cet ecran dans 1 min');
+  }
+
   async function pay() {
+    if (live && !msisdn.trim()) {
+      setError('Numero Airtel Money requis (ex. 077xxxxxx)');
+      return;
+    }
     setLoading(true);
     setError(null);
     setMessage(null);
     try {
       const init = await initierAbonnementB2C(token, {
         code_offre: code,
-        numero_licence: licence.trim(),
-        operateur: 'demo',
+        ...(licence.trim() ? { numero_licence: licence.trim() } : {}),
+        operateur: live ? 'airtel_money' : 'demo',
         msisdn: msisdn.trim() || undefined,
       });
-      const done = await confirmerPaiementDemo(token, init.paiement.id);
+      if (!init?.paiement?.id) {
+        throw new Error('Paiement non cree — reessayez');
+      }
+      const done =
+        live || init.paiement.operateur !== 'demo'
+          ? await waitLivePayment(init.paiement.id)
+          : await confirmerPaiementDemo(token, init.paiement.id);
+      const fin = done.abonnement.date_fin ? ` jusqu'au ${formatDate(done.abonnement.date_fin)}` : '';
       setMessage(
-        `Abonnement ${done.abonnement.code_offre} actif — ${formatFcfa(done.abonnement.montant_fcfa)}` +
-          (done.abonnement.date_fin
-            ? ` · jusqu’au ${new Date(done.abonnement.date_fin).toLocaleDateString('fr-GA')}`
-            : ''),
+        `Abonnement ${done.abonnement.code_offre} actif - ${formatFcfa(done.abonnement.montant_fcfa)}${fin}`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Paiement impossible');
@@ -71,17 +161,21 @@ export function AbonnementScreen({ token, onBack }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Pressable onPress={onBack} hitSlop={12}>
-        <Text style={styles.back}>← Retour</Text>
+        <Text style={styles.back}>Retour</Text>
       </Pressable>
-      <Text style={styles.kicker}>Licence d’usage</Text>
+      <Text style={styles.kicker}>Licence d'usage</Text>
       <Text style={styles.title}>Abonnement</Text>
       <Text style={styles.lead}>
-        3 000 FCFA / mois ou 30 000 FCFA / an via Mobile Money (Airtel / Moov). Mode démo :
-        confirmation instantanée.
+        {live
+          ? '3000 FCFA / mois ou 30000 FCFA / an via Airtel Money (Gabon). Validez le PIN sur votre telephone.'
+          : '3000 FCFA / mois ou 30000 FCFA / an. Mode demo : confirmation instantanee.'}
       </Text>
 
       <GlassPanel style={styles.card} contentStyle={styles.cardInner}>
         <Text style={styles.label}>Formule</Text>
+        {offres.length === 0 && !error ? (
+          <ActivityIndicator color={colors.tide} />
+        ) : null}
         {offres.map((o) => {
           const on = code === o.code;
           return (
@@ -96,22 +190,24 @@ export function AbonnementScreen({ token, onBack }: Props) {
           );
         })}
 
-        <Text style={styles.label}>N° de licence</Text>
+        <Text style={styles.label}>N de licence (optionnel si vous etes pecheur)</Text>
         <TextInput
           style={styles.input}
           value={licence}
           onChangeText={setLicence}
-          placeholder="LIC-…"
+          placeholder="LIC-DEMO-01"
           autoCapitalize="characters"
           placeholderTextColor={colors.inkSoft}
         />
 
-        <Text style={styles.label}>Téléphone Mobile Money (optionnel)</Text>
+        <Text style={styles.label}>
+          Telephone Airtel Money{live ? ' (obligatoire)' : ' (optionnel)'}
+        </Text>
         <TextInput
           style={styles.input}
           value={msisdn}
           onChangeText={setMsisdn}
-          placeholder="077…"
+          placeholder="077..."
           keyboardType="phone-pad"
           placeholderTextColor={colors.inkSoft}
         />
@@ -121,10 +217,10 @@ export function AbonnementScreen({ token, onBack }: Props) {
         {message ? <Text style={styles.ok}>{message}</Text> : null}
 
         <GlowButton
-          label="Payer & activer"
-          icon="card-outline"
+          label={live ? 'Payer via Airtel Money' : 'Payer et activer (demo)'}
+          icon="wallet-outline"
           onPress={() => void pay()}
-          disabled={loading || !licence.trim()}
+          disabled={loading || !code || (live && !msisdn.trim())}
           style={styles.cta}
         />
       </GlassPanel>

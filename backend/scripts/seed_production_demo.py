@@ -74,17 +74,20 @@ DEMO_ZONES = [
     },
 ]
 
-# Un corridor par bateau (ordre = DEMO_PECHEURS)
+# Un corridor côtier / estuaire par bateau (pas de remontée Lambaréné — lisible satellite)
 TRAJECTORY_PLAN: list[tuple[str, int]] = [
     ("sortie_cote_mer", 0),
     ("entree_mondah", 1),
-    ("mer_vers_ogooue", 2),
+    ("mer_vers_ogooue", 2),  # tronqué à l'embouchure dans seed_trajectories
     ("rade_port_gentil", 3),
     ("mayumba_cote", 4),
 ]
 
 _KM_PER_MIN = 0.22
 _MIN_STEP_MIN = 8
+_MAX_STEP_MIN = 90  # < gap_hours=2 → un seul segment LineString par sortie
+# Premiers points seulement : embouchure Ogooué (avant Lambaréné)
+_OGOOUE_MOUTH_POINTS = 5
 
 
 def _haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
@@ -102,7 +105,7 @@ def _step_minutes(prev: tuple[float, float] | None, curr: tuple[float, float]) -
     if prev is None:
         return 0
     dist = _haversine_km(prev, curr)
-    return max(_MIN_STEP_MIN, int(round(dist / _KM_PER_MIN)))
+    return max(_MIN_STEP_MIN, min(_MAX_STEP_MIN, int(round(dist / _KM_PER_MIN))))
 
 
 async def ensure_staff(session) -> None:
@@ -115,12 +118,24 @@ async def ensure_staff(session) -> None:
             "+24106000001",
             "AgentPass123!",
         ),
+        (
+            "autorite@example.com",
+            "Autorité Démo",
+            RoleUtilisateur.autorite,
+            "+24106000002",
+            "AutoritePass123!",
+        ),
     ]:
         existing = (
             await session.execute(select(Utilisateur).where(Utilisateur.email == email))
         ).scalar_one_or_none()
         if existing:
-            print(f"  staff OK : {email}")
+            # Aligner rôle / mot de passe démo (évite comptes orphelins hors sync)
+            if existing.role != role:
+                existing.role = role
+            existing.mot_de_passe_hash = hash_password(pwd)
+            existing.nom = nom
+            print(f"  staff OK (MAJ) : {email} / {role.value}")
             continue
         session.add(
             Utilisateur(
@@ -131,7 +146,7 @@ async def ensure_staff(session) -> None:
                 mot_de_passe_hash=hash_password(pwd),
             )
         )
-        print(f"  + staff {email}")
+        print(f"  + staff {email} / {role.value}")
 
 
 async def ensure_pecheurs(session) -> list[Embarcation]:
@@ -212,7 +227,10 @@ async def ensure_zones(session) -> None:
 
 
 async def purge_legacy_noise(session, keep_boats: list[Embarcation]) -> None:
-    """Supprime positions des immat legacy + toute position hors jeu léger démo M2."""
+    """Supprime positions legacy + zones/alertes de tests qui saturent la carte."""
+    from app.db.enums import TypeAlerte
+    from app.db.models import Alerte
+
     keep_ids = {b.id for b in keep_boats}
     legacy = list(
         (
@@ -227,7 +245,6 @@ async def purge_legacy_noise(session, keep_boats: list[Embarcation]) -> None:
         await session.execute(delete(Position).where(Position.embarcation_id == emb.id))
         print(f"  purge positions legacy : {emb.immatriculation} ({emb.nom})")
 
-    # Autres GA-M2-* hors keep → purge positions seulement (pas de delete compte)
     extras = list(
         (
             await session.execute(
@@ -242,6 +259,22 @@ async def purge_legacy_noise(session, keep_boats: list[Embarcation]) -> None:
             continue
         await session.execute(delete(Position).where(Position.embarcation_id == emb.id))
         print(f"  purge positions hors jeu : {emb.immatriculation} ({emb.nom})")
+
+    test_zones = list(
+        (
+            await session.execute(
+                select(ZoneReglementee).where(ZoneReglementee.nom.ilike("%M7%"))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for z in test_zones:
+        await session.delete(z)
+        print(f"  purge zone test : {z.nom}")
+
+    r = await session.execute(delete(Alerte).where(Alerte.type == TypeAlerte.zone_interdite))
+    print(f"  purge alertes zone_interdite : {r.rowcount or 0}")
 
 
 async def seed_trajectories(session, boats: list[Embarcation]) -> None:
@@ -261,6 +294,8 @@ async def seed_trajectories(session, boats: list[Embarcation]) -> None:
             continue
         boat = boats[i]
         path = DEMO_ROUTES[scenario]
+        if scenario == "mer_vers_ogooue":
+            path = path[:_OGOOUE_MOUTH_POINTS]
         base = day + timedelta(hours=hours)
         elapsed = 0
         prev: tuple[float, float] | None = None
@@ -313,8 +348,8 @@ async def seed_captures_quotas(session, boats: list[Embarcation]) -> None:
     print(f"  + {len(samples)} captures")
 
     existing_q = (
-        await session.execute(select(Quota).where(Quota.espece == "crevette"))
-    ).scalar_one_or_none()
+        await session.execute(select(Quota).where(Quota.espece == "crevette").limit(1))
+    ).scalars().first()
     if existing_q is None:
         debut = date.today().replace(day=1)
         fin = debut + timedelta(days=90)

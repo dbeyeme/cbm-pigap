@@ -25,6 +25,7 @@ class UtilisateurRead(OrmModel):
     role: RoleUtilisateur
     telephone: str | None
     email: str | None
+    organisation_id: UUID | None = None
     date_creation: datetime
 
 

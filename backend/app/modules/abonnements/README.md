@@ -33,4 +33,13 @@ curl -s -X POST localhost:8000/api/v1/abonnements/initier-b2c \
 
 - `MOBILE_MONEY_MODE=demo|live` (défaut `demo`)
 - `ABONNEMENT_ENFORCE=false` — si `true`, captures/positions pêcheur exigent couverture
-- `MOBILE_MONEY_WEBHOOK_SECRET` — optionnel
+- `MOBILE_MONEY_WEBHOOK_SECRET` — optionnel (webhook legacy)
+- `PAWAPAY_API_TOKEN` — Bearer Merchant API (Gabon)
+- `PAWAPAY_BASE_URL` — `https://api.pawapay.io` (prod) ou `https://api.sandbox.pawapay.io`
+
+## PawaPay live (Gabon)
+
+1. `MOBILE_MONEY_MODE=live` + `PAWAPAY_API_TOKEN`
+2. Callback dashboard PawaPay → `POST /api/v1/abonnements/webhook/pawapay/deposits`
+3. Client : numéro Airtel (`077…`) → push PIN → poll `POST …/paiements/{id}/synchroniser`
+4. Opérateur unique supporté : **AIRTEL_GAB** / XAF

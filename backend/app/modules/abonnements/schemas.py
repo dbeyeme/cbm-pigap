@@ -110,3 +110,43 @@ class CouvertureRead(BaseModel):
 class InitierResponse(BaseModel):
     abonnement: AbonnementRead
     paiement: PaiementRead
+
+
+class PaiementConfigRead(BaseModel):
+    mode: str
+    msisdn_required: bool
+    operateurs: list[str]
+    provider: str | None = None
+    devise: str = "XAF"
+    pays: str = "GAB"
+
+
+class ModulesCatalogItem(BaseModel):
+    key: str
+    label: str
+
+
+class OrgModulesRead(BaseModel):
+    organisation_id: UUID
+    modules: dict[str, bool]
+    catalog: list[ModulesCatalogItem]
+    inscription_validee: bool = False
+    abonnement: AbonnementRead | None = None
+    couvert: bool = False
+    motif: str = ""
+
+
+class OrgModulesUpdate(BaseModel):
+    modules: dict[str, bool]
+
+
+class OrgPortalRead(BaseModel):
+    organisation_id: UUID
+    organisation_nom: str
+    inscription_validee: bool
+    couvert: bool
+    motif: str
+    abonnement: AbonnementRead | None
+    modules: dict[str, bool]
+    pecheurs_count: int
+    embarcations_count: int

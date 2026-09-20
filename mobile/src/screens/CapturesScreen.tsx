@@ -25,10 +25,12 @@ import {
 } from '../offline/db';
 import { syncPendingCaptures } from '../offline/syncCaptures';
 import { friendlyApiError } from '../lib/apiErrors';
+import type { MobileMode } from '../auth/roles';
 import { colors, fonts, radii, space } from '../theme';
 
 type Props = {
   token: string;
+  mode?: MobileMode;
   onBack: () => void;
 };
 
@@ -53,7 +55,7 @@ function asBoats(cached: CachedEmbarcation[]): Embarcation[] {
   }));
 }
 
-export function CapturesScreen({ token, onBack }: Props) {
+export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
   const [boats, setBoats] = useState<Embarcation[]>([]);
   const [boatId, setBoatId] = useState<string | null>(null);
   const [espece, setEspece] = useState<string>(ESPECES_MVP[0]);
@@ -231,7 +233,11 @@ export function CapturesScreen({ token, onBack }: Props) {
 
         <Text style={styles.section}>1. Quel bateau ?</Text>
         {boats.length === 0 ? (
-          <Text style={styles.empty}>Aucun bateau — créez d’abord un dossier pêcheur.</Text>
+          <Text style={styles.empty}>
+            {mode === 'pecheur'
+              ? 'Aucun bateau lie a votre compte — contactez un agent.'
+              : 'Aucun bateau — creez d’abord un dossier pecheur.'}
+          </Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
             {boats.map((b) => {

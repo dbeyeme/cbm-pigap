@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from fastapi import HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession, require_role
@@ -21,6 +20,10 @@ from app.modules.abonnements.schemas import (
     InitierB2CRequest,
     InitierResponse,
     OffreRead,
+    OrgModulesRead,
+    OrgModulesUpdate,
+    OrgPortalRead,
+    PaiementConfigRead,
     PaiementRead,
     WebhookMobileMoneyRequest,
 )
@@ -62,6 +65,12 @@ def _paiement_read(p) -> PaiementRead:
 async def get_offres() -> list[OffreRead]:
     """Catalogue public (tarifs modèle économique)."""
     return service.list_offres()
+
+
+@router.get("/paiement-config", response_model=PaiementConfigRead)
+async def get_paiement_config() -> PaiementConfigRead:
+    """Mode démo/live et opérateurs disponibles (public)."""
+    return PaiementConfigRead(**service.paiement_config())
 
 
 @router.get("", response_model=list[AbonnementRead])
@@ -165,8 +174,17 @@ async def initier_b2c(
 async def initier_b2b(
     payload: InitierB2BRequest,
     db: DbSession,
-    _: StaffRoles,
+    user: CurrentUser,
 ) -> InitierResponse:
+    if user.role == RoleUtilisateur.organisation:
+        if not user.organisation_id or user.organisation_id != payload.organisation_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Organisation non autorisée")
+    elif user.role not in (
+        RoleUtilisateur.admin,
+        RoleUtilisateur.agent_controle,
+        RoleUtilisateur.autorite,
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
     ab, paiement = await service.initier_b2b(db, payload)
     return InitierResponse(
         abonnement=AbonnementRead.model_validate(ab),
@@ -186,9 +204,32 @@ async def confirmer_demo(
         RoleUtilisateur.admin,
         RoleUtilisateur.agent_controle,
         RoleUtilisateur.autorite,
+        RoleUtilisateur.organisation,
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
     ab, paiement = await service.confirmer_demo(db, paiement_id, payload)
+    return InitierResponse(
+        abonnement=AbonnementRead.model_validate(ab),
+        paiement=_paiement_read(paiement),
+    )
+
+
+@router.post("/paiements/{paiement_id}/synchroniser", response_model=InitierResponse)
+async def synchroniser_paiement(
+    paiement_id: UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> InitierResponse:
+    """Interroge PawaPay (live) et met à jour le statut local si final."""
+    if user.role not in (
+        RoleUtilisateur.pecheur,
+        RoleUtilisateur.admin,
+        RoleUtilisateur.agent_controle,
+        RoleUtilisateur.autorite,
+        RoleUtilisateur.organisation,
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
+    ab, paiement = await service.synchroniser_paiement(db, paiement_id)
     return InitierResponse(
         abonnement=AbonnementRead.model_validate(ab),
         paiement=_paiement_read(paiement),
@@ -200,8 +241,18 @@ async def webhook_mm(
     payload: WebhookMobileMoneyRequest,
     db: DbSession,
 ) -> PaiementRead:
-    """Endpoint public pour agrégateur (SingPay / PViT) — protégé par secret."""
+    """Endpoint legacy (secret) — SingPay / tests manuels."""
     paiement = await service.webhook_mobile_money(db, payload)
+    return _paiement_read(paiement)
+
+
+@router.post("/webhook/pawapay/deposits", response_model=PaiementRead)
+async def webhook_pawapay_deposits(
+    payload: dict[str, Any],
+    db: DbSession,
+) -> PaiementRead:
+    """Callback PawaPay (à configurer dans le dashboard PawaPay)."""
+    paiement = await service.webhook_pawapay_deposit(db, payload)
     return _paiement_read(paiement)
 
 
@@ -214,6 +265,110 @@ async def activer_manuel(
 ) -> AbonnementRead:
     ab = await service.activer_manuel(db, abonnement_id, notes=notes)
     return AbonnementRead.model_validate(ab)
+
+
+@router.post("/{abonnement_id}/annuler", response_model=AbonnementRead)
+async def annuler(
+    abonnement_id: UUID,
+    db: DbSession,
+    _: StaffRoles,
+    notes: str | None = Query(default="Annulation admin"),
+) -> AbonnementRead:
+    ab = await service.annuler_abonnement(db, abonnement_id, notes=notes)
+    return AbonnementRead.model_validate(ab)
+
+
+@router.get("/modules/catalog")
+async def modules_catalog(_: StaffRoles) -> list[dict[str, str]]:
+    from app.modules.abonnements.modules import MODULE_KEYS
+
+    return [{"key": k, "label": lab} for k, lab in MODULE_KEYS]
+
+
+@router.get("/organisations/{organisation_id}/modules", response_model=OrgModulesRead)
+async def get_modules(
+    organisation_id: UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> OrgModulesRead:
+    from app.modules.abonnements.modules import MODULE_KEYS
+
+    if user.role == RoleUtilisateur.organisation:
+        if user.organisation_id != organisation_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Accès refusé")
+    elif user.role not in (
+        RoleUtilisateur.admin,
+        RoleUtilisateur.agent_controle,
+        RoleUtilisateur.autorite,
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
+
+    mods = await service.get_org_modules(db, organisation_id)
+    couvert, motif, ab = await service.couverture_organisation(db, organisation_id)
+    from app.db.models import Organisation
+
+    org = await db.get(Organisation, organisation_id)
+    attrs = (org.attributs if org else {}) or {}
+    return OrgModulesRead(
+        organisation_id=organisation_id,
+        modules=mods,
+        catalog=[{"key": k, "label": lab} for k, lab in MODULE_KEYS],
+        inscription_validee=bool(attrs.get("inscription_validee")),
+        abonnement=AbonnementRead.model_validate(ab) if ab else None,
+        couvert=couvert,
+        motif=motif,
+    )
+
+
+@router.patch("/organisations/{organisation_id}/modules", response_model=OrgModulesRead)
+async def patch_modules(
+    organisation_id: UUID,
+    payload: OrgModulesUpdate,
+    db: DbSession,
+    user: CurrentUser,
+) -> OrgModulesRead:
+    """Superadmin uniquement — active/désactive les modules selon la formule B2B."""
+    if user.role != RoleUtilisateur.admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Réservé au superadmin")
+
+    await service.set_org_modules(db, organisation_id, payload.modules)
+    return await get_modules(organisation_id, db, user)
+
+
+@router.get("/portail/me", response_model=OrgPortalRead)
+async def portail_org_me(db: DbSession, user: CurrentUser) -> OrgPortalRead:
+    if user.role != RoleUtilisateur.organisation or not user.organisation_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Compte organisation requis")
+    from sqlalchemy import func, select
+
+    from app.db.models import Embarcation, Organisation, Pecheur
+
+    org = await db.get(Organisation, user.organisation_id)
+    if org is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Organisation introuvable")
+    mods = await service.get_org_modules(db, org.id)
+    couvert, motif, ab = await service.couverture_organisation(db, org.id)
+    attrs = org.attributs or {}
+    n_pec = await db.scalar(
+        select(func.count()).select_from(Pecheur).where(Pecheur.organisation_id == org.id)
+    )
+    n_emb = await db.scalar(
+        select(func.count())
+        .select_from(Embarcation)
+        .join(Pecheur, Embarcation.pecheur_id == Pecheur.id)
+        .where(Pecheur.organisation_id == org.id)
+    )
+    return OrgPortalRead(
+        organisation_id=org.id,
+        organisation_nom=org.nom,
+        inscription_validee=bool(attrs.get("inscription_validee", True)),
+        couvert=couvert,
+        motif=motif,
+        abonnement=AbonnementRead.model_validate(ab) if ab else None,
+        modules=mods,
+        pecheurs_count=int(n_pec or 0),
+        embarcations_count=int(n_emb or 0),
+    )
 
 
 @router.get("/{abonnement_id}", response_model=AbonnementRead)

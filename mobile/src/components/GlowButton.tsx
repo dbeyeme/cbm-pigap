@@ -1,15 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { colors, fonts, gradients, radii } from '../theme';
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type Props = {
   label: string;
@@ -21,6 +14,7 @@ type Props = {
   disabled?: boolean;
 };
 
+/** Bouton sans Reanimated — stable sur Expo Go / simulateur / device. */
 export function GlowButton({
   label,
   onPress,
@@ -30,11 +24,6 @@ export function GlowButton({
   style,
   disabled,
 }: Props) {
-  const scale = useSharedValue(1);
-  const animated = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   const content = (
     <>
       {icon ? (
@@ -52,25 +41,19 @@ export function GlowButton({
           variant === 'accent' && styles.labelAccent,
         ]}
       >
-        {loading ? '…' : label}
+        {loading ? '...' : label}
       </Text>
     </>
   );
 
   return (
-    <AnimatedPressable
+    <Pressable
       disabled={disabled || loading}
-      onPressIn={() => {
-        scale.value = withSpring(0.96, { damping: 14, stiffness: 320 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 12, stiffness: 280 });
-      }}
       onPress={onPress}
-      style={[animated, style]}
+      style={({ pressed }) => [style, pressed && styles.pressed]}
     >
       {variant === 'ghost' ? (
-        <Animated.View style={styles.ghost}>{content}</Animated.View>
+        <View style={styles.ghost}>{content}</View>
       ) : (
         <LinearGradient
           colors={
@@ -83,11 +66,12 @@ export function GlowButton({
           {content}
         </LinearGradient>
       )}
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
   primary: {
     minHeight: 58,
     borderRadius: radii.md,

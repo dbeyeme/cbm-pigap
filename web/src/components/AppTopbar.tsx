@@ -1,11 +1,12 @@
 import { NotificationSummary } from '../api';
-import { PAGE_TITLES, type Page } from '../nav';
+import { PAGE_TITLES, roleLabelFr, type Page } from '../nav';
 import { IconMenu, IconSearch } from './Icons';
 import NotificationBell from './NotificationBell';
 
 type Props = {
   page: Page;
   meRole: string | null;
+  meNom: string | null;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSearchSubmit: () => void;
@@ -32,6 +33,7 @@ function formatNow(): { date: string; time: string } {
 export default function AppTopbar({
   page,
   meRole,
+  meNom,
   searchQuery,
   onSearchChange,
   onSearchSubmit,
@@ -44,8 +46,8 @@ export default function AppTopbar({
 }: Props) {
   const { date, time } = formatNow();
   const title = PAGE_TITLES[page] ?? 'Portail';
-  const roleLabel =
-    meRole === 'admin' ? 'Administrateur' : meRole === 'agent' ? 'Agent' : 'Autorité';
+  const roleLabel = roleLabelFr(meRole);
+  const displayName = meNom?.trim() || 'Utilisateur';
 
   return (
     <header className="ds-topbar">
@@ -86,7 +88,11 @@ export default function AppTopbar({
       </form>
 
       <div className="ds-topbar-meta">
-        <span className="ds-topbar-status-dot" title="Système opérationnel" aria-label="Système opérationnel" />
+        <span
+          className="ds-topbar-status-dot"
+          title="Système opérationnel"
+          aria-label="Système opérationnel"
+        />
         <span className="ds-topbar-clock">
           {date} · {time}
         </span>
@@ -102,10 +108,10 @@ export default function AppTopbar({
         />
         <div className="ds-topbar-user">
           <div className="ds-avatar" aria-hidden>
-            {(meRole ?? 'A').slice(0, 1).toUpperCase()}
+            {displayName.slice(0, 1).toUpperCase()}
           </div>
           <div>
-            <strong>Admin CBM-PIGAP</strong>
+            <strong>{displayName}</strong>
             <span>{roleLabel}</span>
           </div>
         </div>

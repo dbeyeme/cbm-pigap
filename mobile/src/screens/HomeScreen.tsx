@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
 import { ShipIcon } from '../components/ShipIcon';
-import { colors, fonts, motion, radii, space } from '../theme';
+import { colors, fonts, radii, space } from '../theme';
 
 const ILLU = {
   licences: require('../../assets/illustrations/icon-licences.png'),
@@ -15,20 +14,21 @@ const ILLU = {
 } as const;
 
 type Props = {
+  userName: string;
   onCreate: () => void;
   onSearch: () => void;
   onTracking: () => void;
   onCaptures: () => void;
-  onAbonnement: () => void;
   onLogout: () => void;
 };
 
-export function HomeScreen({
+/** Accueil agent de controle — dossiers, licences, GPS flotte. */
+export function AgentHomeScreen({
+  userName,
   onCreate,
   onSearch,
   onTracking,
   onCaptures,
-  onAbonnement,
   onLogout,
 }: Props) {
   return (
@@ -36,68 +36,63 @@ export function HomeScreen({
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
           <Text style={styles.kicker}>Espace agent</Text>
-          <Text style={styles.title}>Bonjour</Text>
+          <Text style={styles.title}>Bonjour{userName ? `, ${userName.split(' ')[0]}` : ''}</Text>
         </View>
         <Pressable
           onPress={onLogout}
           style={styles.logoutBtn}
           hitSlop={14}
           accessibilityRole="button"
-          accessibilityLabel="Se déconnecter"
+          accessibilityLabel="Se deconnecter"
         >
           <Ionicons name="log-out-outline" size={24} color={colors.tide} />
           <Text style={styles.logoutText}>Sortir</Text>
         </Pressable>
       </View>
 
-      <Animated.View entering={FadeInDown.duration(motion.base)}>
-        <GlassPanel style={styles.heroCard} contentStyle={styles.heroInner}>
-          <View style={styles.heroBadge}>
-            <ShipIcon size={36} />
-          </View>
-          <Text style={styles.heroTitle}>Commencer ici</Text>
-          <Text style={styles.heroBody}>
-            Enregistrez une capture. Ça marche même sans internet — l’envoi se fera
-            automatiquement plus tard.
-          </Text>
-          <GlowButton
-            label="Enregistrer une capture"
-            icon="fish-outline"
-            onPress={onCaptures}
-            style={styles.heroCta}
-          />
-        </GlassPanel>
-      </Animated.View>
+      <GlassPanel style={styles.heroCard} contentStyle={styles.heroInner}>
+        <View style={styles.heroBadge}>
+          <ShipIcon size={36} />
+        </View>
+        <Text style={styles.heroTitle}>Terrain</Text>
+        <Text style={styles.heroBody}>
+          Creez un dossier pecheur, cherchez une licence, ou assistez une declaration de
+          capture (hors-ligne OK).
+        </Text>
+        <GlowButton
+          label="Nouveau dossier"
+          icon="person-add-outline"
+          onPress={onCreate}
+          style={styles.heroCta}
+        />
+      </GlassPanel>
 
-      <Text style={styles.sectionLabel}>Autres actions</Text>
+      <Text style={styles.sectionLabel}>Actions</Text>
 
       <ActionTile
-        illustration={ILLU.licences}
-        title="Nouveau dossier"
-        subtitle="Ajouter un pêcheur et son bateau"
-        onPress={onCreate}
+        illustration={ILLU.search}
+        title="Chercher une licence"
+        subtitle="Par nom ou numero"
+        onPress={onSearch}
       />
       <ActionTile
         illustration={ILLU.trajectories}
         title="Suivi GPS"
-        subtitle="Voir la position en mer ou sur le fleuve"
+        subtitle="Flotte en mer ou sur le fleuve"
         onPress={onTracking}
       />
       <ActionTile
-        illustration={ILLU.search}
-        title="Chercher une licence"
-        subtitle="Par nom ou numéro"
-        onPress={onSearch}
-      />
-      <ActionTile
-        illustration={ILLU.licences}
-        title="Abonnement"
-        subtitle="3 000 / mois · 30 000 / an — Mobile Money"
-        onPress={onAbonnement}
+        illustration={ILLU.captures}
+        title="Assister une capture"
+        subtitle="Declaration pour un bateau suivi"
+        onPress={onCaptures}
       />
     </View>
   );
 }
+
+/** @deprecated Utiliser AgentHomeScreen — alias de compat. */
+export const HomeScreen = AgentHomeScreen;
 
 function ActionTile({
   illustration,

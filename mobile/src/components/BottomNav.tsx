@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { RoleTab } from '../auth/roles';
 import { colors, fonts, radii, space } from '../theme';
 
 const ICONS = {
@@ -8,29 +9,27 @@ const ICONS = {
   captures: require('../../assets/illustrations/icon-captures.png'),
   tracking: require('../../assets/illustrations/icon-trajectories.png'),
   search: require('../../assets/illustrations/icon-licences.png'),
+  abonnement: require('../../assets/illustrations/icon-licences.png'),
 } as const;
 
-export type MobileTab = 'home' | 'captures' | 'tracking' | 'search';
+export type MobileTab = RoleTab;
+
+type TabDef = { id: MobileTab; label: string };
 
 type Props = {
   active: MobileTab;
+  tabs: TabDef[];
   onChange: (tab: MobileTab) => void;
 };
 
-const TABS: Array<{ id: MobileTab; label: string; icon: keyof typeof ICONS }> = [
-  { id: 'home', label: 'Accueil', icon: 'home' },
-  { id: 'captures', label: 'Captures', icon: 'captures' },
-  { id: 'tracking', label: 'GPS', icon: 'tracking' },
-  { id: 'search', label: 'Licences', icon: 'search' },
-];
-
-/** Barre basse — libellés visibles, grandes cibles tactiles. */
-export function BottomNav({ active, onChange }: Props) {
+/** Barre basse — onglets fournis selon le role (pecheur / agent). */
+export function BottomNav({ active, tabs, onChange }: Props) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const on = active === tab.id;
+        const iconKey = tab.id in ICONS ? (tab.id as keyof typeof ICONS) : 'home';
         return (
           <Pressable
             key={tab.id}
@@ -40,7 +39,7 @@ export function BottomNav({ active, onChange }: Props) {
             accessibilityState={{ selected: on }}
             accessibilityLabel={tab.label}
           >
-            <Image source={ICONS[tab.icon]} style={styles.icon} />
+            <Image source={ICONS[iconKey]} style={styles.icon} />
             <Text style={[styles.label, on && styles.labelOn]}>{tab.label}</Text>
           </Pressable>
         );

@@ -22,16 +22,18 @@ import {
   isOnWater,
 } from '../geo/gabonMaritimeRoutes';
 import { friendlyApiError } from '../lib/apiErrors';
+import type { MobileMode } from '../auth/roles';
 import { colors, fonts, radii, space } from '../theme';
 
 type Props = {
   token: string;
+  mode?: MobileMode;
   onBack: () => void;
 };
 
 const DEMO_INTERVAL_SEC = 30;
 
-export function TrackingScreen({ token, onBack }: Props) {
+export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
   const [boats, setBoats] = useState<Embarcation[]>([]);
   const [boatId, setBoatId] = useState<string | null>(null);
   const [active, setActive] = useState(false);
@@ -143,7 +145,16 @@ export function TrackingScreen({ token, onBack }: Props) {
     setError(null);
     try {
       const route = GABON_MARITIME_ROUTES.find((r) => r.id === routeId)!;
-      await clearTrajectory(token, boatId);
+      // Purge historique : agents / autorités seulement (API TrajectoryAdmin).
+      // Un pecheur envoie simplement le parcours d'exemple sans supprimer l'historique.
+      if (mode === 'agent') {
+        try {
+          await clearTrajectory(token, boatId);
+        } catch (err) {
+          // Ne bloque pas la demo si la purge echoue
+          console.warn('clearTrajectory', err);
+        }
+      }
       const now = Date.now();
       const batch = route.path.map((coordinates, i) => {
         const t = new Date(now - (route.path.length - 1 - i) * 12 * 60_000);
@@ -324,8 +335,9 @@ export function TrackingScreen({ token, onBack }: Props) {
             {showDemoHelp ? (
               <GlassPanel style={styles.demoPanel}>
                 <Text style={styles.demoLead}>
-                  Utile sur simulateur ou pour former un agent — remplace le parcours
-                  actuel par un trajet en eau gabonaise.
+                  {mode === 'pecheur'
+                    ? 'Utile sur simulateur — remplace le parcours actuel par un trajet en eau gabonaise.'
+                    : 'Utile sur simulateur ou pour former un agent — remplace le parcours actuel par un trajet en eau gabonaise.'}
                 </Text>
                 {GABON_MARITIME_ROUTES.map((r) => {
                   const on = routeId === r.id;

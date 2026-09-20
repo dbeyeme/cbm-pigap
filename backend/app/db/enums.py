@@ -9,6 +9,7 @@ class RoleUtilisateur(enum.StrEnum):
     autorite = "autorite"
     chercheur = "chercheur"
     admin = "admin"
+    organisation = "organisation"
 
 
 class StatutPecheur(enum.StrEnum):
