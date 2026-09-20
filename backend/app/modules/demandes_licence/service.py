@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import bad_request, not_found
+from app.core.numerotation import (
+    numero_immatriculation_suivant,
+    numero_licence_suivant,
+)
 from app.db.enums import StatutDemandeLicence, TypeDemandeLicence
 from app.db.models import DemandeLicence, Utilisateur
 from app.modules.demandes_licence.schemas import (
@@ -137,18 +141,44 @@ async def approve_demande(
         prenom = (row.prenom or "Contact").strip()
         telephone = row.telephone or row.org_telephone
         email = row.email or row.org_email
+        # Compte portail organisation (paiement + gestion après validation)
+        from app.core.security import hash_password
+        from app.db.enums import RoleUtilisateur
+        from app.db.models import Utilisateur as UtilisateurModel
+
+        org_attrs = dict(org.attributs or {})
+        org_attrs["inscription_validee"] = True
+        org.attributs = org_attrs
+        if email:
+            existing = await db.execute(
+                select(UtilisateurModel).where(UtilisateurModel.email == str(email))
+            )
+            if existing.scalar_one_or_none() is None:
+                org_user = UtilisateurModel(
+                    nom=f"{nom} (Org)",
+                    role=RoleUtilisateur.organisation,
+                    email=str(email),
+                    telephone=telephone,
+                    mot_de_passe_hash=hash_password(data.mot_de_passe),
+                    organisation_id=org_id,
+                )
+                db.add(org_user)
     else:
         nom = (row.nom or "").strip()
         prenom = (row.prenom or "").strip()
         telephone = row.telephone
         email = row.email
 
+    # Attribution automatique à l'approbation définitive (reprise manuelle possible)
+    numero_licence = data.numero_licence or await numero_licence_suivant(db)
+
     pecheur = await pecheurs_service.create_pecheur(
         db,
         PecheurCreate(
             nom=nom,
             prenom=prenom,
-            numero_licence=data.numero_licence.strip(),
+            numero_licence=numero_licence,
+            date_delivrance_licence=datetime.now(UTC).date(),
             telephone=telephone,
             email=email,
             mot_de_passe=data.mot_de_passe,
@@ -156,26 +186,30 @@ async def approve_demande(
         ),
     )
 
-    if (
-        data.creer_embarcation
-        and row.embarcation_nom
-        and row.embarcation_immatriculation
-    ):
+    immatriculation: str | None = None
+    if data.creer_embarcation and row.embarcation_nom:
+        immatriculation = (
+            data.immatriculation
+            or (row.embarcation_immatriculation or "").strip()
+            or await numero_immatriculation_suivant(db, zone=row.zone_activite)
+        )
         await pecheurs_service.create_embarcation(
             db,
             EmbarcationCreate(
                 pecheur_id=pecheur.id,
                 nom=row.embarcation_nom,
-                immatriculation=row.embarcation_immatriculation,
+                immatriculation=immatriculation,
                 type=row.embarcation_type,
             ),
         )
 
     row.statut = StatutDemandeLicence.approuvee
+    row.numero_licence_attribue = numero_licence
+    row.immatriculation_attribuee = immatriculation
     row.pecheur_id = pecheur.id
     row.organisation_id = org_id
     row.traite_par_id = actor.id
-    row.date_traitement = datetime.now(timezone.utc)
+    row.date_traitement = datetime.now(UTC)
     await db.commit()
     await db.refresh(row)
     from app.modules.notifications.hub import hub
@@ -196,7 +230,7 @@ async def refuse_demande(
     row.statut = StatutDemandeLicence.refusee
     row.motif_refus = data.motif_refus.strip()
     row.traite_par_id = actor.id
-    row.date_traitement = datetime.now(timezone.utc)
+    row.date_traitement = datetime.now(UTC)
     await db.commit()
     await db.refresh(row)
     from app.modules.notifications.hub import hub

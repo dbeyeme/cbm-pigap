@@ -51,3 +51,29 @@ python scripts/seed_maritime_scenarios.py
 
 Hors eau → `POSITION_HORS_EAU` ; segment terre → `TRAJECTOIRE_PASSAGE_TERRESTRE`.  
 Agents : `maritime-trajectory`, `fisheries-halieutique`.
+
+
+## Présence au port (ajout 2026-09-20)
+
+`GET /api/v1/positions/presence-ports?fenetre_heures=24` — calculée depuis les
+positions GPS PIGAP, sans matériel supplémentaire, sur le référentiel de ports
+partagé avec la couche AIS (`data/open-data/gabon/ports.json`).
+
+| Statut | Règle |
+|--------|-------|
+| `a_quai` | dernière position dans le rayon d'un port, immobile depuis ≥ `PRESENCE_PORT_MIN_MINUTES` (10) |
+| `en_manoeuvre` | dans le rayon d'un port depuis moins que le seuil (arrivée ou départ en cours) |
+| `en_mer` | hors de tout rayon portuaire ; `dernier_port` et `dernier_depart` renseignés si connus |
+| `sans_signal` | dernière position plus ancienne que `PRESENCE_SILENCE_HEURES` (6) |
+
+Par port : effectifs, arrivées et départs détectés (transitions sur la fenêtre),
+débarquements déclarés. Chaque déclaration de capture dont le point de
+débarquement cite un port est rapprochée de la présence GPS
+(`coherente` si présence au port à ± `PRESENCE_TOLERANCE_HEURES`, sinon
+`incoherente` ; `non_verifiable` sans GPS). Les incohérences sont listées pour
+contrôle.
+
+Masque d'eau : les quais hors polygone ZEE (Libreville, Port-Gentil, Mayumba,
+Cocobeach, Cap Lopez) sont acceptés dans le rayon `rayon_quai_km` du référentiel ;
+la rade intérieure de Port-Gentil au-delà de 2,5 km reste refusée (limite du
+masque, à traiter avec un polygone portuaire dédié).

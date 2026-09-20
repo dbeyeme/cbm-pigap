@@ -14,6 +14,7 @@ from app.core.errors import ApiError
 from app.core.logging import configure_logging
 from app.core.validation_messages import format_validation_errors
 from app.modules.ais_gabon.service import start_ais_background, stop_ais_background
+from app.modules.meteo_marine.service import start_meteo_background, stop_meteo_background
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -23,7 +24,9 @@ logger = structlog.get_logger(__name__)
 async def lifespan(_app: FastAPI):
     logger.info("app_startup", env=settings.app_env)
     start_ais_background()
+    start_meteo_background()
     yield
+    await stop_meteo_background()
     await stop_ais_background()
     logger.info("app_shutdown")
 

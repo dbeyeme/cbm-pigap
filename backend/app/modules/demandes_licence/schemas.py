@@ -72,9 +72,23 @@ class DemandeLicenceUpdate(BaseModel):
 
 
 class DemandeLicenceApprove(BaseModel):
-    numero_licence: str = Field(..., min_length=1, max_length=64)
+    """Approbation définitive : les identifiants sont attribués automatiquement.
+
+    `numero_licence` / `immatriculation` restent acceptés pour reprendre un
+    numéro déjà délivré sur support papier (migration de l'existant).
+    """
+
+    numero_licence: str | None = Field(None, max_length=64)
+    immatriculation: str | None = Field(None, max_length=64)
     mot_de_passe: str = Field(..., min_length=8, max_length=128)
     creer_embarcation: bool = True
+
+    @field_validator("numero_licence", "immatriculation", mode="before")
+    @classmethod
+    def blank_means_auto(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
 
 
 class DemandeLicenceRefuse(BaseModel):
@@ -116,6 +130,8 @@ class DemandeLicenceRead(OrmModel):
     traite_par_id: UUID | None
     date_creation: datetime
     date_traitement: datetime | None
+    numero_licence_attribue: str | None = None
+    immatriculation_attribuee: str | None = None
 
     @field_validator("pieces_jointes", mode="before")
     @classmethod

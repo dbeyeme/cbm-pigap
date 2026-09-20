@@ -51,7 +51,7 @@ async def test_agent_create_pecheur_embarcation_and_search(
         "/api/v1/pecheurs",
         headers=agent_headers,
         json={
-            "nom": "Obiang",
+            "nom": f"Obiang-{suffix}",
             "prenom": "Paul",
             "numero_licence": licence,
             "organisation_id": org_id,
@@ -91,7 +91,7 @@ async def test_agent_create_pecheur_embarcation_and_search(
     by_name = await client.get(
         "/api/v1/pecheurs",
         headers=agent_headers,
-        params={"q": "Obiang"},
+        params={"q": f"Obiang-{suffix}"},  # unique : la base partagée dépasse la limite de 50
     )
     assert by_name.status_code == 200
     assert any(p["id"] == pecheur["id"] for p in by_name.json())

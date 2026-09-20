@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "generated": "2026-09-20T02:50:54.857470+00:00",
+  "note": "Snapshot AIS eaux gabonaises (PIGAP ADR-005)",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.509,
+          0.284
+        ]
+      },
+      "properties": {
+        "mmsi": "626000777",
+        "name": "ESTUAIRE MARINE",
+        "sog": 0.0,
+        "cog": 45.0,
+        "ship_type": "30",
+        "destination": null,
+        "timestamp": "2026-09-20T01:41:08.640766+00:00",
+        "provider": "snapshot"
+      }
+    }
+  ]
+}

@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 
 from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
 
+from app.core.datafiles import gabon_data_dir
+
 # __file__ → …/backend/app/modules/geolocalisation/gabon_routes.py → repo root = parents[4]
-_REPO_ROOT = Path(__file__).resolve().parents[4]
-_DATA_DIR = _REPO_ROOT / "data" / "open-data" / "gabon"
+_DATA_DIR = gabon_data_dir()
 
 GABON_ZONE_BBOX = {
     "min_lon": 6.5,
@@ -57,9 +57,20 @@ def is_in_gabon_zone(lon: float, lat: float) -> bool:
 
 
 def is_on_water(lon: float, lat: float) -> bool:
-    """True si dans la ZEE gabonaise ou un corridor fluvial OSM (buffer)."""
+    """True si dans la ZEE gabonaise, un corridor fluvial OSM (buffer) ou une zone portuaire.
+
+    Les quais (Libreville, Port-Gentil, Mayumba…) sont hors du polygone ZEE
+    strict : le rayon de quai du référentiel des ports (`rayon_quai_km`) les
+    réintègre, sinon les positions GPS à quai seraient refusées et la présence
+    au port impossible. Le rayon portuaire complet n'est pas utilisé ici : il
+    englobe la ville.
+    """
     if not is_in_gabon_zone(lon, lat):
         return False
+    from app.modules.ais_gabon.ports import port_quai_proche
+
+    if port_quai_proche(lon, lat) is not None:
+        return True
     geom = _water_geom()
     if geom is None:
         # Fallback minimal : mer approximative à l'ouest
@@ -111,8 +122,7 @@ def assert_demo_routes_on_water() -> None:
     for name, path in DEMO_ROUTES.items():
         if not path_stays_on_water(path):
             raise AssertionError(
-                f"Route {name}: point ou segment hors eau open data "
-                "(ZEE / fleuves OSM)"
+                f"Route {name}: point ou segment hors eau open data (ZEE / fleuves OSM)"
             )
 
 

@@ -10,6 +10,7 @@ from app.modules.demandes_licence.router import router as demandes_licence_route
 from app.modules.documents.router import router as documents_router
 from app.modules.geolocalisation.router import config_router as geoloc_config_router
 from app.modules.geolocalisation.router import router as positions_router
+from app.modules.meteo_marine.router import router as meteo_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.pecheurs.router import router as pecheurs_router
 from app.modules.predictions.router import router as predictions_router
@@ -28,6 +29,7 @@ api_router.include_router(notifications_router)
 api_router.include_router(positions_router)
 api_router.include_router(geoloc_config_router)
 api_router.include_router(ais_router)
+api_router.include_router(meteo_router)
 api_router.include_router(zones_router)
 api_router.include_router(captures_router)
 api_router.include_router(quotas_router)

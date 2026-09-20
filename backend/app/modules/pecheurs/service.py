@@ -72,11 +72,16 @@ async def create_pecheur(db: AsyncSession, data: PecheurCreate) -> Pecheur:
         email=str(data.email) if data.email else None,
         mot_de_passe_hash=hash_password(data.mot_de_passe),
     )
+    numero_licence = (data.numero_licence or "").strip()
+    if not numero_licence:
+        from app.core.numerotation import numero_licence_suivant
+
+        numero_licence = await numero_licence_suivant(db)
     pecheur = Pecheur(
         utilisateur=utilisateur,
         nom=data.nom,
         prenom=data.prenom,
-        numero_licence=data.numero_licence,
+        numero_licence=numero_licence,
         date_delivrance_licence=data.date_delivrance_licence,
         statut=data.statut,
         organisation_id=data.organisation_id,

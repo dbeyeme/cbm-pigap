@@ -89,7 +89,8 @@ class PecheurCreate(BaseModel):
 
     nom: str = Field(..., min_length=1, max_length=255)
     prenom: str = Field(..., min_length=1, max_length=255)
-    numero_licence: str = Field(..., min_length=1, max_length=64)
+    # None = attribution automatique (voir app.core.numerotation)
+    numero_licence: str | None = Field(None, min_length=1, max_length=64)
     date_delivrance_licence: date | None = None
     statut: StatutPecheur = StatutPecheur.actif
     organisation_id: UUID | None = None
@@ -99,10 +100,14 @@ class PecheurCreate(BaseModel):
 
     @field_validator("numero_licence")
     @classmethod
-    def licence_non_vide(cls, value: str) -> str:
+    def licence_non_vide(cls, value: str | None) -> str | None:
+        if value is None:
+            return None  # attribution automatique
         cleaned = value.strip()
         if not cleaned:
-            raise ValueError("Un numéro de licence est obligatoire (même provisoire)")
+            raise ValueError(
+                "Numéro de licence vide : omettez le champ pour une attribution automatique"
+            )
         return cleaned
 
 

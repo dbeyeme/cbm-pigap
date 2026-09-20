@@ -73,7 +73,6 @@ async def test_agent_lists_and_approves_demande(client, agent_headers):
         f"/api/v1/demandes-licence/{demande_id}/approve",
         headers=agent_headers,
         json={
-            "numero_licence": f"LIC-DEMO-{uuid4().hex[:6].upper()}",
             "mot_de_passe": "TempPass123!",
             "creer_embarcation": False,
         },
@@ -82,6 +81,10 @@ async def test_agent_lists_and_approves_demande(client, agent_headers):
     body = approved.json()
     assert body["statut"] == "approuvee"
     assert body["pecheur_id"]
+    # Numéro de licence attribué automatiquement à l'approbation définitive
+    assert body["numero_licence_attribue"]
+    assert body["numero_licence_attribue"].startswith("GA-PA-")
+    assert body["immatriculation_attribuee"] is None
 
 
 async def test_public_can_submit_with_justificatif(client, tmp_path, monkeypatch):

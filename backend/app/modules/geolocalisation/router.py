@@ -16,6 +16,7 @@ from app.modules.geolocalisation.schemas import (
     EmbarcationTrackRead,
     LicenceDossierRead,
     LiveVesselRead,
+    PortPresenceResponse,
     PositionBatchCreate,
     PositionCreate,
     PositionRead,
@@ -115,6 +116,23 @@ async def list_live_fleet(
     Rafraîchir côté client toutes les 15–30 s. Source = GPS mobile / démo (pas AIS).
     """
     return await service.list_live_vessels(db, user, since_minutes=since_minutes)
+
+
+@router.get("/presence-ports", response_model=PortPresenceResponse)
+async def presence_ports(
+    db: DbSession,
+    user: GeolocUser,
+    fenetre_heures: Annotated[int, Query(ge=1, le=7 * 24)] = 24,
+) -> PortPresenceResponse:
+    """Présence au port de la flotte PIGAP, calculée depuis les positions GPS.
+
+    À quai, en manœuvre, en mer ou sans signal par embarcation ; arrivées,
+    départs et cohérence des déclarations de débarquement sur la fenêtre.
+    Aucun matériel requis : même référentiel de ports que la couche AIS.
+    """
+    from app.modules.geolocalisation.presence import compute_port_presence
+
+    return await compute_port_presence(db, user, fenetre_heures=fenetre_heures)
 
 
 @router.get("/dossier", response_model=LicenceDossierRead)

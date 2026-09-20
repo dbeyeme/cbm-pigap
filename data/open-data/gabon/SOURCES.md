@@ -11,6 +11,8 @@ Masque d’eau et corridors de démo pour M2. **Pas de données personnelles** ;
 | `rivers_overpass.json` | Réponse brute Overpass (cache) |
 | `water_mask.geojson` | Union ZEE ∪ buffers fluviaux — validation `is_on_water` |
 | `demo_routes_opendata.json` | Corridors de démo échantillonnés sur ces géométries |
+| `ports.json` | Ports et mouillages gabonais (présence AIS) — modifiable sans redéploiement |
+| `secteurs_mer.json` | Secteurs maritimes et stations fluviales du bulletin météo-marine (ADR-008) |
 | `SOURCES.md` | Ce fichier |
 
 ## Sources & licences
@@ -19,7 +21,9 @@ Masque d’eau et corridors de démo pour M2. **Pas de données personnelles** ;
 |-----|---------|---------|--------|
 | **EEZ Gabon** (MRGID 8476) | Flanders Marine Institute (VLIZ) — [Marine Regions](https://www.marineregions.org/) EEZ v12 | [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) | API / GeoJSON Marine Regions |
 | **Fleuves** | Contributeurs [OpenStreetMap](https://www.openstreetmap.org/) | [ODbL 1.0](https://opendatacommons.org/licenses/odbl/) | Overpass API |
-| **AIS (live)** | [Open Waters](https://ais.openwaters.io) (agrégat AIS open) | Conditions fournisseur | `GET /v1/vessels?bbox=` puis filtre ZEE PIGAP |
+| **AIS (live)** | [AISStream](https://aisstream.io) (flux communautaire, clé gratuite) · [Open Waters](https://ais.openwaters.io) · récepteurs AIS locaux ([AIS-catcher](https://github.com/jvde-github/AIS-catcher), MIT) | Conditions fournisseur / MIT | Flux permanent + `POST /api/v1/ais/ingest`, filtre ZEE élargie d'une marge côtière |
+| **Météo-marine** | [Open-Meteo](https://open-meteo.com) — Marine (vagues, houle, courants, niveau, température), Prévisions (vent, pluie, visibilité), Flood (débit GloFAS) ; données dérivées de Copernicus Marine, ECMWF et GloFAS | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | API HTTP sans clé, `secteurs_mer.json` (ADR-008) |
+| **Ports et mouillages** | Référentiel PIGAP `ports.json` (coordonnées indicatives à valider DGPA / OPRAG) | Interne | Détection de présence au port (`GET /api/v1/ais/ports`) |
 
 ### Attribution (à conserver)
 

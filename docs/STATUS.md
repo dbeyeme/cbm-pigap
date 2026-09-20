@@ -11,10 +11,10 @@
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-09-15 |
+| **Dernière mise à jour** | 2026-09-20 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | Abonnements implémentés (API + web + mobile, MM démo) — ADR-007 ; `ABONNEMENT_ENFORCE=false` |
+| **Note récente** | AIS : flotte accumulée + ports + ingestion récepteurs locaux (aucune couverture communautaire au Gabon) · numérotation automatique licences · couche design web |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

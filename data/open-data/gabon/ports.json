@@ -1,0 +1,11 @@
+{
+  "note": "Ports et mouillages utilisés pour la détection de présence AIS (module ais_gabon). Coordonnées indicatives (WGS84) à valider avec la DGPA / OPRAG ; rayon en kilomètres autour du point, incluant la zone de mouillage. Modifiable sans redéploiement (AIS_PORTS_PATH). `rayon_quai_km` : rayon court (quais et bassin) où une position GPS est acceptée comme étant sur l'eau même hors polygone ZEE.",
+  "ports": [
+    {"id": "owendo", "nom": "Port d'Owendo", "lon": 9.508, "lat": 0.283, "rayon_km": 6.0, "type": "port_commercial", "rayon_quai_km": 1.5},
+    {"id": "libreville", "nom": "Port môle de Libreville", "lon": 9.418, "lat": 0.387, "rayon_km": 5.0, "type": "port_peche", "rayon_quai_km": 1.5},
+    {"id": "port-gentil", "nom": "Port de Port-Gentil", "lon": 8.782, "lat": -0.717, "rayon_km": 8.0, "type": "port_commercial", "rayon_quai_km": 2.5},
+    {"id": "cap-lopez", "nom": "Terminal de Cap Lopez", "lon": 8.705, "lat": -0.635, "rayon_km": 8.0, "type": "terminal", "rayon_quai_km": 1.5},
+    {"id": "mayumba", "nom": "Port de Mayumba", "lon": 10.652, "lat": -3.432, "rayon_km": 6.0, "type": "port_peche", "rayon_quai_km": 1.5},
+    {"id": "cocobeach", "nom": "Cocobeach", "lon": 9.583, "lat": 1.0, "rayon_km": 5.0, "type": "port_peche", "rayon_quai_km": 1.5}
+  ]
+}

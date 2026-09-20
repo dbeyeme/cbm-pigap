@@ -106,11 +106,20 @@ class Utilisateur(Base):
     telephone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     mot_de_passe_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     date_creation: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     pecheur: Mapped[Pecheur | None] = relationship(back_populates="utilisateur", uselist=False)
+    organisation_compte: Mapped[Organisation | None] = relationship(
+        foreign_keys=[organisation_id],
+    )
 
 
 class Pecheur(Base):
@@ -335,6 +344,18 @@ class DemandeLicence(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     date_traitement: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Identifiants attribués automatiquement à l'approbation définitive
+    numero_licence_attribue: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    immatriculation_attribuee: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class Compteur(Base):
+    """Compteurs de numérotation (licences, immatriculations) — incrément atomique."""
+
+    __tablename__ = "compteurs"
+
+    cle: Mapped[str] = mapped_column(String(64), primary_key=True)
+    valeur: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class Abonnement(Base):

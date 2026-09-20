@@ -147,8 +147,8 @@ async def create_capture(
     row = _build_row(data, now=now)
     db.add(row)
     await db.flush()
-    from app.modules.quotas.service import refresh_quotas_for_especes
     from app.modules.alertes.service import evaluate_after_capture
+    from app.modules.quotas.service import refresh_quotas_for_especes
 
     await refresh_quotas_for_especes(db, {row.espece})
     await evaluate_after_capture(

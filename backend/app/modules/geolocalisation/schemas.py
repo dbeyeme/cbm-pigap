@@ -101,3 +101,60 @@ class LicenceDossierRead(BaseModel):
         "(zone interdite / quota) cible une embarcation de cette licence valide, "
         "cela constituera une infraction à traiter."
     )
+
+
+class DeclarationPresenceRead(BaseModel):
+    """Déclaration de capture rapprochée d'un port et de la présence GPS."""
+
+    embarcation_id: UUID
+    embarcation_nom: str
+    port_id: str
+    port_nom: str
+    date: datetime
+    quantite_kg: float
+    coherence: str = Field(
+        ..., description="coherente | incoherente | non_verifiable (absence de GPS)"
+    )
+
+
+class EmbarcationPresenceRead(BaseModel):
+    embarcation_id: UUID
+    nom: str
+    immatriculation: str
+    type: str | None = None
+    statut: str = Field(..., description="a_quai | en_manoeuvre | en_mer | sans_signal")
+    port_id: str | None = None
+    port_nom: str | None = None
+    depuis: datetime | None = Field(None, description="Début de l'état courant")
+    derniere_position: datetime | None = None
+    age_s: int | None = None
+    dernier_port_id: str | None = None
+    dernier_port_nom: str | None = None
+    dernier_depart: datetime | None = None
+    declaration: DeclarationPresenceRead | None = None
+
+
+class PortPresenceRead(BaseModel):
+    id: str
+    nom: str
+    type: str
+    lon: float
+    lat: float
+    rayon_km: float
+    a_quai: int = 0
+    en_manoeuvre: int = 0
+    arrivees: int = Field(0, description="Arrivées détectées sur la fenêtre")
+    departs: int = Field(0, description="Départs détectés sur la fenêtre")
+    debarquements_declares: int = 0
+    embarcations: list[EmbarcationPresenceRead] = Field(default_factory=list)
+
+
+class PortPresenceResponse(BaseModel):
+    fetched_at: datetime
+    fenetre_heures: int
+    seuil_minutes: int
+    ports: list[PortPresenceRead]
+    en_mer: list[EmbarcationPresenceRead] = Field(default_factory=list)
+    sans_signal: int = 0
+    total_suivies: int = 0
+    incoherences: list[DeclarationPresenceRead] = Field(default_factory=list)

@@ -1,0 +1,99 @@
+{
+  "note": "Secteurs maritimes et stations fluviales utilisés par le bulletin météo-marine PIGAP (module meteo_marine). Points d'interrogation des modèles Open-Meteo (Marine : vagues, houle, courants, niveau de la mer, température ; Prévisions : vent, pluie, visibilité ; Flood : débit GloFAS). Coordonnées indicatives à valider avec la DGPA et la Direction de la météorologie ; les cellules fluviales sont celles du modèle GloFAS présentant un débit cohérent au 2026-09-20. La station Komo à Kango est retirée tant qu'aucune cellule GloFAS au débit réaliste n'est identifiée.",
+  "secteurs": [
+    {
+      "id": "cocobeach",
+      "nom": "Cocobeach et baie de la Mondah",
+      "lon": 9.45,
+      "lat": 0.95,
+      "rayon_km": 25,
+      "type": "cote"
+    },
+    {
+      "id": "estuaire",
+      "nom": "Estuaire du Komo (Libreville, Owendo)",
+      "lon": 9.32,
+      "lat": 0.32,
+      "rayon_km": 22,
+      "type": "estuaire"
+    },
+    {
+      "id": "large-libreville",
+      "nom": "Large de Libreville et Pointe Denis",
+      "lon": 8.95,
+      "lat": 0.15,
+      "rayon_km": 35,
+      "type": "large"
+    },
+    {
+      "id": "cap-lopez",
+      "nom": "Port-Gentil et Cap Lopez",
+      "lon": 8.6,
+      "lat": -0.7,
+      "rayon_km": 30,
+      "type": "cote"
+    },
+    {
+      "id": "delta-ogooue",
+      "nom": "Delta de l'Ogooué",
+      "lon": 8.95,
+      "lat": -1.25,
+      "rayon_km": 30,
+      "type": "estuaire"
+    },
+    {
+      "id": "iguela",
+      "nom": "Iguéla et lagune Nkomi (Omboué)",
+      "lon": 9.05,
+      "lat": -1.85,
+      "rayon_km": 30,
+      "type": "cote"
+    },
+    {
+      "id": "gamba",
+      "nom": "Sette Cama et Gamba",
+      "lon": 9.55,
+      "lat": -2.6,
+      "rayon_km": 30,
+      "type": "cote"
+    },
+    {
+      "id": "mayumba",
+      "nom": "Mayumba et frontière sud",
+      "lon": 10.45,
+      "lat": -3.6,
+      "rayon_km": 35,
+      "type": "cote"
+    }
+  ],
+  "fleuves": [
+    {
+      "id": "ogooue-lambarene",
+      "nom": "Ogooué à Lambaréné",
+      "fleuve": "Ogooué",
+      "lon": 10.14,
+      "lat": -0.8
+    },
+    {
+      "id": "ogooue-ndjole",
+      "nom": "Ogooué à Ndjolé",
+      "fleuve": "Ogooué",
+      "lon": 10.66,
+      "lat": -0.18
+    },
+    {
+      "id": "ogooue-delta",
+      "nom": "Bas Ogooué (delta)",
+      "fleuve": "Ogooué",
+      "lon": 9.3,
+      "lat": -1.0
+    },
+    {
+      "id": "nyanga-tchibanga",
+      "nom": "Nyanga à Tchibanga",
+      "fleuve": "Nyanga",
+      "lon": 10.92,
+      "lat": -2.93
+    }
+  ]
+}
