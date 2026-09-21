@@ -46,7 +46,9 @@ DEFAULT_MODULES_BY_OFFRE: dict[CodeOffreAbonnement, dict[str, bool]] = {
 }
 
 
-def default_modules_for(code: CodeOffreAbonnement | None, canal: CanalAbonnement | None = None) -> dict[str, bool]:
+def default_modules_for(
+    code: CodeOffreAbonnement | None, canal: CanalAbonnement | None = None
+) -> dict[str, bool]:
     if code and code in DEFAULT_MODULES_BY_OFFRE:
         return dict(DEFAULT_MODULES_BY_OFFRE[code])
     if canal == CanalAbonnement.b2b_autorite:

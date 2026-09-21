@@ -2898,3 +2898,30 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
 .ship-marker[style*="cursor: pointer"]:hover {
   filter: brightness(1.15);
 }
+
+/* Payeur Mobile Money */
+.abo-payeur {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.abo-payeur.is-ok {
+  color: #166534;
+}
+
+.abo-payeur.is-warn {
+  color: #9a3412;
+}
+
+input.is-locked {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.abo-tiers {
+  font-size: 0.78rem;
+  font-weight: 500;
+}

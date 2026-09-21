@@ -67,7 +67,14 @@ class InitierB2CRequest(BaseModel):
     pecheur_id: UUID | None = None
     numero_licence: str | None = None
     operateur: OperateurMobileMoney = OperateurMobileMoney.demo
-    msisdn: str | None = Field(default=None, description="Ex. 077xxxxxx (Gabon)")
+    msisdn: str | None = Field(
+        default=None,
+        description="Numéro Mobile Money du payeur ; vide = téléphone enregistré du pêcheur",
+    )
+    numero_tiers_autorise: bool = Field(
+        default=False,
+        description="Agent uniquement : autoriser un payeur autre que le titulaire",
+    )
 
 
 class InitierB2BRequest(BaseModel):
@@ -75,7 +82,11 @@ class InitierB2BRequest(BaseModel):
     organisation_id: UUID
     embarcations: int = Field(default=10, ge=1, le=500)
     operateur: OperateurMobileMoney = OperateurMobileMoney.demo
-    msisdn: str | None = None
+    msisdn: str | None = Field(
+        default=None,
+        description="Numéro Mobile Money du payeur ; vide = téléphone enregistré de l'organisation",
+    )
+    numero_tiers_autorise: bool = Field(default=False)
     activer_demo: bool = Field(
         default=False,
         description="Si true et mode demo : active immédiatement sans webhook",
@@ -150,3 +161,15 @@ class OrgPortalRead(BaseModel):
     modules: dict[str, bool]
     pecheurs_count: int
     embarcations_count: int
+
+
+class PayeurRead(BaseModel):
+    """Numéro Mobile Money enregistré de l'acteur (payeur attendu du dépôt)."""
+
+    acteur: str = Field(..., description="pecheur | organisation")
+    acteur_id: UUID
+    nom: str
+    telephone: str | None = Field(None, description="Téléphone enregistré tel que saisi")
+    msisdn: str | None = Field(None, description="Numéro normalisé 241… ou None si invalide/absent")
+    valide: bool = Field(False, description="True si un dépôt peut être initié depuis ce numéro")
+    motif: str = ""

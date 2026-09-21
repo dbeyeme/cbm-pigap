@@ -374,3 +374,20 @@ export type AvisMer = {
 export function getAvisMer(token: string, lon: number, lat: number) {
   return request<AvisMer>(`/api/v1/meteo/avis?lon=${lon}&lat=${lat}`, { token });
 }
+
+
+/* ——— Payeur attendu : téléphone enregistré du pêcheur ——— */
+
+export type Payeur = {
+  acteur: string;
+  acteur_id: string;
+  nom: string;
+  telephone: string | null;
+  msisdn: string | null;
+  valide: boolean;
+  motif: string;
+};
+
+export function getPayeur(token: string) {
+  return request<Payeur>('/api/v1/abonnements/payeur', { token });
+}

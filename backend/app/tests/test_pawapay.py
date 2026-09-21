@@ -57,9 +57,7 @@ async def test_paiement_config_demo(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_initier_live_pawapay_puis_callback(
-    client: AsyncClient, engine, monkeypatch
-):
+async def test_initier_live_pawapay_puis_callback(client: AsyncClient, engine, monkeypatch):
     monkeypatch.setattr(settings, "mobile_money_mode", "live")
     monkeypatch.setattr(settings, "pawapay_api_token", "test-token")
     headers, pecheur = await _pecheur_headers(engine)
@@ -74,17 +72,14 @@ async def test_initier_live_pawapay_puis_callback(
         r = await client.post(
             "/api/v1/abonnements/initier-b2c",
             headers=headers,
-            json={
-                "code_offre": "b2c_mensuel",
-                "operateur": "airtel_money",
-                "msisdn": "077000111",
-            },
+            # Sans numéro : le dépôt part du téléphone enregistré du pêcheur
+            json={"code_offre": "b2c_mensuel", "operateur": "airtel_money"},
         )
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["abonnement"]["statut"] == "en_attente_paiement"
     assert body["paiement"]["operateur"] == "airtel_money"
-    assert body["paiement"]["msisdn"] == "24177000111"
+    assert body["paiement"]["msisdn"].startswith("2416") and len(body["paiement"]["msisdn"]) == 11
     paiement_id = body["paiement"]["id"]
 
     wh = await client.post(
@@ -120,9 +115,9 @@ async def test_synchroniser_paiement_live(client: AsyncClient, engine, monkeypat
         r = await client.post(
             "/api/v1/abonnements/initier-b2c",
             headers=headers,
-            json={"code_offre": "b2c_mensuel", "msisdn": "+24177111222"},
+            json={"code_offre": "b2c_mensuel"},
         )
-    assert r.status_code == 201
+    assert r.status_code == 201, r.text
     paiement_id = r.json()["paiement"]["id"]
 
     with patch(
@@ -148,13 +143,15 @@ async def test_synchroniser_paiement_live(client: AsyncClient, engine, monkeypat
 
 
 @pytest.mark.asyncio
-async def test_live_refuse_sans_msisdn(client: AsyncClient, engine, monkeypatch):
+async def test_live_refuse_autre_numero_que_le_titulaire(client: AsyncClient, engine, monkeypatch):
+    """Le pêcheur ne peut pas faire partir le dépôt d'un numéro autre que le sien."""
     monkeypatch.setattr(settings, "mobile_money_mode", "live")
     monkeypatch.setattr(settings, "pawapay_api_token", "test-token")
     headers, _ = await _pecheur_headers(engine)
     r = await client.post(
         "/api/v1/abonnements/initier-b2c",
         headers=headers,
-        json={"code_offre": "b2c_mensuel"},
+        json={"code_offre": "b2c_mensuel", "msisdn": "077999999"},
     )
     assert r.status_code == 422
+    assert "numéro enregistré" in r.json()["detail"]

@@ -1160,6 +1160,7 @@ export function initierAbonnementB2C(
     numero_licence?: string;
     operateur?: string;
     msisdn?: string;
+    numero_tiers_autorise?: boolean;
   },
 ) {
   return request<InitierAbonnementResponse>('/api/v1/abonnements/initier-b2c', token, {
@@ -1177,6 +1178,7 @@ export function initierAbonnementB2B(
     operateur?: string;
     msisdn?: string;
     activer_demo?: boolean;
+    numero_tiers_autorise?: boolean;
   },
 ) {
   return request<InitierAbonnementResponse>('/api/v1/abonnements/initier-b2b', token, {
@@ -1525,4 +1527,28 @@ export type FicheEmbarcation = {
 
 export function getFicheEmbarcation(token: string, embarcationId: string) {
   return request<FicheEmbarcation>(`/api/v1/positions/embarcations/${embarcationId}/fiche`, token);
+}
+
+
+/* ——— Payeur attendu d'un dépôt Mobile Money ——— */
+
+export type Payeur = {
+  acteur: 'pecheur' | 'organisation' | string;
+  acteur_id: string;
+  nom: string;
+  telephone: string | null;
+  msisdn: string | null;
+  valide: boolean;
+  motif: string;
+};
+
+export function getPayeur(
+  token: string,
+  q: { pecheur_id?: string; numero_licence?: string; organisation_id?: string },
+) {
+  const params = new URLSearchParams();
+  if (q.pecheur_id) params.set('pecheur_id', q.pecheur_id);
+  if (q.numero_licence) params.set('numero_licence', q.numero_licence);
+  if (q.organisation_id) params.set('organisation_id', q.organisation_id);
+  return request<Payeur>(`/api/v1/abonnements/payeur?${params}`, token);
 }

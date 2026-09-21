@@ -17,6 +17,8 @@ import {
   OffreAbonnement,
   PaiementConfig,
   synchroniserPaiement,
+  getPayeur,
+  type Payeur,
 } from '../api';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
@@ -83,6 +85,20 @@ function AbonnementBody({ token, onBack }: Props) {
   const [code, setCode] = useState('b2c_annuel');
   const [licence, setLicence] = useState('');
   const [msisdn, setMsisdn] = useState('');
+  const [payeur, setPayeur] = useState<Payeur | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getPayeur(token)
+      .then((p) => {
+        if (cancelled) return;
+        setPayeur(p);
+        if (p.telephone) setMsisdn(p.telephone);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -200,17 +216,22 @@ function AbonnementBody({ token, onBack }: Props) {
           placeholderTextColor={colors.inkSoft}
         />
 
-        <Text style={styles.label}>
-          Telephone Airtel Money{live ? ' (obligatoire)' : ' (optionnel)'}
-        </Text>
+        <Text style={styles.label}>Telephone Mobile Money (numero enregistre)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.inkMuted }]}
           value={msisdn}
-          onChangeText={setMsisdn}
-          placeholder="077..."
+          editable={false}
+          placeholder={payeur && !payeur.valide ? 'Aucun telephone enregistre' : 'Chargement…'}
           keyboardType="phone-pad"
           placeholderTextColor={colors.inkSoft}
         />
+        <Text style={styles.hint}>
+          {payeur?.valide
+            ? 'Le paiement est demande sur ce telephone : validez le code secret Mobile Money quand il apparait.'
+            : payeur
+              ? `${payeur.motif}. Demandez a un agent de mettre a jour votre telephone.`
+              : 'Le paiement part du telephone enregistre sur votre compte.'}
+        </Text>
 
         {loading ? <ActivityIndicator color={colors.tide} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -220,7 +241,7 @@ function AbonnementBody({ token, onBack }: Props) {
           label={live ? 'Payer via Airtel Money' : 'Payer et activer (demo)'}
           icon="wallet-outline"
           onPress={() => void pay()}
-          disabled={loading || !code || (live && !msisdn.trim())}
+          disabled={loading || !code || (live && !(payeur?.valide ?? false))}
           style={styles.cta}
         />
       </GlassPanel>
@@ -229,6 +250,14 @@ function AbonnementBody({ token, onBack }: Props) {
 }
 
 const styles = StyleSheet.create({
+  hint: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.inkMuted,
+    marginTop: 4,
+    marginBottom: 6,
+  },
   container: { padding: space.lg, paddingBottom: 120, gap: space.sm },
   back: { fontFamily: fonts.bodyMedium, color: colors.tide, marginBottom: space.sm },
   kicker: {

@@ -25,6 +25,7 @@ from app.modules.abonnements.schemas import (
     OrgPortalRead,
     PaiementConfigRead,
     PaiementRead,
+    PayeurRead,
     WebhookMobileMoneyRequest,
 )
 
@@ -144,6 +145,38 @@ async def couverture_me(db: DbSession, user: CurrentUser) -> CouvertureRead:
     )
 
 
+@router.get("/payeur", response_model=PayeurRead)
+async def payeur(
+    db: DbSession,
+    user: CurrentUser,
+    pecheur_id: UUID | None = None,
+    numero_licence: str | None = None,
+    organisation_id: UUID | None = None,
+) -> PayeurRead:
+    """Numéro Mobile Money enregistré de l'acteur, payeur attendu du dépôt."""
+    if user.role == RoleUtilisateur.pecheur:
+        pecheur = await service.find_pecheur_for_user(db, user.id)
+        if pecheur is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Profil pêcheur manquant")
+        return await service.payeur_attendu(db, pecheur_id=pecheur.id)
+    if user.role == RoleUtilisateur.organisation:
+        return await service.payeur_attendu(db, organisation_id=user.organisation_id)
+    if user.role not in (
+        RoleUtilisateur.admin,
+        RoleUtilisateur.agent_controle,
+        RoleUtilisateur.autorite,
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
+    if organisation_id is None and pecheur_id is None and not numero_licence:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Indiquez pecheur_id, numero_licence ou organisation_id",
+        )
+    return await service.payeur_attendu(
+        db, pecheur_id=pecheur_id, numero_licence=numero_licence, organisation_id=organisation_id
+    )
+
+
 @router.post("/initier-b2c", response_model=InitierResponse, status_code=201)
 async def initier_b2c(
     payload: InitierB2CRequest,
@@ -163,7 +196,9 @@ async def initier_b2c(
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
 
-    ab, paiement = await service.initier_b2c(db, payload)
+    ab, paiement = await service.initier_b2c(
+        db, payload, acteur_self=user.role == RoleUtilisateur.pecheur
+    )
     return InitierResponse(
         abonnement=AbonnementRead.model_validate(ab),
         paiement=_paiement_read(paiement),
@@ -185,7 +220,9 @@ async def initier_b2b(
         RoleUtilisateur.autorite,
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
-    ab, paiement = await service.initier_b2b(db, payload)
+    ab, paiement = await service.initier_b2b(
+        db, payload, acteur_self=user.role == RoleUtilisateur.organisation
+    )
     return InitierResponse(
         abonnement=AbonnementRead.model_validate(ab),
         paiement=_paiement_read(paiement),

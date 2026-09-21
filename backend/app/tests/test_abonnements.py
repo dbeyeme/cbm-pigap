@@ -65,6 +65,8 @@ async def test_initier_et_confirmer_b2c_demo(
             "numero_licence": pecheur.numero_licence,
             "operateur": "demo",
             "msisdn": "077000111",
+            # L'agent règle depuis un autre numéro que le titulaire : autorisation explicite
+            "numero_tiers_autorise": True,
         },
     )
     assert r.status_code == 201, r.text

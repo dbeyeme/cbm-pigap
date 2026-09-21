@@ -21,7 +21,7 @@ from app.db.enums import (
     StatutAbonnement,
     StatutPaiement,
 )
-from app.db.models import Abonnement, Organisation, PaiementMobileMoney, Pecheur
+from app.db.models import Abonnement, Organisation, PaiementMobileMoney, Pecheur, Utilisateur
 from app.modules.abonnements import pawapay as pawapay_client
 from app.modules.abonnements.catalog import OFFRES, montant_flotte
 from app.modules.abonnements.schemas import (
@@ -29,6 +29,7 @@ from app.modules.abonnements.schemas import (
     InitierB2BRequest,
     InitierB2CRequest,
     OffreRead,
+    PayeurRead,
     WebhookMobileMoneyRequest,
 )
 
@@ -70,7 +71,9 @@ def _duree(periode: PeriodeAbonnement) -> timedelta:
     return timedelta(days=365)
 
 
-def _instructions(operateur: OperateurMobileMoney, montant: int, ref: str, msisdn: str | None) -> str:
+def _instructions(
+    operateur: OperateurMobileMoney, montant: int, ref: str, msisdn: str | None
+) -> str:
     if operateur == OperateurMobileMoney.demo or settings.mobile_money_mode == "demo":
         return (
             f"Mode démo : confirmez le paiement de {montant} FCFA "
@@ -98,6 +101,72 @@ def _operateur_pour_init(requested: OperateurMobileMoney) -> OperateurMobileMone
     return OperateurMobileMoney.airtel_money
 
 
+def _normaliser_ou_none(raw: str | None) -> str | None:
+    if not raw or not raw.strip():
+        return None
+    try:
+        return pawapay_client.normalize_gabon_msisdn(raw)
+    except HTTPException:
+        return None
+
+
+async def telephone_pecheur(db: AsyncSession, pecheur: Pecheur) -> str | None:
+    """Téléphone enregistré du titulaire (compte utilisateur du pêcheur)."""
+    result = await db.execute(
+        select(Utilisateur.telephone).where(Utilisateur.id == pecheur.utilisateur_id)
+    )
+    return result.scalar_one_or_none()
+
+
+def resoudre_msisdn_paiement(
+    *,
+    msisdn_demande: str | None,
+    telephone_acteur: str | None,
+    acteur_self: bool,
+    tiers_autorise: bool,
+    libelle_acteur: str,
+) -> tuple[str | None, dict[str, Any]]:
+    """Le dépôt Mobile Money est initié depuis le numéro enregistré de l'acteur.
+
+    Règles :
+    - numéro omis → téléphone enregistré de l'acteur ;
+    - numéro identique au téléphone enregistré → accepté ;
+    - numéro différent → refusé pour l'acteur lui-même et pour un agent sans
+      autorisation explicite de payeur tiers ; accepté et tracé sinon.
+    Retourne (msisdn normalisé ou None, métadonnées d'audit).
+    """
+    acteur_norm = _normaliser_ou_none(telephone_acteur)
+    demande_norm = _normaliser_ou_none(msisdn_demande) if msisdn_demande else None
+    meta: dict[str, Any] = {"msisdn_acteur": acteur_norm, "payeur_tiers": False}
+    if msisdn_demande and msisdn_demande.strip() and demande_norm is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Numéro Mobile Money invalide (ex. 077xxxxxx ou +24177xxxxxx)",
+        )
+    if demande_norm is None:
+        return acteur_norm, meta
+    if acteur_norm is None or demande_norm == acteur_norm:
+        return demande_norm, meta
+    if acteur_self:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Le paiement Mobile Money doit être initié depuis votre numéro enregistré "
+                f"({telephone_acteur}). Demandez à un agent de mettre à jour votre téléphone."
+            ),
+        )
+    if not tiers_autorise:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Le numéro saisi diffère du téléphone enregistré {libelle_acteur} "
+                f"({telephone_acteur}). Cochez « payeur tiers autorisé » pour l'accepter."
+            ),
+        )
+    meta["payeur_tiers"] = True
+    return demande_norm, meta
+
+
 async def _lancer_pawapay_si_live(
     db: AsyncSession,
     *,
@@ -110,7 +179,10 @@ async def _lancer_pawapay_si_live(
     if not msisdn or not msisdn.strip():
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Numéro Airtel Money requis (ex. 077xxxxxx)",
+            detail=(
+                "Aucun numéro Mobile Money : renseignez le téléphone enregistré de l'acteur "
+                "(ex. 077xxxxxx)"
+            ),
         )
     phone = pawapay_client.normalize_gabon_msisdn(msisdn)
     paiement.msisdn = phone
@@ -152,6 +224,7 @@ async def _lancer_pawapay_si_live(
             detail=f"PawaPay statut inattendu : {init_status or 'inconnu'}",
         )
 
+
 async def _get_pecheur(
     db: AsyncSession,
     *,
@@ -177,20 +250,28 @@ async def _get_pecheur(
     )
 
 
-async def initier_b2c(db: AsyncSession, data: InitierB2CRequest) -> tuple[Abonnement, PaiementMobileMoney]:
+async def initier_b2c(
+    db: AsyncSession, data: InitierB2CRequest, *, acteur_self: bool = False
+) -> tuple[Abonnement, PaiementMobileMoney]:
     if data.code_offre not in (CodeOffreAbonnement.b2c_mensuel, CodeOffreAbonnement.b2c_annuel):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Offre B2C requise")
     offre = OFFRES[data.code_offre]
     pecheur = await _get_pecheur(db, pecheur_id=data.pecheur_id, numero_licence=data.numero_licence)
+    telephone = await telephone_pecheur(db, pecheur)
+    msisdn, audit = resoudre_msisdn_paiement(
+        msisdn_demande=data.msisdn,
+        telephone_acteur=telephone,
+        acteur_self=acteur_self,
+        tiers_autorise=data.numero_tiers_autorise,
+        libelle_acteur="du pêcheur",
+    )
 
     # Un seul abonnement actif / en attente par pêcheur B2C
     existing = await db.execute(
         select(Abonnement).where(
             Abonnement.pecheur_id == pecheur.id,
             Abonnement.canal == CanalAbonnement.b2c,
-            Abonnement.statut.in_(
-                [StatutAbonnement.actif, StatutAbonnement.en_attente_paiement]
-            ),
+            Abonnement.statut.in_([StatutAbonnement.actif, StatutAbonnement.en_attente_paiement]),
         )
     )
     for ab in existing.scalars().all():
@@ -217,21 +298,26 @@ async def initier_b2c(db: AsyncSession, data: InitierB2CRequest) -> tuple[Abonne
         abonnement_id=abonnement.id,
         montant_fcfa=offre.montant_fcfa,
         operateur=op,
-        msisdn=data.msisdn,
+        msisdn=msisdn,
         statut=StatutPaiement.en_attente,
         reference_interne=ref,
-        metadata_json={"instructions": _instructions(op, offre.montant_fcfa, ref, data.msisdn)},
+        metadata_json={
+            "instructions": _instructions(op, offre.montant_fcfa, ref, msisdn),
+            **audit,
+        },
     )
     db.add(paiement)
     await db.flush()
-    await _lancer_pawapay_si_live(db, abonnement=abonnement, paiement=paiement, msisdn=data.msisdn)
+    await _lancer_pawapay_si_live(db, abonnement=abonnement, paiement=paiement, msisdn=msisdn)
     await db.commit()
     await db.refresh(abonnement)
     await db.refresh(paiement)
     return abonnement, paiement
 
 
-async def initier_b2b(db: AsyncSession, data: InitierB2BRequest) -> tuple[Abonnement, PaiementMobileMoney]:
+async def initier_b2b(
+    db: AsyncSession, data: InitierB2BRequest, *, acteur_self: bool = False
+) -> tuple[Abonnement, PaiementMobileMoney]:
     offre = OFFRES.get(data.code_offre)
     if offre is None or offre.canal == CanalAbonnement.b2c:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Offre B2B requise")
@@ -239,6 +325,13 @@ async def initier_b2b(db: AsyncSession, data: InitierB2BRequest) -> tuple[Abonne
     if org is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Organisation introuvable")
 
+    msisdn, audit = resoudre_msisdn_paiement(
+        msisdn_demande=data.msisdn,
+        telephone_acteur=org.telephone,
+        acteur_self=acteur_self,
+        tiers_autorise=data.numero_tiers_autorise,
+        libelle_acteur="de l'organisation",
+    )
     montant, n_emb = montant_flotte(data.code_offre, data.embarcations)
     if offre.canal == CanalAbonnement.b2b_autorite:
         montant = offre.montant_fcfa
@@ -264,10 +357,10 @@ async def initier_b2b(db: AsyncSession, data: InitierB2BRequest) -> tuple[Abonne
         abonnement_id=abonnement.id,
         montant_fcfa=montant,
         operateur=op,
-        msisdn=data.msisdn,
+        msisdn=msisdn,
         statut=StatutPaiement.en_attente,
         reference_interne=ref,
-        metadata_json={"instructions": _instructions(op, montant, ref, data.msisdn)},
+        metadata_json={"instructions": _instructions(op, montant, ref, msisdn), **audit},
     )
     db.add(paiement)
     await db.flush()
@@ -275,9 +368,7 @@ async def initier_b2b(db: AsyncSession, data: InitierB2BRequest) -> tuple[Abonne
     if data.activer_demo and not _is_live():
         await _activer_apres_paiement(db, abonnement, paiement)
     else:
-        await _lancer_pawapay_si_live(
-            db, abonnement=abonnement, paiement=paiement, msisdn=data.msisdn
-        )
+        await _lancer_pawapay_si_live(db, abonnement=abonnement, paiement=paiement, msisdn=msisdn)
 
     await db.commit()
     await db.refresh(abonnement)
@@ -430,7 +521,9 @@ async def confirmer_demo(
     return abonnement, paiement
 
 
-async def webhook_mobile_money(db: AsyncSession, data: WebhookMobileMoneyRequest) -> PaiementMobileMoney:
+async def webhook_mobile_money(
+    db: AsyncSession, data: WebhookMobileMoneyRequest
+) -> PaiementMobileMoney:
     if settings.mobile_money_webhook_secret and data.secret != settings.mobile_money_webhook_secret:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Secret webhook invalide")
     result = await db.execute(
@@ -515,7 +608,9 @@ async def webhook_pawapay_deposit(db: AsyncSession, payload: dict[str, Any]) -> 
     try:
         deposit_id = UUID(str(deposit_id_raw))
     except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="depositId invalide") from exc
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="depositId invalide"
+        ) from exc
 
     paiement = await db.get(PaiementMobileMoney, deposit_id)
     if paiement is None:
@@ -546,7 +641,9 @@ async def synchroniser_paiement(
     return abonnement, paiement
 
 
-async def activer_manuel(db: AsyncSession, abonnement_id: UUID, notes: str | None = None) -> Abonnement:
+async def activer_manuel(
+    db: AsyncSession, abonnement_id: UUID, notes: str | None = None
+) -> Abonnement:
     ab = await db.get(Abonnement, abonnement_id)
     if ab is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
@@ -584,11 +681,7 @@ async def list_abonnements(
     rows = list(result.scalars().all())
     now = datetime.now(UTC)
     for ab in rows:
-        if (
-            ab.statut == StatutAbonnement.actif
-            and ab.date_fin is not None
-            and ab.date_fin < now
-        ):
+        if ab.statut == StatutAbonnement.actif and ab.date_fin is not None and ab.date_fin < now:
             ab.statut = StatutAbonnement.expire
     await db.flush()
     return rows
@@ -601,7 +694,9 @@ async def get_abonnement(db: AsyncSession, abonnement_id: UUID) -> Abonnement:
     return ab
 
 
-async def couverture_pecheur(db: AsyncSession, pecheur: Pecheur) -> tuple[bool, str, Abonnement | None, str | None]:
+async def couverture_pecheur(
+    db: AsyncSession, pecheur: Pecheur
+) -> tuple[bool, str, Abonnement | None, str | None]:
     """Retourne (couvert, motif, abonnement, source)."""
     now = datetime.now(UTC)
 
@@ -654,3 +749,43 @@ async def assert_pecheur_couvert(db: AsyncSession, pecheur_id: UUID) -> None:
             detail=motif,
             headers={"X-Error-Code": "ABONNEMENT_REQUIS"},
         )
+
+
+async def payeur_attendu(
+    db: AsyncSession,
+    *,
+    pecheur_id: UUID | None = None,
+    numero_licence: str | None = None,
+    organisation_id: UUID | None = None,
+) -> PayeurRead:
+    """Numéro Mobile Money enregistré depuis lequel le dépôt doit être initié."""
+    from app.modules.abonnements.schemas import PayeurRead
+
+    if organisation_id is not None:
+        org = await db.get(Organisation, organisation_id)
+        if org is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Organisation introuvable")
+        norm = _normaliser_ou_none(org.telephone)
+        return PayeurRead(
+            acteur="organisation",
+            acteur_id=org.id,
+            nom=org.nom,
+            telephone=org.telephone,
+            msisdn=norm,
+            valide=norm is not None,
+            motif=""
+            if norm
+            else "Aucun téléphone Mobile Money valide enregistré pour l'organisation",
+        )
+    pecheur = await _get_pecheur(db, pecheur_id=pecheur_id, numero_licence=numero_licence)
+    tel = await telephone_pecheur(db, pecheur)
+    norm = _normaliser_ou_none(tel)
+    return PayeurRead(
+        acteur="pecheur",
+        acteur_id=pecheur.id,
+        nom=f"{pecheur.prenom} {pecheur.nom}",
+        telephone=tel,
+        msisdn=norm,
+        valide=norm is not None,
+        motif="" if norm else "Aucun téléphone Mobile Money valide enregistré pour ce pêcheur",
+    )

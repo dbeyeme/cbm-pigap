@@ -5,6 +5,26 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-09-21] — Paiement Mobile Money initié depuis le numéro enregistré de l'acteur
+
+**Ce qui a été construit :**
+- Audit du circuit PawaPay : le dépôt (`POST /v2/deposits`, payeur MMO Airtel Gabon) était bien un dépôt initié vers le téléphone du payeur, mais le numéro était libre et non rattaché à l'acteur
+- Règle métier (`resoudre_msisdn_paiement`) : numéro omis → téléphone enregistré du pêcheur (compte utilisateur) ou de l'organisation ; numéro différent → refusé pour l'acteur lui-même et pour un agent sans autorisation explicite (`numero_tiers_autorise`), accepté et tracé sinon (`payeur_tiers`, `msisdn_acteur` dans les métadonnées du paiement)
+- `GET /abonnements/payeur` : numéro enregistré attendu (pêcheur connecté, organisation connectée, ou ciblé par un agent)
+- Web : champ payeur pré-rempli depuis le titulaire et verrouillé ; case « Autoriser un payeur tiers » ; mobile : numéro enregistré affiché en lecture seule, bouton de paiement bloqué si aucun téléphone valide
+- Tests : `test_paiement_msisdn.py` (défaut, refus d'un autre numéro, même numéro écrit autrement, payeur tiers agent, absence de téléphone) ; tests existants alignés
+
+**Pourquoi :**
+- Demande porteur : vérifier que les paiements sont des dépôts Mobile Money initiés depuis le numéro de téléphone de l'acteur
+
+**Tests réalisés :**
+- Suites abonnements, PawaPay, modules et paiement : vertes
+
+**Points ouverts :**
+- Le téléphone enregistré doit être fiable : le formulaire de demande de licence et la fiche pêcheur restent la source ; prévoir une vérification du numéro par code SMS ou premier paiement réussi
+
+---
+
 ## [2026-09-20] — Fiche embarcation PIGAP au clic et infobulles en portail
 
 **Ce qui a été construit :**

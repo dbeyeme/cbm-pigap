@@ -6,6 +6,7 @@ import {
   annulerAbonnement,
   confirmerPaiementDemo,
   getCouvertureAbonnement,
+  getPayeur,
   getPecheur,
   getOrgModules,
   getPaiementConfig,
@@ -19,6 +20,7 @@ import {
   Organisation,
   OrgModulesRead,
   patchOrgModules,
+  Payeur,
   Pecheur,
   synchroniserPaiement,
 } from '../api';
@@ -107,7 +109,43 @@ export default function AbonnementsPage({ token, onError, isSuperAdmin = false }
   const [orgId, setOrgId] = useState('');
   const [embarcations, setEmbarcations] = useState(10);
   const [msisdn, setMsisdn] = useState('');
+  const [payeur, setPayeur] = useState<Payeur | null>(null);
+  const [tiersAutorise, setTiersAutorise] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+
+  // Payeur attendu : le dépôt Mobile Money part du téléphone enregistré de l'acteur
+  useEffect(() => {
+    if (!formOpen) return;
+    const q =
+      mode === 'pecheurs'
+        ? licence.trim()
+          ? { numero_licence: licence.trim() }
+          : null
+        : orgId
+          ? { organisation_id: orgId }
+          : null;
+    if (!q) {
+      setPayeur(null);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      getPayeur(token, q)
+        .then((p) => {
+          if (cancelled) return;
+          setPayeur(p);
+          if (!tiersAutorise) setMsisdn(p.telephone ?? '');
+        })
+        .catch(() => {
+          if (!cancelled) setPayeur(null);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formOpen, mode, licence, orgId, token]);
   const [couvertureMsg, setCouvertureMsg] = useState('');
 
   const [modulesState, setModulesState] = useState<OrgModulesRead | null>(null);
@@ -232,6 +270,7 @@ export default function AbonnementsPage({ token, onError, isSuperAdmin = false }
           numero_licence: licence.trim() || undefined,
           operateur: live ? 'airtel_money' : 'demo',
           msisdn: msisdn.trim() || undefined,
+          numero_tiers_autorise: tiersAutorise,
         });
         const confirmed = live
           ? await waitLive(res.paiement.id)
@@ -253,6 +292,7 @@ export default function AbonnementsPage({ token, onError, isSuperAdmin = false }
           activer_demo: !live,
           operateur: live ? 'airtel_money' : 'demo',
           msisdn: msisdn.trim() || undefined,
+          numero_tiers_autorise: tiersAutorise,
         });
         const confirmed = live
           ? await waitLive(res.paiement.id)
@@ -267,6 +307,8 @@ export default function AbonnementsPage({ token, onError, isSuperAdmin = false }
       setFormOpen(false);
       setLicence('');
       setMsisdn('');
+      setTiersAutorise(false);
+      setPayeur(null);
       await refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Activation impossible';
@@ -624,14 +666,38 @@ export default function AbonnementsPage({ token, onError, isSuperAdmin = false }
           )}
           <label className="abo-field">
             <span>
-              <IconCard size={15} /> Numéro Mobile Money{payMode === 'live' ? '' : ' (facultatif en démonstration)'}
+              <IconCard size={15} /> Numéro Mobile Money du payeur
             </span>
             <input
               value={msisdn}
               onChange={(e) => setMsisdn(e.target.value)}
-              placeholder="077 00 00 00"
+              placeholder={payeur ? 'Aucun téléphone enregistré' : 'Sélectionnez d’abord le titulaire'}
               inputMode="tel"
+              readOnly={!tiersAutorise}
+              className={!tiersAutorise ? 'is-locked' : ''}
             />
+            {payeur ? (
+              <small className={`abo-payeur ${payeur.valide ? 'is-ok' : 'is-warn'}`}>
+                {payeur.valide
+                  ? `Dépôt initié depuis le téléphone enregistré de ${payeur.nom} (${payeur.telephone}). Le code secret Mobile Money est demandé sur ce téléphone.`
+                  : `${payeur.motif}. Mettez à jour le téléphone du titulaire ou autorisez un payeur tiers.`}
+              </small>
+            ) : (
+              <small className="abo-payeur">
+                Le paiement doit être initié depuis le téléphone enregistré du titulaire.
+              </small>
+            )}
+          </label>
+          <label className="toggle-row abo-tiers">
+            <input
+              type="checkbox"
+              checked={tiersAutorise}
+              onChange={(e) => {
+                setTiersAutorise(e.target.checked);
+                if (!e.target.checked) setMsisdn(payeur?.telephone ?? '');
+              }}
+            />
+            Autoriser un payeur tiers (numéro différent du titulaire, tracé dans le paiement)
           </label>
           {progress ? <p className="ds-loading-line"><span className="ds-spinner" aria-hidden /> {progress}</p> : null}
           {couvertureMsg ? <p className="muted">{couvertureMsg}</p> : null}
