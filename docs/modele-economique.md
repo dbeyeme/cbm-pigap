@@ -1,219 +1,302 @@
-# Modèle économique PIGAP — abonnements & licences B2B
+# Offre commerciale et modèle économique PIGAP
 
-> Document commercial / stratégique (Phase 3–4).  
-> **Implémentation code** : module `backend/app/modules/abonnements/` (Mobile Money mode `demo` par défaut).  
-> Le cahier §2.2 excluait le paiement du MVP — activé explicitement pour Phase 4 / pilote monétisé.  
-> Devise : **FCFA (XAF)**. Hypothèse de change indicative : **1 USD ≈ 600 FCFA** (à recalibrer).
+> Version 2 du 2026-10-01, en réponse à l'évaluation Kimba Connect (offre commerciale 6/10, modèle économique « à approfondir »).
+> Document de travail : les tarifs, scénarios et engagements restent des projets soumis à validation humaine avant toute diffusion.
+> **Cohérence code** : la grille tarifaire est celle du catalogue `backend/app/modules/abonnements/catalog.py` (mode Mobile Money `demo` par défaut, `live` via pawaPay). Toute modification de prix se fait d'abord ici, puis dans le catalogue.
+> Devise : FCFA (XAF), parité fixe 1 EUR = 655,957 FCFA. Les montants en USD sont indicatifs.
 
 ---
 
 ## 1. Synthèse
 
-PIGAP monétise deux canaux complémentaires :
+PIGAP est une plateforme logicielle de gestion des activités de pêche : registre, suivi GPS, zones réglementées, captures, quotas, alertes et tableau de bord. Elle se vend à trois clients qui ont des raisons différentes de payer :
 
-| Canal | Client | Rôle économique |
-|-------|--------|-----------------|
-| **B2C** | Pêcheur (1 embarcation) | Abonnement usage app (déclarations, GPS mobile, dossier). Ne finance **pas** balises / sat / SOC. |
-| **B2B Autorité** | Ministère / DPM / marine / parcs | Licence d’exploitation nationale : portail, hébergement, support, AIS open. |
-| **B2B Flotte** | Coopérative / armateur | Soft multi-embarcations + option pack matériel (balise + airtime). |
+| Client | Ce qu'il achète | Canal de paiement |
+|---|---|---|
+| Autorité (ministère de la Mer, de la Pêche et de l'Économie bleue, DGPA) | Un outil de contrôle et de pilotage national, hébergé et maintenu | Licence institutionnelle annuelle |
+| Organisations professionnelles (coopératives, fédérations, armateurs) | Le suivi de leur flotte, la preuve de conformité, le reporting | Abonnement flotte |
+| Pêcheurs indépendants | Le dossier de licence, les déclarations et le suivi GPS depuis le téléphone | Abonnement Mobile Money, prélevé depuis le numéro enregistré de l'acteur |
 
-**Règle anti double facturation :** un pêcheur couvert par une licence Flotte B2B **ne paie pas** le B2C (inclus dans le pack) ; un pêcheur indépendant paie le B2C seul.
+Le modèle couvre les cinq composantes attendues par les termes de référence du défi (section 11) : abonnement des organisations professionnelles, licences institutionnelles, partenariats public-privé, services de suivi et d'analyse des données, accompagnement des acteurs.
 
----
-
-## 2. Architecture commerciale
-
-```mermaid
-flowchart TB
-  subgraph b2c [B2C Pêcheur]
-    App[App mobile PIGAP]
-    MM[Mobile Money Airtel_Moov]
-    Sub[Abonnement 3k mois ou 30k an]
-    App --> Sub --> MM
-  end
-  subgraph b2b [B2B Exploitation]
-    Auth[Licence Autorité]
-    Fleet[Licence Flotte Coop]
-    Capex[Balises AIS radar install]
-    Opex[Sat data hebergement support]
-    Auth --> Opex
-    Fleet --> Capex
-    Fleet --> Opex
-  end
-  Platform[Plateforme PIGAP]
-  b2c --> Platform
-  b2b --> Platform
-```
-
-| Offre | Qui paie | Inclus | Exclu |
-|-------|----------|--------|-------|
-| **B2C licence usage** | Pêcheur | App, déclarations, GPS mobile, dossier licence, sync offline | Balise physique, radar, feed sat premium |
-| **B2B Autorité** | État / DPM / ANPN | Portail web, alertes, cartes, sièges, hébergement, AIS open, support | CAPEX balises (sauf marché équipement séparé) |
-| **B2B Flotte** | Coop / armateur | Sièges flotte, suivi multi-embarcations, reporting | Pack matériel + airtime en **add-on** |
+Règle structurante : **la licence Autorité finance l'exploitation de la plateforme ; les abonnements flotte et pêcheurs financent l'animation terrain ; les équipements physiques (balises, récepteurs) sont portés par des marchés ou des partenariats, jamais par l'abonnement logiciel.**
 
 ---
 
-## 3. B2C — pêcheurs (tarifs retenus)
+## 2. Marché adressable, chiffres sourcés
 
-| Formule | Prix TTC | Équiv. mensuel | Remise |
-|---------|----------|----------------|--------|
-| Mensuel | **3 000 FCFA** | 3 000 | — |
-| Annuel | **30 000 FCFA** | 2 500 | **−17 %** |
+### 2.1 Flotte et pêcheurs
 
-### 3.1 Encaissement Mobile Money (Gabon)
+| Indicateur | Valeur | Source |
+|---|---|---|
+| Pêche artisanale maritime | environ 1 500 embarcations, près de 5 000 pêcheurs, pratique de 1 à 3 milles marins | [Ministère de l'Agriculture, de l'Élevage et de la Pêche, fiche « La pêche artisanale au Gabon »](https://www.agriculture.gouv.ga/object.getObject.do?id=249) |
+| Part de non-nationaux dans la pêche maritime | 75 % | même source |
+| Pêche continentale | environ 3 500 pêcheurs, 1 842 pirogues | [FAO, Contribution de la pêche au Gabon, 2005](https://www.fao.org/fishery/docs/DOCUMENT/sflp/SFLP_publications/French/Contribution_peche_Gabon_juin05.pdf) |
+| Recensement FAO 2005 | 1 564 pirogues maritimes dont 1 178 motorisées | même source |
+| Programme de balises NEMO | lancé en 2021, objectif d'équiper l'intégralité de la flotte, soit environ 1 000 pirogues | [Gabonreview, « Le Gabon, leader mondial en matière de surveillance »](https://www.gabonreview.com/peche-artisanale-le-gabon-leader-mondial-en-matiere-de-surveillance/) |
+| Programme Gab Pêche | 20 pirogues en phase pilote, 700 pirogues équipées prévues, 500 emplois directs attendus, secteur à 1,5 % du PIB | [Gabonreview, 11 août 2025](https://www.gabonreview.com/gab-peche-le-gabon-mise-sur-la-souverainete-alimentaire-et-la-gabonisation-de-la-peche-artisanale/) |
 
-- Opérateurs : **Airtel Money**, **Moov Money**.
-- Agrégateurs cibles (V2) : SingPay, PViT, E-Billing.
-- Frais pay-in typiques : **~2–2,5 %** → net ≈ **2 925 FCFA** (mensuel) / **≈ 29 250 FCFA** (annuel).
+Lecture : le cœur de cible logiciel est de l'ordre de **1 500 à 2 200 embarcations maritimes** (flotte actuelle plus pirogues Gab Pêche) et **8 500 pêcheurs** toutes pêches confondues. Les chiffres de flotte datent pour partie de 2005 ; un recensement DGPA à jour est la première donnée à obtenir en Phase 3.
 
-### 3.2 Adéquation contexte gabonais
+### 2.2 Redevances officielles : le point d'ancrage des prix
 
-- Flotte artisanale maritime d’ordre **~500–1 000 pirogues** (références 2021–2022).
-- Pouvoir d’achat sous pression (carburant, restrictions de zones) → **privilégier l’annuel** (moins de friction Mobile Money, churn plus bas).
-- 3 000 FCFA/mois ≈ petit forfait data / quelques litres de fuel — acceptable si l’abonnement est **lié au renouvellement de la licence de pêche**.
+| Redevance | Montant | Source |
+|---|---|---|
+| Carte de pêcheur artisanal | 10 000 FCFA par an | [Ministère, procédures d'acquisition des autorisations et cartes de pêche artisanale](https://www.agriculture.gouv.ga/object.getObject.do?id=245) |
+| Autorisation de pêche artisanale maritime, nationaux | 100 000 FCFA | même source |
+| Autorisation, non-nationaux (autres techniques) | 150 000 FCFA | même source |
+| Autorisation senne (« tiré-tiré ») | 200 000 FCFA | même source |
+| Autorisation pêche continentale | 50 000 FCFA | même source |
 
-### 3.3 Scénarios revenus B2C seuls
+Lecture : un pêcheur maritime paie déjà entre 110 000 et 210 000 FCFA de redevances officielles. L'abonnement annuel PIGAP à 30 000 FCFA représente **14 à 27 % de cette charge** et trois fois la carte annuelle. C'est le niveau que nous jugeons acceptable si l'abonnement est adossé au renouvellement de la licence (service rendu : dossier, attestation, suivi). Cette hypothèse de consentement à payer est à **mesurer en Phase 3** (section 9).
 
-| Adoption (formule annuelle) | CA brut / an | Net ≈ (−2,5 %) |
-|-----------------------------|--------------|----------------|
-| 100 pêcheurs | 3,0 M FCFA | 2,9 M |
-| 500 | 15 M | 14,6 M |
-| 1 000 | 30 M | 29,3 M |
+### 2.3 Paiement mobile : le canal B2C existe
 
-**Verdict :** le B2C finance l’engagement pêcheur et une part du SaaS léger. **L’infrastructure (balises, sat, hébergement, support) est portée par le B2B.**
+| Indicateur 2024 | Valeur | Source |
+|---|---|---|
+| Comptes de monnaie électronique | 4,5 millions, +27 % sur un an | [Gabonreview, mobile money 2024](https://www.gabonreview.com/mobile-money-plus-de-4-000-milliards-fcfa-sur-la-valeur-des-transactions-en-2024/) |
+| Transactions | 368,3 millions d'opérations, 4 087 milliards FCFA | [Gabon Media Time](https://gabonmediatime.com/gabon-le-mobile-money-franchit-le-cap-des-50-milliards-de-fcfa-de-chiffre-daffaires-en-2024/) |
+| Abonnements mobiles | 3 207 794 à fin septembre 2024, Moov 51,41 %, Airtel 48,59 % | [ARCEP, observatoire mobile](https://www.arcep.ga/uploads/observatoires/mobile/Mobile%202024-1.pdf) |
+| Frais d'encaissement pawaPay, dépôt Airtel Money Gabon | 2 % (1 % opérateur + 1 % pawaPay), hors taxes, à la charge du marchand | [pawaPay, grille de frais](https://www.pawapay.io/fees) |
+
+Conséquence : l'encaissement B2C est opérationnel dès aujourd'hui sur Airtel Money (intégration livrée, dépôt initié depuis le numéro enregistré de l'acteur). Moov Money, dont l'opérateur détient la moitié des abonnements mobiles, reste à raccorder : c'est un prérequis commercial de la Phase 4.
+
+### 2.4 Organisations et points d'entrée terrain
+
+- Centres communautaires des pêches : Owendo, Port-Gentil, Omboué, Lambaréné ; cinq centres d'appui supplémentaires en construction avec la FAO, dont Cocobeach et Mayumba pour la pêche maritime ([FAO Gabon](https://www.fao.org/gabon/actualites/detail-events/en/c/1606251/)).
+- Coopératives identifiées : coopérative des pêcheurs artisanaux du Cap Lopez « Gbenodou » à Port-Gentil, soutenue par Perenco ([Gabon Media Time](https://gabonmediatime.com/port-gentil-perenco-oil-gas-soutien-cooperative-des-pecheurs-artisanaux-cap-lopez/)) ; Fédération des coopératives de pêche de Mayumba, équipée par BW Energy ([Gabon Media Time](https://gabonmediatime.com/bw-energy-gabon-les-pecheurs-de-mayumba-desormais-equipes-en-materiel-professionnel/)).
+- Le nombre total d'organisations professionnelles n'est pas publié : à obtenir auprès de la DGPA.
+
+### 2.5 Financements publics et bailleurs actifs sur le secteur
+
+| Dispositif | Montant ou nature | Source |
+|---|---|---|
+| Projet d'appui au secteur pêche et aquaculture (BAD) | 11,354 milliards FCFA | [FAO Gabon](https://www.fao.org/gabon/actualites/detail-events/en/c/1606251/) |
+| Convention ministère de la Mer et BCEG, financement des filières halieutiques | 25 milliards FCFA, signée le 30 avril 2026 | [Gabonactu](https://gabonactu.com/blog/2026/05/02/economie-bleue-un-partenariat-pour-faciliter-le-financement-des-filieres-halieutiques/) |
+| Assistance technique Banque mondiale, gouvernance et compétitivité des pêches maritimes | atelier de restitution du 25 février 2026 | [Gabonreview](https://www.gabonreview.com/peche-artisanale-le-gabon-lance-un-vaste-chantier-de-reforme-avec-la-banque-mondiale/) |
+| BCEG et SGDEB, premières pirogues financées | 200 millions FCFA, 10 pirogues motorisées, août 2025 | [Infos Gabon](https://fr.infosgabon.com/gabon-la-bceg-et-la-sgdeb-unissent-leurs-forces-pour-moderniser-la-peche-artisanale/) |
+
+Lecture : la composante « système d'information » d'un programme bailleur est le véhicule naturel de la licence institutionnelle ; les partenariats RSE des opérateurs pétroliers avec les coopératives sont un véhicule pour les abonnements flotte.
 
 ---
 
-## 4. Structure de coûts à absorber
+## 3. Proposition de valeur par segment
 
-Ordres de grandeur pour calibrer les licences B2B :
-
-| Poste | Unité | Fourchette FCFA | Note Gabon |
-|-------|-------|-----------------|------------|
-| Balise hybride cell+sat (type NEMO / VMS artisanal) | 1 embarcation | **300–450 k** matériel | Programme national CLS NEMO déjà lancé : PIGAP = **couche logicielle** ; matériel en partenariat ou marché séparé |
-| Installation + formation terrain | 1 embarcation | **50–150 k** | Libreville / Port-Gentil / Mayumba |
-| Airtime cell+sat | 1 embarcation / an | **150–250 k** | Réf. publique ~249–349 USD/an |
-| Feed AIS satellitaire premium (Spire / exactEarth / CLS) | pays / an | **5–40 M** | Open AIS ([ADR-005](adr/ADR-005-ais-zee-gabon-open-data.md)) gratuit mais **insuffisant** en ZEE |
-| Radar côtier / fusion | site | **Dizaines de M+** | Option Phase 2 commerciale — **hors pack de base** |
-| Hébergement prod (API + PostGIS + backups + monitoring) | mois | **0,8–2,5 M** | Préférer région Afrique / CEMAC + PRA |
-| Support N1/N2, conformité, sécurité | mois | **1–3 M** | Équipe locale + astreinte alertes |
-| Setup agrégateur Mobile Money | one-shot | **0–2 M** | + commission récurrente |
-
-**Règle de couverture :**
-- CA B2B annuel → **OPEX plateforme + sat + support**.
-- CAPEX balises → (a) marché État, (b) leasing flotte, ou (c) subvention projet (FAO, Banque mondiale, Gabon Bleu).
+| Segment | Problème aujourd'hui | Ce que PIGAP apporte | Preuve dans le produit |
+|---|---|---|---|
+| Autorité | Registre papier, pas de vue temps réel, quotas non suivis, contrôle des zones difficile | Registre numérique, numérotation automatique, carte en temps réel, quotas avec alerte à 90 %, alertes zones, limites et concentration, rapports | Modules M1 à M7 livrés, AIS, météo-marine, prédictions consultatives |
+| Organisation professionnelle | Pas de preuve de conformité de ses membres, flotte invisible, reporting manuel | Portail flotte, suivi multi-embarcations, dossiers de licence des membres, alertes, exports | Portail organisation, licence flotte avec règle anti double facturation |
+| Pêcheur | Démarches longues, pas de trace de ses déclarations, risques en mer | Demande de licence en ligne, déclarations hors-ligne, suivi GPS même sans réseau, bulletin de mer et alertes de danger | Application mobile, file hors-ligne captures et positions, paiement depuis son numéro |
+| Chercheurs, ONG, bailleurs | Données éparses, non standardisées | Séries temporelles, exports, données anonymisées | Rôle chercheur, exports CSV et PDF |
 
 ---
 
-## 5. Grille B2B
+## 4. Catalogue d'offres, cinq composantes
 
-### 5.1 Licence Autorité — « Exploitation nationale »
-
-| Formule | Prix | Inclus |
-|---------|------|--------|
-| **Mensuel** | **2 500 000 FCFA / mois** | Portail autorités (jusqu’à **50 comptes**), modules M1–M7, alertes, carte, quotas, overlay AIS open, hébergement, backups, support N1 5j/7, 1 formation / an |
-| **Annuel** | **25 000 000 FCFA / an** | Idem (−17 %, aligné B2C) |
-
-#### Add-ons Autorité
-
-| Add-on | Prix indicatif |
-|--------|----------------|
-| Feed AIS satellitaire premium ZEE | **+8 000 000 FCFA / an** |
-| Module fusion radar / centres de contrôle | **Sur devis** (CAPEX site) |
-| Comptes au-delà de 50 | **25 000 FCFA / compte / mois** |
-| Marché équipement balises (N embarcations) | CAPEX + airtime **pass-through + 8–12 %** marge intégrateur |
-
-À **25 M FCFA/an**, une autorité unique couvre ~ hébergement + support + une part sat light. Le pack sat premium reste **transparent** (facturé à part).
-
-### 5.2 Licence Flotte / Coopérative — « Exploitation métier »
+### 4.1 Abonnement des organisations professionnelles : licence Flotte
 
 | Formule | Prix | Périmètre |
-|---------|------|-----------|
-| **Base mensuelle** | **150 000 FCFA / mois** | Jusqu’à **10 embarcations**, 5 comptes, reporting flotte |
-| **Base annuelle** | **1 500 000 FCFA / an** | Idem (−17 %) |
-| **Au-delà de 10** | **+12 000 FCFA / embarcation / mois** ou **+120 000 / an** | Soft only (GPS app + back-office) |
+|---|---|---|
+| Base mensuelle | 150 000 FCFA par mois | jusqu'à 10 embarcations, 5 comptes, modules registre, GPS, captures, tableau de bord, documents, alertes |
+| Base annuelle | 1 500 000 FCFA par an | identique, deux mois offerts |
+| Embarcation supplémentaire | 12 000 FCFA par mois ou 120 000 FCFA par an | logiciel seul |
 
-#### Pack matériel optionnel (par embarcation)
+Inclus : l'abonnement pêcheur de chaque membre (règle anti double facturation, implémentée), le portail organisation, l'assistance à distance. Exemple : une coopérative de 20 pirogues paie 270 000 FCFA par mois ou 2 700 000 FCFA par an, soit 135 000 FCFA par pirogue et par an. C'est 4,5 fois l'abonnement pêcheur individuel (30 000 FCFA) : l'écart se justifie par le portail, le reporting de flotte et les comptes gestionnaires, mais une coopérative pourrait préférer des abonnements individuels. Ce point de prix est à confronter au terrain (section 12).
 
-| Mode | Montant | Contenu |
-|------|---------|---------|
-| Achat | **450 000 FCFA** one-shot | Balise hybride + pose + 3 mois airtime |
-| Location | **45 000 FCFA / mois** (engagement 24 mois) | Matériel + airtime + maintenance |
-| Après 24 mois | **25 000 FCFA / mois** | Airtime + maintenance seule |
+### 4.2 Licences institutionnelles : licence Autorité
 
-**Exemple :** coop de 20 pirogues, soft only ≈ `150 000 + 10 × 12 000 = 270 000 FCFA/mois`. Avec location balises ≈ `+ 20 × 45 000 = 900 000` → **~1,17 M FCFA/mois** (cohérent avec le coût terrain).
+| Formule | Prix | Inclus |
+|---|---|---|
+| Mensuelle | 2 500 000 FCFA par mois | portail autorités jusqu'à 50 comptes, modules M1 à M7, AIS, météo-marine, prédictions, hébergement, sauvegardes, support de niveau 1 cinq jours sur sept, une formation par an |
+| Annuelle | 25 000 000 FCFA par an | identique, deux mois offerts |
 
----
+Options : comptes au-delà de 50 à 25 000 FCFA par compte et par mois ; flux AIS satellitaire premium à 8 000 000 FCFA par an ; fusion radar ou centre de contrôle sur devis ; marché d'équipement balises en pass-through avec marge d'intégration de 8 à 12 %.
 
-## 6. Unité économique — scénarios année 1
+Nouveauté de cette version : une **licence territoriale** (direction provinciale, parc national, autorité portuaire) à définir à partir de la licence Autorité, avec périmètre géographique restreint. Son prix n'est pas fixé ; proposition de travail : un tiers de la licence nationale. À valider avec le premier prospect.
 
-### 6.1 Scénario base (pilote)
+### 4.3 Partenariats public-privé
 
-Hypothèses : 1 contrat Autorité annuel + 2 coops (15 embarcations soft chacune) + 300 pêcheurs en annuel B2C ; **pas** de sat premium ni leasing balises.
+Trois montages, du plus simple au plus structurant :
 
-| Source | CA brut / an |
-|--------|--------------|
-| Autorité | 25,0 M |
-| 2 × Flotte (base + 5 extras) | ≈ 2 × (1,5 M + 5 × 0,12 M) ≈ **4,2 M** |
-| 300 pêcheurs × 30 k | 9,0 M |
-| **Total** | **≈ 38 M FCFA** |
+1. **Composante numérique d'un programme bailleur.** PIGAP est inscrit comme système d'information d'un projet existant (BAD, Banque mondiale, FAO, AFD). Le bailleur finance la licence Autorité pluriannuelle et le déploiement ; l'État reprend la licence en fin de programme. Avantage : encaissement sécurisé sur trois à cinq ans.
+2. **Partenariat RSE avec les opérateurs industriels du littoral.** Perenco (Cap Lopez) et BW Energy (Mayumba) soutiennent déjà des coopératives en matériel. Proposition : le partenaire finance la licence Flotte et l'équipement de la coopérative, PIGAP assure le déploiement et le reporting d'impact.
+3. **Concession de service numérique.** À plus long terme, contrat de service entre l'État et PIGAP sur la base de la licence Autorité avec engagements de disponibilité (cible 98 % en pilote, cahier section 10) et de formation, en complément du programme NEMO dont PIGAP est la couche logicielle métier, pas un concurrent.
 
-OPEX cible (hébergement + support + ops, sans CAPEX balises massif) : **20–30 M FCFA** → marge brute **positive mais fine**.
+### 4.4 Services de suivi et d'analyse des données
 
-### 6.2 Scénarios pessimiste / optimiste
+Offre distincte des licences, facturée à la prestation :
 
-| Scénario | Hypothèses | CA brut / an (ordre) |
-|----------|------------|----------------------|
-| **Pessimiste** | Autorité mensuel × 6 mois seulement ; 1 coop 10 bateaux ; 80 pêcheurs | ≈ **18–20 M** |
-| **Base** | Voir §6.1 | ≈ **38 M** |
-| **Optimiste** | Autorité annuel + sat premium ; 5 coops (moy. 20 bateaux soft) ; 700 pêcheurs | ≈ **70–90 M** (+ add-ons matériel) |
+| Service | Contenu | Tarif proposé |
+|---|---|---|
+| Rapport périodique de pilotage | bulletin mensuel ou trimestriel : effort de pêche, captures par espèce et zone, alertes, pression sur quotas | inclus dans la licence Autorité ; 250 000 FCFA par rapport pour un tiers (bailleur, ONG) |
+| Étude à façon | analyse d'une zone, d'une saison ou d'une espèce, avec méthode et limites documentées | sur devis, base 150 000 FCFA par jour d'analyste |
+| Accès données pour la recherche | exports anonymisés et agrégés, documentation des séries | gratuit pour les institutions publiques gabonaises, convention pour les autres |
 
-Sat premium + parc balises national → **contrat État ou bailleur** en plus du forfait logiciel.
+Les tarifs de cette composante sont des **propositions** ; aucun contrat de ce type n'a encore été conclu.
 
----
+### 4.5 Accompagnement des acteurs
 
-## 7. Parcours paiement Mobile Money (cible V2 / Phase 4)
+| Service | Contenu | Tarif proposé |
+|---|---|---|
+| Déploiement terrain | enrôlement des pêcheurs, installation de l'application, saisie des équipements, premiers relevés | 100 000 FCFA par journée d'intervention, hors déplacement |
+| Formation | agents de contrôle, gestionnaires de coopérative, formateurs relais | 150 000 FCFA par journée, groupes de 12 |
+| Support de niveau 2 et astreinte alertes | traitement des alertes critiques en dehors des heures ouvrées | forfait mensuel à définir avec la licence Autorité |
+| Récepteurs AIS portuaires | fourniture, pose et raccordement d'un récepteur VHF par port (Owendo, Port-Gentil), ingestion déjà implémentée | devis matériel plus une journée de pose |
 
-Flux cible (non implémenté — hors MVP) :
+Ces tarifs sont des **propositions** à confronter aux grilles de journée pratiquées localement.
 
-1. Pêcheur choisit mensuel / annuel dans l’app.
-2. Initiation paiement via agrégateur (push USSD / deep link).
-3. Webhook agrégateur → backend : statut `payé` / `échoué` / `expiré`.
-4. Activation / renouvellement de l’abonnement lié au compte pêcheur (et idéalement au **n° de licence**).
-5. Relance J−7 / J−1 avant échéance (message in-app + SMS si budget).
+### 4.6 Abonnement pêcheur indépendant
 
-**Recommandation produit :** lier le B2C au **cycle de renouvellement de licence de pêche** pour maximiser l’adoption et réduire le churn.
+| Formule | Prix | Net après frais pawaPay (2 %) |
+|---|---|---|
+| Mensuel | 3 000 FCFA | 2 940 FCFA |
+| Annuel | 30 000 FCFA | 29 400 FCFA |
 
----
-
-## 8. Positionnement vs NEMO et AIS open
-
-| Élément | Rôle |
-|---------|------|
-| **CLS NEMO** (déjà lancé au Gabon) | Balises physiques artisanales — ne pas vendre la balise comme USP exclusive de PIGAP |
-| **PIGAP** | Système métier : licences, captures, quotas, alertes, portail autorités ; peut ingérer `source=balise` (schéma déjà prévu) |
-| **AIS open (ADR-005)** | Overlay ZEE gratuit / démo — couverture limitée ; feed premium = add-on Autorité |
+Le dépôt est initié depuis le numéro de téléphone enregistré du pêcheur ; un agent peut autoriser un payeur tiers, tracé dans le paiement. Pendant la Phase 3, l'abonnement n'est pas exigé (`ABONNEMENT_ENFORCE=false`).
 
 ---
 
-## 9. Recommandations de phase
+## 5. Logique de prix
 
-| Phase | Monétisation |
-|-------|----------------|
-| **Phase 3 — Expérimentation terrain** | Pilote **gratuit ou subventionné** ; valider usage, zones, espèces ; pas de facturation réelle |
-| **Phase 4 — Déploiement** | Activer B2B Autorité en premier (couvre l’OPEX) ; B2C annuel ; Flotte pour coops volontaires |
-| **V2** | Intégration Mobile Money, dunning, marché balises / leasing, feed sat premium |
-
-### Points à confirmer localement
-
-- Régime **HT / TTC / TVA** Kimba Connect (expert-comptable).
-- Partenariat ou coexistence avec le programme **NEMO / Canopé**.
-- Marché public vs contrat de service pour la licence Autorité.
+- **Pêcheur** : 30 000 FCFA par an, soit trois fois la carte annuelle de 10 000 FCFA et moins d'un cinquième des redevances d'autorisation (section 2.2). Le mensuel sert d'entrée, l'annuel est la cible (deux mois offerts, moins d'opérations Mobile Money, moins de désabonnements).
+- **Flotte** : le prix par embarcation décroît avec la taille (150 000 FCFA pour 10, puis 12 000 FCFA par unité), pour que la coopérative ait intérêt à enrôler toute sa flotte.
+- **Autorité** : 25 000 000 FCFA par an couvre l'hébergement, le support et une part des services d'analyse (section 6). C'est l'ordre de grandeur d'une ligne de système d'information dans les programmes bailleurs cités en 2.5.
+- **Transparence** : les coûts physiques (balises, satellite, radar) sont toujours facturés à part, pour que la licence logicielle reste comparable d'une année sur l'autre.
 
 ---
 
-## 10. Références internes
+## 6. Structure de coûts
 
-- Cahier §2.2 — hors périmètre paiement / IoT balises physiques (MVP).
-- [ADR-005 — AIS ZEE open data](adr/ADR-005-ais-zee-gabon-open-data.md).
-- Point d’extension schéma : `Position.source = mobile | balise`.
+### 6.1 Coûts sourcés (plateforme actuelle)
+
+| Poste | Référence publique | Coût |
+|---|---|---|
+| Hébergement API et base PostGIS | [Railway, plan Pro](https://railway.com/pricing) : 20 USD par mois avec 20 USD d'usage inclus, puis 10 USD par Go de mémoire et 20 USD par vCPU par mois | de l'ordre de 20 à 100 USD par mois selon la charge |
+| Portail web | [Vercel, plan Pro](https://vercel.com/pricing) : 20 USD par membre et par mois, 1 To de transfert inclus | 20 USD par mois pour un compte |
+| Données météo-marine | Open-Meteo, licence CC BY 4.0, sans clé (ADR-008) | 0 |
+| Flux AIS communautaire | AISStream, clé gratuite (ADR-005) ; couverture nulle au Gabon mesurée le 2026-09-20 | 0 |
+| Encaissement Mobile Money | pawaPay, 2 % des dépôts (section 2.3) | 2 % du chiffre d'affaires B2C |
+
+Au niveau d'activité du pilote, l'infrastructure logicielle coûte **moins de 150 USD par mois**, soit moins de 100 000 FCFA. Le coût de la plateforme est donc dominé par les personnes, pas par les machines.
+
+### 6.2 Coûts à chiffrer localement (hypothèses de travail)
+
+| Poste | Hypothèse | À confirmer par |
+|---|---|---|
+| Équipe d'exploitation : développement, support, animation terrain | 2 à 3 équivalents temps plein en Phase 4 | grille salariale CBM |
+| Hébergement souverain ou région Afrique, sauvegardes, plan de reprise | 0,8 à 2,5 millions FCFA par mois (version 1 de ce document) | devis hébergeurs |
+| Récepteur AIS portuaire | matériel grand public (clé SDR, antenne VHF, mini-ordinateur) | devis fournisseur |
+| Balise hybride cellulaire et satellite, par embarcation | 300 000 à 450 000 FCFA de matériel, 150 000 à 250 000 FCFA d'airtime par an (version 1) | devis CLS ou équivalent |
+| Flux AIS satellitaire premium | 5 à 40 millions FCFA par an (version 1) | devis Spire, exactEarth, CLS |
+| Fiscalité : régime de TVA, retenues sur prestations | non chiffré | expert-comptable |
+
+Les fourchettes de la version 1 sont des estimations de travail, non des devis : elles sont conservées pour mémoire et doivent être remplacées par des devis avant tout engagement.
+
+---
+
+## 7. Équation économique et scénarios
+
+Les scénarios reprennent ceux de la version 1 pour rester cohérents avec les hypothèses déjà validées, en ajoutant les frais d'encaissement.
+
+### 7.1 Scénario de base (année 1 après pilote)
+
+Hypothèses : 1 licence Autorité annuelle, 2 coopératives de 15 embarcations, 300 pêcheurs indépendants en formule annuelle, pas de satellite premium ni de balises.
+
+| Source | Chiffre d'affaires annuel | Net après frais |
+|---|---|---|
+| Licence Autorité | 25 000 000 FCFA | 25 000 000 |
+| 2 licences Flotte (base + 5 supplémentaires) | 4 200 000 FCFA | 4 200 000 |
+| 300 pêcheurs à 30 000 FCFA | 9 000 000 FCFA | 8 820 000 (2 % pawaPay) |
+| Services d'accompagnement (20 journées) | 2 000 000 à 3 000 000 FCFA | idem |
+| **Total** | **40 à 41 millions FCFA** | **40 à 41 millions FCFA** |
+
+Charges cibles (équipe, hébergement, support, sans parc de balises) : 20 à 30 millions FCFA. Résultat positif mais mince : le modèle tient à condition d'encaisser la licence Autorité.
+
+### 7.2 Scénarios encadrants
+
+| Scénario | Hypothèses | Chiffre d'affaires annuel |
+|---|---|---|
+| Pessimiste | licence Autorité mensuelle sur six mois, 1 coopérative de 10 embarcations, 80 pêcheurs | 18 à 20 millions FCFA |
+| Base | section 7.1 | 40 à 41 millions FCFA |
+| Optimiste | licence Autorité annuelle avec satellite premium, 5 coopératives de 20 embarcations, 700 pêcheurs, 40 journées d'accompagnement | 75 à 95 millions FCFA |
+
+### 7.3 Point mort et sensibilité
+
+- Sans licence Autorité, il faudrait environ 700 pêcheurs annuels ou 14 coopératives de 10 embarcations pour couvrir 20 millions FCFA de charges : irréaliste la première année. **La vente institutionnelle est la priorité commerciale.**
+- Le B2C est peu sensible au prix unitaire mais très sensible au taux de renouvellement : chaque point de désabonnement annuel sur 300 pêcheurs représente 90 000 FCFA.
+- Les frais d'encaissement (2 %) sont marginaux ; le vrai coût du B2C est l'enrôlement terrain, d'où la composante accompagnement.
+
+---
+
+## 8. Mise sur le marché et capacité de déploiement
+
+| Phase | Monétisation | Actions |
+|---|---|---|
+| Phase 3, expérimentation terrain (en préparation) | gratuite ou subventionnée | une zone pilote (Owendo ou Port-Gentil), 50 à 100 pêcheurs enrôlés via un centre communautaire des pêches et une coopérative, mesure des cinq indicateurs du cahier section 10 et du consentement à payer |
+| Phase 4, déploiement | licence Autorité d'abord, puis Flotte et B2C annuel | contrat ou inscription dans un programme bailleur, raccordement Moov Money, formation des agents, récepteurs AIS dans deux ports |
+| Extension | services d'analyse, licence territoriale, partenariats RSE | parcs nationaux, autorités portuaires, autres pays de la sous-région (plateforme déjà paramétrée par fichiers de données, zone de veille golfe de Guinée) |
+
+Canaux : DGPA et directions provinciales ; centres communautaires des pêches (Owendo, Port-Gentil, Omboué, Lambaréné, puis Cocobeach et Mayumba) ; coopératives et fédérations ; bailleurs via les unités de gestion de projet ; opérateurs industriels via leurs programmes RSE.
+
+Capacité de déploiement : la plateforme est en production (API, portail, application mobile), les migrations sont automatisées, les données de référence sont embarquées dans l'image, l'ingestion de récepteurs AIS et le paiement Mobile Money sont opérationnels. Le facteur limitant est l'animation terrain : une journée d'intervention par groupe de 10 à 15 pêcheurs est l'hypothèse de planification à vérifier en pilote.
+
+---
+
+## 9. Indicateurs commerciaux à mesurer dès le pilote
+
+| Indicateur | Cible de travail | Pourquoi |
+|---|---|---|
+| Consentement à payer déclaré (enquête auprès des pêcheurs pilotes) | au moins 50 % acceptent 30 000 FCFA par an adossés à la licence | valide le prix B2C |
+| Taux de conversion gratuit vers payant à la fin du pilote | 30 % | base du scénario pessimiste |
+| Renouvellement annuel | 70 % | sensibilité section 7.3 |
+| Délai moyen d'encaissement Mobile Money | moins de 5 minutes | parcours de paiement |
+| Coût d'enrôlement par pêcheur | moins de 10 000 FCFA | dimensionne l'accompagnement |
+| Usage effectif : au moins une déclaration par semaine | 70 % des pêcheurs pilotes (cahier section 10) | preuve de valeur pour l'Autorité |
+
+Ces cibles sont des hypothèses de pilotage, pas des engagements.
+
+---
+
+## 10. Risques et parades
+
+| Risque | Parade |
+|---|---|
+| Décision institutionnelle lente | entrer par un programme bailleur ou un partenariat RSE ; licence mensuelle pour démarrer |
+| Pêcheurs non-nationaux (75 % de la flotte maritime) réticents à l'enrôlement | abonnement adossé au renouvellement de la licence, intérêt direct (dossier, attestation, sécurité en mer) |
+| Couverture réseau faible | fonctionnement hors-ligne des captures et des positions, synchronisation différée |
+| Concurrence ou chevauchement avec NEMO | positionnement en couche métier (licences, captures, quotas, alertes), ingestion `source=balise` prévue |
+| Dépendance à un seul opérateur de paiement | raccorder Moov Money avant la Phase 4 |
+| Désabonnement | formule annuelle, relances avant échéance, services inclus pour les coopératives |
+
+---
+
+## 11. Réponse aux critères de l'évaluation
+
+| Critère du jury | Note | Ce que cette version apporte |
+|---|---|---|
+| Offre commerciale (6/10) | « à approfondir » | catalogue en cinq composantes conforme à la section 11 des termes de référence, prix ancrés sur les redevances officielles, services et accompagnement tarifés |
+| Modèle économique | « à approfondir » | coûts sourcés pour la plateforme, coûts à chiffrer explicitement listés, scénarios encadrants, point mort, indicateurs commerciaux |
+| Maturité du projet (2/5) | | plateforme en production, paiement opérationnel, plan de pilote avec mesures ; la preuve terrain reste à produire en Phase 3 |
+| Pertinence (5/10) | | ancrage sur les chiffres du secteur, les dispositifs publics en cours (NEMO, Gab Pêche, BAD, Banque mondiale, BCEG) et les coopératives identifiées |
+
+---
+
+## 12. Hypothèses à valider avant engagement
+
+1. Recensement à jour de la flotte et des pêcheurs (DGPA).
+2. Nombre et liste des organisations professionnelles de pêcheurs.
+3. Consentement à payer des pêcheurs et des coopératives (enquête pilote).
+4. Régime fiscal (TVA, retenues) et forme contractuelle de la licence Autorité (marché public ou convention).
+5. Devis matériels : récepteurs AIS, balises, hébergement souverain.
+6. Conditions de raccordement Moov Money et exigences complémentaires d'Airtel Money signalées par pawaPay pour le Gabon.
+7. Articulation contractuelle avec le programme NEMO.
+8. Positionnement du prix Flotte par rapport à l'abonnement individuel (section 4.1) : tester une formule intermédiaire si les coopératives préfèrent le B2C.
+
+---
+
+## 13. Références internes
+
+- Cahier MVP section 2.2 (paiement hors périmètre initial) et section 10 (indicateurs) ; écart documenté dans [ADR-007](adr/ADR-007-abonnements-mobile-money.md).
+- [ADR-005, AIS open data](adr/ADR-005-ais-zee-gabon-open-data.md) ; [ADR-008, météo-marine](adr/ADR-008-meteo-marine-open-data.md).
+- Catalogue d'offres : `backend/app/modules/abonnements/catalog.py` ; modules par formule : `backend/app/modules/abonnements/modules.py`.
+- Journal : entrées du 2026-09-21 (paiement depuis le numéro de l'acteur) et du 2026-10-01 (écarts TDR).

@@ -5,6 +5,20 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-10-01] — Offre commerciale et modèle économique, version 2
+
+**Ce qui a été construit :**
+- `docs/modele-economique.md` réécrit en réponse à l'évaluation Kimba Connect : catalogue en cinq composantes (section 11 des termes de référence), marché et redevances officielles sourcés (ministère, FAO, ARCEP), coûts de plateforme sourcés (Railway, Vercel, pawaPay), scénarios encadrants, point mort, indicateurs commerciaux du pilote, risques, hypothèses à valider
+- Grille tarifaire inchangée, donc catalogue code inchangé
+
+**Pourquoi :**
+- Commentaire du jury : « offre commerciale et modèle économique à approfondir » (offre commerciale 6/10)
+
+**Points ouverts :**
+- Consentement à payer et prix Flotte par rapport au B2C à tester en pilote ; devis matériels et régime fiscal à obtenir ; document soumis à validation avant diffusion
+
+---
+
 ## [2026-10-01] — Écarts fonctionnels TDR : limites, concentration, équipements, GPS hors-ligne, CORS
 
 **Ce qui a été construit :**
