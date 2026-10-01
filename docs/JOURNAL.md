@@ -5,6 +5,21 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-10-01] — Dossier de soumission et présentation, version 2.0
+
+**Ce qui a été construit :**
+- `docs/soumission/` : réponse au défi Kimba Connect actualisée (Word, 25 pages) et présentation native de 13 diapositives, remplaçant l'export en images
+- Mises à jour : prototype réalisé et en ligne, extensions, suivi temps réel (ADR-009, triangulation écartée), sécurité et loi 001/2011 modifiée, modèle économique version 3, chiffres du secteur sourcés, annexes (démonstration, questions du jury)
+- Corrections : plan de paiement de la présentation réaligné sur le dossier (15 / 45 / 25 / 15), pile technique conforme au projet, chiffres non sourcés retirés
+
+**Pourquoi :** répondre à l'évaluation du comité par l'état réel du projet, en cohérence stricte avec `docs/modele-economique.md` et `docs/STATUS.md`.
+
+**Tests réalisés :** validation structurelle des deux fichiers, rendu PDF et contrôle visuel page par page.
+
+**Points ouverts :** pièces administratives à insérer ; nom du présentateur de la diapositive de sommaire à confirmer ; déploiement de la version du jour à lancer manuellement.
+
+---
+
 ## [2026-10-01] — Ingestion des balises satellitaires `source=balise` (ADR-009, données fictives)
 
 **Ce qui a été construit :**
