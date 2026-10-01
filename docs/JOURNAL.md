@@ -5,11 +5,88 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-10-01] — Ingestion des balises satellitaires `source=balise` (ADR-009, données fictives)
+
+**Ce qui a été construit :**
+- `embarcations.balise_id` (unique, nullable) + migration `e7a1c2d3f405` ; champ exposé dans les schémas Embarcation (M1)
+- `POST /api/v1/positions/balises/ingest` : lot de messages au format pivot, clé partagée `X-Balise-Ingest-Key` (`BALISE_INGEST_KEY`), sur le modèle de `POST /ais/ingest`
+- Service `ingest_balises` : rapprochement par `balise_id`, filtre à terre, anti-doublon, règles M7 appliquées, alerte critique `detresse_balise` sur bouton de détresse (`signaler_detresse`)
+- Script `scripts/simulate_balises_nemo.py` : identifiants `BAL-FICTIF-000n`, lots périodiques le long des corridors open data
+- Portail : libellé « Balise satellitaire » dans la fiche embarcation
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §3.3 point d'extension `source=balise` prévu au cahier, sans IoT propre (§2.2)
+- ADR-009 : le flux réel existe (balises de l'État) ; l'entrée est prête pour un adaptateur dès l'accès obtenu
+- §7 : aucune donnée réelle, numéros de série et trajets inventés
+
+**Technologies / principes utilisés :**
+- FastAPI + clé partagée (`hmac.compare_digest`), Pydantic v2, SQLAlchemy async, PostGIS (`is_on_water`)
+- Traçabilité : `declencheur.origine = balise:<fournisseur>:<balise_id>`
+
+**Tests réalisés :**
+- `pytest app/tests/test_balises_ingest.py` : 4 passed (clé, trajectoire, doublons, inconnue, hors eau, détresse, unicité)
+- Régression M1 / M2 / M7 / AIS / fiche / présence ports : 46 passed ; `tsc --noEmit` (web) : OK
+- Lot fictif de bout en bout sur l'API locale : 5 intégrées, 1 alerte de détresse
+
+**Points ouverts / dette technique :**
+- Adaptateur du format réel (export ou API du centre de surveillance) à écrire après accès aux données
+- `balise_id` non encore saisissable depuis le formulaire web du registre (API seulement)
+- Vitesse et cap reçus mais non stockés (modèle Position inchangé)
+
+---
+
+## [2026-10-01] — Étude : suivi temps réel, triangulation GSM/GPS écartée (ADR-009)
+
+**Ce qui a été construit :**
+- `docs/adr/ADR-009-suivi-temps-reel-sources-position.md` (statut Proposé) : faisabilité de la triangulation GSM/GPS depuis São Tomé, Oyem et Tchibanga, puis sources de position retenues par couche
+- Calcul des distances (haversine) entre les trois villes et des lieux de pêche types : 498 à 602 km, contre 35 km de portée GSM maximale
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §3.3 temps réel et point d'extension `source=balise` ; §7 données personnelles et consentement
+- Un récepteur GPS n'émet rien ; la localisation GSM relève des opérateurs et de la loi 001/2011 modifiée : la piste est écartée pour des raisons physiques et juridiques
+- Fait structurant sourcé : l'État équipe déjà la flotte artisanale de balises CLS NEMO (objectif 1 000 pirogues, plus de 300 installées, émission toutes les 30 min, satellite Kinéis). Le flux temps réel existe ; il faut en obtenir l'accès
+
+**Technologies / principes utilisés :**
+- Aucune modification de code ; recommandation d'un endpoint d'ingestion `source=balise` sur le modèle de `POST /ais/ingest`, à réaliser après validation
+
+**Tests réalisés :**
+- Sans objet (documentation)
+
+**Points ouverts / dette technique :**
+- Décision de Christian sur l'ADR-009 et démarche de Kimba Connect auprès du ministère de la Pêche pour l'accès aux données NEMO
+- Présence du Gabon dans les quatorze marchés Airtel Africa / Starlink Direct to Cell à confirmer
+
+---
+
+## [2026-10-01] — Exploitation du rapport PêcheGabon Hub : référentiels, redevances, contrôles, alertes, indicateurs
+
+**Ce qui a été construit :**
+- Référentiel métier (`referentiels_peche.json`, module `referentiels`) : 26 espèces avec groupe officiel et production 2024, espèces protégées, 9 engins observés, types de pirogue, matériaux, strates, sites de débarquement, nationalités, catégories d'infraction, barèmes d'autorisation et de taxe à la production, prix moyens 2024, repères 2024 du Grand Libreville ; captures validées contre le référentiel (anciens codes acceptés en alias) ; catalogue enrichi pour le web et le mobile (sélecteurs par groupe, engins nommés, sites proposés)
+- Redevances (module `redevances`) : taxe à la production calculée une fois par capture (poids × taux), quittances numérotées regroupant les taxes dues d'un pêcheur ou de tous les membres d'une organisation, paiement Mobile Money depuis le numéro enregistré (paiement partagé avec les abonnements, démo ou pawaPay), captures figées après quittance, annulation, synthèse, PDF avec QR code de vérification ; onglet Redevances du web, écran « Mes redevances » du mobile
+- Contrôles (module `controles`) : missions de surveillance, contrôles d'embarcation (licence lue par QR code, engin déclaré contre engin trouvé, pêcheurs à bord, infraction, saisies, sanction), alerte critique sur infraction, vérification complète pour les agents et page publique de vérification sans donnée personnelle (`/verif/licence/{numero}`, `/verif/quittance/{numero}`) ; QR code et validité sur la licence PDF ; page Contrôles du web
+- Alertes : espèce protégée, autorisation annuelle expirée ou pêcheur suspendu, retour au port sans déclaration (reconstitution des séjours port et mer depuis le GPS), infraction constatée
+- Registre : nationalité du propriétaire (barème national ou étranger, montant d'autorisation calculé à l'approbation), type de pirogue, matériau, puissance moteur, site d'attache, strate ; préfixes d'immatriculation observés (OW, L, AK, CC, KG)
+- Tableau de bord : débarquements, jours de pêche, kg par jour, valeur estimée (prix moyens 2024), taxe due et encaissée, licences valides et expirées, contrôles et infractions, répartitions par groupe, engin et site
+- Migration `d0f3c8b57899` ; note d'analyse `docs/benchmark-pechegabon-hub.md`
+
+**Pourquoi :**
+- Rapport d'étude NTSAGUI-2026-PGH-001 transmis par le porteur : données réelles de l'administration (espèces, engins, sites, barèmes, effort 2024) et chaîne de contrôle à couvrir ; ses défauts (taxes recalculées, données personnelles publiées, barèmes sans texte) ont guidé les garde-fous
+
+**Tests réalisés :**
+- `test_redevances.py`, `test_controles.py`, `test_alertes_metier.py` ; suite complète 149 verts (deux tests connus sensibles à la base partagée) ; type-check et build web, type-check mobile
+
+**Points ouverts :**
+- Barèmes, classements d'espèces, sites et strates à valider par la DGPA (`a_valider_dgpa`) ; aucune répartition des recettes sans texte
+- Feuille de route : attribut institution sur les comptes, workflows inter-institutions, objectifs par pirogue, pêche industrielle, rappels SMS, interface mobile en anglais
+
+---
+
 ## [2026-10-01] — Offre commerciale et modèle économique, version 2
 
 **Ce qui a été construit :**
 - `docs/modele-economique.md` réécrit en réponse à l'évaluation Kimba Connect : catalogue en cinq composantes (section 11 des termes de référence), marché et redevances officielles sourcés (ministère, FAO, ARCEP), coûts de plateforme sourcés (Railway, Vercel, pawaPay), scénarios encadrants, point mort, indicateurs commerciaux du pilote, risques, hypothèses à valider
 - Grille tarifaire inchangée, donc catalogue code inchangé
+- Version 3 (même jour) : offre en une page, section « pourquoi maintenant » (déficit halieutique, objectif 50 000 tonnes, bilan Gab Pêche), TVA 18 % et prix HT/TTC, voie de commande publique (seuil 35 millions TTC, procédures réservées aux PME gabonaises), conformité loi n° 001/2011, référence Abalobi, scénarios recalculés hors taxes et nets de frais, trajectoire à trois ans, plan commercial à douze mois
 
 **Pourquoi :**
 - Commentaire du jury : « offre commerciale et modèle économique à approfondir » (offre commerciale 6/10)

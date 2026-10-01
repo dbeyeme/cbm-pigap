@@ -219,3 +219,36 @@ class FicheEmbarcationRead(BaseModel):
     captures_30j: int = 0
     regularite: str = Field("conforme", description="conforme | a_verifier | alerte")
     motifs: list[str] = Field(default_factory=list)
+
+
+# --- Ingestion des balises satellitaires (ADR-009, source=balise) ---
+
+
+class BaliseMessage(BaseModel):
+    """Un message de position émis par une balise embarquée (format pivot PIGAP).
+
+    Le flux réel (export ou API du centre de surveillance) sera converti vers ce
+    format par un adaptateur ; en attendant, les données sont fictives.
+    """
+
+    balise_id: str = Field(..., min_length=1, max_length=64, description="N° de série")
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    horodatage: datetime = Field(..., description="Heure d'émission (UTC)")
+    vitesse_noeuds: float | None = Field(None, ge=0, le=60)
+    cap_degres: float | None = Field(None, ge=0, lt=360)
+    alerte: bool = Field(False, description="Bouton de détresse actionné")
+
+
+class BaliseIngestPayload(BaseModel):
+    fournisseur: str = Field("nemo", min_length=1, max_length=32)
+    messages: list[BaliseMessage] = Field(..., min_length=1, max_length=5000)
+
+
+class BaliseIngestResult(BaseModel):
+    recus: int
+    integres: int
+    doublons: int = 0
+    hors_eau: int = 0
+    balises_inconnues: list[str] = Field(default_factory=list)
+    alertes_detresse: int = 0

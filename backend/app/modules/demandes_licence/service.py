@@ -172,12 +172,24 @@ async def approve_demande(
     # Attribution automatique à l'approbation définitive (reprise manuelle possible)
     numero_licence = data.numero_licence or await numero_licence_suivant(db)
 
+    # Montant de l'autorisation annuelle selon le barème (nationalité, senne tournante)
+    from app.modules.referentiels import service as referentiels
+
+    engins_declares = []
+    if isinstance(row.embarcation_equipements, dict):
+        engins_declares = [str(e) for e in (row.embarcation_equipements.get("engins") or [])]
+    montant, _bareme = referentiels.montant_autorisation_annuelle(
+        nationalite=row.nationalite, engins_declares=engins_declares
+    )
+    row.montant_autorisation_fcfa = montant
+
     pecheur = await pecheurs_service.create_pecheur(
         db,
         PecheurCreate(
             nom=nom,
             prenom=prenom,
             numero_licence=numero_licence,
+            nationalite=row.nationalite,
             date_delivrance_licence=datetime.now(UTC).date(),
             telephone=telephone,
             email=email,

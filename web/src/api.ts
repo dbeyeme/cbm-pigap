@@ -13,6 +13,12 @@ export type Embarcation = {
   pecheur_id?: string;
   longueur?: number | null;
   equipements?: Record<string, unknown> | null;
+  filiere?: string | null;
+  type_pirogue?: string | null;
+  materiau?: string | null;
+  puissance_moteur_cv?: number | null;
+  site_attache?: string | null;
+  strate?: string | null;
 };
 
 export type Pecheur = {
@@ -22,6 +28,7 @@ export type Pecheur = {
   prenom: string;
   numero_licence: string;
   date_delivrance_licence: string | null;
+  nationalite?: string | null;
   statut: string;
   organisation_id: string | null;
 };
@@ -34,6 +41,7 @@ export type PecheurCreate = {
   email?: string | null;
   mot_de_passe: string;
   telephone?: string | null;
+  nationalite?: string | null;
 };
 
 export type PecheurUpdate = {
@@ -551,11 +559,27 @@ export type CaptureRead = {
   point_debarquement: string | null;
   date_capture: string;
   synchronise_a: string | null;
+  taxe_fcfa?: number | null;
+  taxe_taux_kg?: number | null;
+  taxe_statut?: string | null;
+  quittance_id?: string | null;
+};
+
+export type EspeceCatalogItem = {
+  code: string;
+  nom: string;
+  groupe: string;
+  taux_taxe_fcfa_kg: number | null;
+  protegee: boolean;
 };
 
 export type CaptureCatalog = {
   especes: string[];
   methodes: string[];
+  especes_detail: EspeceCatalogItem[];
+  engins_detail: Array<{ code: string; nom: string }>;
+  sites_debarquement: string[];
+  especes_protegees: string[];
 };
 
 export type CaptureCreate = {
@@ -680,6 +704,20 @@ export type DashboardRead = {
   periode_debut: string | null;
   periode_fin: string | null;
   genere_a: string;
+  nb_debarquements?: number;
+  jours_de_peche?: number;
+  kg_par_jour_de_peche?: number;
+  valeur_estimee_fcfa?: number;
+  valeur_estimee_couverture_pct?: number;
+  taxe_due_fcfa?: number;
+  taxe_payee_fcfa?: number;
+  licences_expirees?: number;
+  licences_valides?: number;
+  controles_periode?: number;
+  infractions_periode?: number;
+  repartition_groupes?: Array<{ code: string; libelle: string; volume_kg: number; nb_captures: number }>;
+  repartition_engins?: Array<{ code: string; libelle: string; volume_kg: number; nb_captures: number }>;
+  repartition_sites?: Array<{ code: string; libelle: string; volume_kg: number; nb_captures: number }>;
 };
 
 export function getDashboard(
@@ -1363,6 +1401,11 @@ export const ALERT_RULE_LABELS: Record<string, string> = {
   crue_fleuve: 'Crue annoncée sur le fleuve',
   sortie_limite_geographique: 'Position relevée hors des zones de pêche autorisées',
   concentration_zone: 'Concentration excessive d’embarcations dans une zone',
+  licence_expiree: 'Activité avec une autorisation annuelle expirée',
+  pecheur_suspendu: 'Activité d’un pêcheur suspendu',
+  espece_protegee: 'Capture déclarée d’une espèce protégée',
+  declaration_manquante: 'Retour au port sans déclaration de capture',
+  infraction_constatee: 'Infraction constatée lors d’un contrôle',
 };
 
 export const GRAVITE_LABELS: Record<string, string> = {
@@ -1558,4 +1601,322 @@ export function getPayeur(
   if (q.numero_licence) params.set('numero_licence', q.numero_licence);
   if (q.organisation_id) params.set('organisation_id', q.organisation_id);
   return request<Payeur>(`/api/v1/abonnements/payeur?${params}`, token);
+}
+
+
+/* ——— Référentiels métier (espèces, engins, sites, barèmes) ——— */
+
+export type RefItem = { code: string; nom: string; extra?: Record<string, unknown> };
+
+export type EspeceRef = {
+  code: string;
+  nom: string;
+  groupe: string;
+  nom_scientifique: string | null;
+  taux_taxe_fcfa_kg: number | null;
+  bareme: string | null;
+  prix_moyen_fcfa_kg: number | null;
+  production_2024_t: number | null;
+  part_2024_pct: number | null;
+  alias: string[];
+  protegee: boolean;
+};
+
+export type Referentiels = {
+  version: string | null;
+  source: string | null;
+  a_valider_dgpa: boolean;
+  groupes_especes: RefItem[];
+  especes: EspeceRef[];
+  especes_protegees: RefItem[];
+  engins: RefItem[];
+  engins_generiques: string[];
+  types_pirogue: RefItem[];
+  materiaux: RefItem[];
+  filieres: RefItem[];
+  strates: RefItem[];
+  sites_debarquement: RefItem[];
+  nationalites: RefItem[];
+  categories_infraction: RefItem[];
+  baremes: {
+    note: string | null;
+    reference_texte: string | null;
+    validite_debut: string | null;
+    validite_fin: string | null;
+    autorisation_annuelle: Array<{ code: string; nom: string; montant_fcfa: number }>;
+    carte_pecheur_annuelle_fcfa: number | null;
+    taxe_production_fcfa_kg: Array<{ code: string; espece?: string | null; groupe?: string | null; taux: number; approximatif?: boolean }>;
+  };
+  reperes_2024_grand_libreville: Record<string, unknown>;
+};
+
+export function getReferentiels(token: string) {
+  return request<Referentiels>('/api/v1/referentiels', token);
+}
+
+export const NATIONALITES: Array<{ code: string; nom: string }> = [
+  { code: 'gabon', nom: 'Gabon' },
+  { code: 'nigeria', nom: 'Nigéria' },
+  { code: 'benin', nom: 'Bénin' },
+  { code: 'togo', nom: 'Togo' },
+  { code: 'mali', nom: 'Mali' },
+  { code: 'cameroun', nom: 'Cameroun' },
+  { code: 'ghana', nom: 'Ghana' },
+  { code: 'burkina_faso', nom: 'Burkina Faso' },
+  { code: 'autre', nom: 'Autre' },
+];
+
+/* ——— Redevances : taxe à la production, quittances, paiement ——— */
+
+export type GroupeMontant = { groupe: string; quantite_kg: number; montant_fcfa: number };
+
+export type CaptureTaxe = {
+  id: string;
+  pecheur_id: string;
+  embarcation_id: string;
+  date_capture: string;
+  espece: string;
+  quantite_kg: number;
+  taxe_taux_kg: number | null;
+  taxe_fcfa: number | null;
+  taxe_statut: string;
+  quittance_id: string | null;
+};
+
+export type EncoursRedevances = {
+  pecheur_id: string | null;
+  organisation_id: string | null;
+  nb_captures: number;
+  quantite_kg: number;
+  montant_fcfa: number;
+  par_groupe: GroupeMontant[];
+  captures: CaptureTaxe[];
+  depuis: string | null;
+  jusqu_a: string | null;
+};
+
+export type QuittancePaiement = {
+  id: string;
+  quittance_id: string | null;
+  montant_fcfa: number;
+  operateur: string;
+  msisdn: string | null;
+  statut: string;
+  reference_interne: string;
+  reference_operateur: string | null;
+  metadata_json: Record<string, unknown> | null;
+};
+
+export type Quittance = {
+  id: string;
+  numero: string;
+  pecheur_id: string | null;
+  organisation_id: string | null;
+  montant_fcfa: number;
+  nb_captures: number;
+  periode_debut: string | null;
+  periode_fin: string | null;
+  statut: 'en_attente' | 'payee' | 'annulee';
+  date_creation: string;
+  date_paiement: string | null;
+  metadata_json: Record<string, unknown> | null;
+  paiement: QuittancePaiement | null;
+  titulaire: string | null;
+};
+
+export type SyntheseRedevances = {
+  periode_debut: string | null;
+  periode_fin: string | null;
+  taxe_due_fcfa: number;
+  taxe_payee_fcfa: number;
+  taxe_sans_bareme_kg: number;
+  nb_captures_dues: number;
+  nb_quittances_en_attente: number;
+  nb_quittances_payees: number;
+  par_groupe: GroupeMontant[];
+  par_mois: Array<{ periode: string; due_fcfa: number; payee_fcfa: number; quantite_kg: number }>;
+  genere_a: string;
+};
+
+function qs(params: Record<string, string | number | boolean | undefined | null>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+  }
+  const text = q.toString();
+  return text ? `?${text}` : '';
+}
+
+export function getEncoursRedevances(token: string, params: { pecheur_id?: string; organisation_id?: string }) {
+  return request<EncoursRedevances>(`/api/v1/redevances/encours${qs(params)}`, token);
+}
+
+export function getSyntheseRedevances(token: string, params: { debut?: string; fin?: string } = {}) {
+  return request<SyntheseRedevances>(`/api/v1/redevances/synthese${qs(params)}`, token);
+}
+
+export function listQuittances(
+  token: string,
+  params: { pecheur_id?: string; organisation_id?: string; statut?: string; limit?: number } = {},
+) {
+  return request<Quittance[]>(`/api/v1/redevances/quittances${qs(params)}`, token);
+}
+
+export function createQuittance(token: string, data: { pecheur_id?: string; organisation_id?: string; jusqu_a?: string }) {
+  return request<Quittance>('/api/v1/redevances/quittances', token, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function payerQuittance(
+  token: string,
+  quittanceId: string,
+  data: { operateur?: string; msisdn?: string; numero_tiers_autorise?: boolean },
+) {
+  return request<{ quittance: Quittance; paiement: QuittancePaiement }>(
+    `/api/v1/redevances/quittances/${quittanceId}/payer`,
+    token,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export function confirmerQuittanceDemo(token: string, paiementId: string) {
+  return request<{ quittance: Quittance; paiement: QuittancePaiement }>(
+    `/api/v1/redevances/paiements/${paiementId}/confirmer-demo`,
+    token,
+    { method: 'POST' },
+  );
+}
+
+export function annulerQuittance(token: string, quittanceId: string) {
+  return request<Quittance>(`/api/v1/redevances/quittances/${quittanceId}/annuler`, token, { method: 'POST' });
+}
+
+export function downloadQuittancePdf(token: string, quittanceId: string, numero: string) {
+  return downloadAuthenticatedFile(token, `/api/v1/redevances/quittances/${quittanceId}/pdf`, `quittance_${numero}.pdf`);
+}
+
+/* ——— Contrôles : missions, contrôles, vérification de licence ——— */
+
+export type Mission = {
+  id: string;
+  code: string;
+  type: string;
+  zone_id: string | null;
+  zone_libelle: string | null;
+  date_debut: string;
+  date_fin: string | null;
+  responsable_id: string | null;
+  description: string | null;
+  statut: 'planifiee' | 'en_cours' | 'cloturee';
+  date_creation: string;
+  nb_controles: number;
+  nb_infractions: number;
+};
+
+export type Controle = {
+  id: string;
+  mission_id: string | null;
+  embarcation_id: string | null;
+  pecheur_id: string | null;
+  numero_licence_saisi: string | null;
+  date_controle: string;
+  position: { type: 'Point'; coordinates: [number, number] } | null;
+  lieu: string | null;
+  nationalite_proprietaire: string | null;
+  pecheurs_a_bord: number | null;
+  engin_declare: string | null;
+  engin_trouve: string | null;
+  infraction: boolean;
+  categorie_infraction: string | null;
+  saisies: string | null;
+  sanction: string | null;
+  observations: string | null;
+  licence_valide: boolean | null;
+  agent_id: string | null;
+  date_creation: string;
+  embarcation_nom: string | null;
+  immatriculation: string | null;
+  pecheur_nom: string | null;
+  numero_licence: string | null;
+};
+
+export type VerificationLicence = {
+  numero_licence: string;
+  trouvee: boolean;
+  statut_licence: string;
+  date_delivrance: string | null;
+  date_expiration: string | null;
+  pecheur_id: string | null;
+  pecheur_nom: string | null;
+  nationalite: string | null;
+  organisation: string | null;
+  embarcations: Array<{ id: string; nom: string; immatriculation: string; type: string | null }>;
+  taxes_dues_fcfa: number;
+  alertes_nouvelles: number;
+  controles_12_mois: number;
+  infractions_12_mois: number;
+  engins_autorises: string[];
+};
+
+export type VerifPublique = {
+  numero: string;
+  type: string;
+  valide: boolean;
+  statut: string;
+  date_expiration: string | null;
+  nb_embarcations: number;
+  montant_fcfa: number | null;
+};
+
+export function listMissions(token: string, params: { statut?: string; limit?: number } = {}) {
+  return request<Mission[]>(`/api/v1/controles/missions${qs(params)}`, token);
+}
+
+export function createMission(
+  token: string,
+  data: { type: string; date_debut: string; date_fin?: string | null; zone_id?: string | null; zone_libelle?: string | null; description?: string | null },
+) {
+  return request<Mission>('/api/v1/controles/missions', token, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function updateMission(token: string, id: string, data: { statut?: string; date_fin?: string | null; description?: string | null }) {
+  return request<Mission>(`/api/v1/controles/missions/${id}`, token, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function listControles(
+  token: string,
+  params: { mission_id?: string; embarcation_id?: string; pecheur_id?: string; infraction?: boolean; debut?: string; fin?: string; limit?: number } = {},
+) {
+  return request<Controle[]>(`/api/v1/controles${qs(params)}`, token);
+}
+
+export function createControle(
+  token: string,
+  data: {
+    mission_id?: string | null;
+    embarcation_id?: string | null;
+    pecheur_id?: string | null;
+    numero_licence?: string | null;
+    date_controle?: string | null;
+    position?: { type: 'Point'; coordinates: [number, number] } | null;
+    lieu?: string | null;
+    nationalite_proprietaire?: string | null;
+    pecheurs_a_bord?: number | null;
+    engin_declare?: string | null;
+    engin_trouve?: string | null;
+    infraction?: boolean;
+    categorie_infraction?: string | null;
+    saisies?: string | null;
+    sanction?: string | null;
+    observations?: string | null;
+  },
+) {
+  return request<Controle>('/api/v1/controles', token, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export function verifierLicence(token: string, numero: string) {
+  return request<VerificationLicence>(`/api/v1/controles/verifier-licence${qs({ numero })}`, token);
+}
+
+export function verifPublique(type: 'licence' | 'quittance', numero: string) {
+  return request<VerifPublique>(`/api/v1/public/verif/${type}/${encodeURIComponent(numero)}`);
 }

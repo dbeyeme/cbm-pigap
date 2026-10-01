@@ -73,6 +73,15 @@ async def fiche_embarcation(
     if pecheur.statut.value != "actif":
         niveau = 2
         motifs.append(f"Licence {pecheur.numero_licence} : pêcheur {pecheur.statut.value}")
+    else:
+        from app.core.licence import date_expiration, statut_licence
+
+        if statut_licence(pecheur, today=now.date()) == "expiree":
+            niveau = max(niveau, 1)
+            exp = date_expiration(pecheur)
+            motifs.append(
+                f"Autorisation annuelle expirée le {exp.strftime('%d/%m/%Y') if exp else '?'}"
+            )
 
     # Couverture d'abonnement (B2C ou organisation)
     couvert, couverture_motif, source = True, "", None

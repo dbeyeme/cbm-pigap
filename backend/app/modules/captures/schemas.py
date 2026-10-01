@@ -3,45 +3,50 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.modules.referentiels import service as referentiels
 from app.schemas.common import OrmModel, PointGeoJSON
 
-# Liste fermée MVP Gabon (espèces côtières / artisanales plausibles).
-# À valider avec Christian / autorités pour la zone pilote — documenté README.
-ESPECES_MVP = (
-    "capitaine",
-    "merou",
-    "crevette",
-    "thon",
-    "barracuda",
-    "sardine",
-    "autre",
-)
+# Listes issues du référentiel métier (data/open-data/gabon/referentiels_peche.json) :
+# 26 espèces des tableurs de l'administration avec leur groupe (pélagique,
+# démersal, crustacé), engins observés dans les dossiers d'autorisation.
+# Les anciens codes MVP (barracuda, filet, ligne…) restent acceptés comme alias.
 
-METHODES_MVP = (
-    "filet",
-    "ligne",
-    "nasse",
-    "senne",
-    "palangre",
-    "autre",
-)
 
-EspeceMVP = Literal[
-    "capitaine",
-    "merou",
-    "crevette",
-    "thon",
-    "barracuda",
-    "sardine",
-    "autre",
-]
+def especes_valides() -> tuple[str, ...]:
+    return tuple(referentiels.espece_codes())
 
-MethodeMVP = Literal["filet", "ligne", "nasse", "senne", "palangre", "autre"]
+
+def methodes_valides() -> tuple[str, ...]:
+    ref = referentiels.load_referentiels()
+    return tuple(e["code"] for e in referentiels.engins()) + tuple(ref.get("engins_generiques", []))
+
+
+ESPECES_MVP = especes_valides()
+METHODES_MVP = methodes_valides()
+
+
+def _valider_espece(value: str) -> str:
+    normalized = value.strip().lower()
+    if not referentiels.espece_valide(normalized):
+        raise ValueError(
+            "Espèce hors référentiel : choisissez un code du catalogue "
+            f"({', '.join(especes_valides()[:8])}, …)"
+        )
+    return normalized
+
+
+def _valider_methode(value: str) -> str:
+    normalized = value.strip().lower()
+    if not referentiels.engin_valide(normalized):
+        raise ValueError(
+            "Engin hors référentiel : choisissez un code du catalogue "
+            f"({', '.join(methodes_valides())})"
+        )
+    return normalized
 
 
 class CaptureCreate(BaseModel):
@@ -61,22 +66,12 @@ class CaptureCreate(BaseModel):
     @field_validator("espece")
     @classmethod
     def espece_fermee(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in ESPECES_MVP:
-            raise ValueError(
-                f"Espèce hors liste fermée MVP ({', '.join(ESPECES_MVP)})"
-            )
-        return normalized
+        return _valider_espece(value)
 
     @field_validator("methode")
     @classmethod
     def methode_fermee(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in METHODES_MVP:
-            raise ValueError(
-                f"Méthode hors liste fermée MVP ({', '.join(METHODES_MVP)})"
-            )
-        return normalized
+        return _valider_methode(value)
 
     @field_validator("point_debarquement")
     @classmethod
@@ -106,26 +101,12 @@ class CaptureUpdate(BaseModel):
     @field_validator("espece")
     @classmethod
     def espece_fermee(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip().lower()
-        if normalized not in ESPECES_MVP:
-            raise ValueError(
-                f"Espèce hors liste fermée MVP ({', '.join(ESPECES_MVP)})"
-            )
-        return normalized
+        return None if value is None else _valider_espece(value)
 
     @field_validator("methode")
     @classmethod
     def methode_fermee(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip().lower()
-        if normalized not in METHODES_MVP:
-            raise ValueError(
-                f"Méthode hors liste fermée MVP ({', '.join(METHODES_MVP)})"
-            )
-        return normalized
+        return None if value is None else _valider_methode(value)
 
     @field_validator("point_debarquement")
     @classmethod
@@ -149,6 +130,10 @@ class CaptureRead(OrmModel):
     point_debarquement: str | None
     date_capture: datetime
     synchronise_a: datetime | None
+    taxe_fcfa: float | None = None
+    taxe_taux_kg: float | None = None
+    taxe_statut: str | None = None
+    quittance_id: UUID | None = None
 
 
 class CaptureSyncResult(BaseModel):
@@ -157,6 +142,23 @@ class CaptureSyncResult(BaseModel):
     rejects: list[dict]
 
 
+class EspeceCatalogItem(BaseModel):
+    code: str
+    nom: str
+    groupe: str
+    taux_taxe_fcfa_kg: float | None = None
+    protegee: bool = False
+
+
+class EnginCatalogItem(BaseModel):
+    code: str
+    nom: str
+
+
 class EspecesCatalog(BaseModel):
     especes: list[str]
     methodes: list[str]
+    especes_detail: list[EspeceCatalogItem] = []
+    engins_detail: list[EnginCatalogItem] = []
+    sites_debarquement: list[str] = []
+    especes_protegees: list[str] = []

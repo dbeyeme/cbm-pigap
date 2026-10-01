@@ -1,0 +1,669 @@
+{
+  "version": "2026-10-01",
+  "source": "Rapport d'étude NTSAGUI DIGITAL, réf. NTSAGUI-2026-PGH-001 du 1er octobre 2026, d'après les tableurs 2024-2025 de l'administration des pêches (Tableau_Bord_PA, Données_estimées_2024, autorisations 2024-2025, Grand Libreville). Classements, taux et sites à valider par la DGPA avant usage réglementaire.",
+  "a_valider_dgpa": true,
+  "groupes_especes": [
+    {
+      "code": "pelagique",
+      "libelle": "Pélagique"
+    },
+    {
+      "code": "demersal",
+      "libelle": "Démersal"
+    },
+    {
+      "code": "crustace",
+      "libelle": "Crustacé"
+    },
+    {
+      "code": "autre",
+      "libelle": "Autre"
+    }
+  ],
+  "especes": [
+    {
+      "code": "sardine",
+      "nom": "Sardine",
+      "groupe": "pelagique",
+      "production_2024_t": 10248.7,
+      "part_2024_pct": 65.9
+    },
+    {
+      "code": "mulet",
+      "nom": "Mulet",
+      "groupe": "pelagique",
+      "production_2024_t": 1181.9,
+      "part_2024_pct": 7.6
+    },
+    {
+      "code": "bars",
+      "nom": "Bars",
+      "groupe": "demersal",
+      "production_2024_t": 1011.6,
+      "part_2024_pct": 6.5,
+      "alias": [
+        "bar"
+      ]
+    },
+    {
+      "code": "becune",
+      "nom": "Bécune (barracuda)",
+      "groupe": "pelagique",
+      "production_2024_t": 665.9,
+      "part_2024_pct": 4.3,
+      "alias": [
+        "barracuda"
+      ]
+    },
+    {
+      "code": "bossu",
+      "nom": "Bossu",
+      "groupe": "demersal",
+      "production_2024_t": 662.3,
+      "part_2024_pct": 4.3
+    },
+    {
+      "code": "thon",
+      "nom": "Thon",
+      "groupe": "pelagique",
+      "production_2024_t": 470.0,
+      "part_2024_pct": 3.0
+    },
+    {
+      "code": "capitaine",
+      "nom": "Capitaine",
+      "nom_scientifique": "Polydactylus quadrifilis",
+      "groupe": "demersal",
+      "production_2024_t": 419.9,
+      "part_2024_pct": 2.7
+    },
+    {
+      "code": "maquereau",
+      "nom": "Maquereau",
+      "groupe": "pelagique",
+      "production_2024_t": 337.1,
+      "part_2024_pct": 2.2
+    },
+    {
+      "code": "rouge",
+      "nom": "Rouge",
+      "groupe": "demersal",
+      "production_2024_t": 139.6,
+      "part_2024_pct": 0.9
+    },
+    {
+      "code": "machoiron_de_mer",
+      "nom": "Machoiron de mer",
+      "groupe": "demersal",
+      "production_2024_t": 95.0,
+      "part_2024_pct": 0.6
+    },
+    {
+      "code": "carangue",
+      "nom": "Carangue",
+      "groupe": "pelagique",
+      "production_2024_t": 70.8,
+      "part_2024_pct": 0.5
+    },
+    {
+      "code": "dorade_rose",
+      "nom": "Dorade rose",
+      "groupe": "demersal",
+      "production_2024_t": 59.3,
+      "part_2024_pct": 0.4
+    },
+    {
+      "code": "merou",
+      "nom": "Mérou",
+      "groupe": "demersal",
+      "production_2024_t": 34.7,
+      "part_2024_pct": 0.2
+    },
+    {
+      "code": "dorade_grise",
+      "nom": "Dorade grise",
+      "groupe": "demersal",
+      "production_2024_t": 33.3,
+      "part_2024_pct": 0.2
+    },
+    {
+      "code": "divers",
+      "nom": "Divers",
+      "groupe": "demersal",
+      "production_2024_t": 33.3,
+      "part_2024_pct": 0.2
+    },
+    {
+      "code": "turbo",
+      "nom": "Turbo",
+      "groupe": "pelagique",
+      "production_2024_t": 18.7,
+      "part_2024_pct": 0.1
+    },
+    {
+      "code": "barbillon",
+      "nom": "Barbillon",
+      "groupe": "pelagique",
+      "production_2024_t": 17.9,
+      "part_2024_pct": 0.1
+    },
+    {
+      "code": "disque",
+      "nom": "Disque",
+      "groupe": "demersal",
+      "production_2024_t": 17.6,
+      "part_2024_pct": 0.1
+    },
+    {
+      "code": "sole",
+      "nom": "Sole",
+      "groupe": "demersal",
+      "production_2024_t": 17.0,
+      "part_2024_pct": 0.1
+    },
+    {
+      "code": "ceinture",
+      "nom": "Ceinture",
+      "groupe": "pelagique",
+      "production_2024_t": 9.1,
+      "part_2024_pct": 0.1
+    },
+    {
+      "code": "carpe",
+      "nom": "Carpe",
+      "groupe": "pelagique",
+      "production_2024_t": 8.9,
+      "part_2024_pct": 0.1
+    },
+    {
+      "code": "crevette",
+      "nom": "Crevette",
+      "groupe": "crustace",
+      "production_2024_t": 1.0,
+      "part_2024_pct": 0.0
+    },
+    {
+      "code": "banane_de_mer",
+      "nom": "Banane de mer",
+      "groupe": "pelagique",
+      "production_2024_t": 0.8,
+      "part_2024_pct": 0.0
+    },
+    {
+      "code": "crabe",
+      "nom": "Crabe",
+      "groupe": "crustace",
+      "production_2024_t": 0.5,
+      "part_2024_pct": 0.0
+    },
+    {
+      "code": "raie",
+      "nom": "Raie",
+      "groupe": "pelagique",
+      "production_2024_t": 0.2,
+      "part_2024_pct": 0.0
+    },
+    {
+      "code": "langouste",
+      "nom": "Langouste",
+      "groupe": "crustace",
+      "production_2024_t": 0.0,
+      "part_2024_pct": 0.0
+    },
+    {
+      "code": "requin",
+      "nom": "Requin",
+      "groupe": "pelagique",
+      "production_2024_t": 0.0,
+      "part_2024_pct": 0.0
+    },
+    {
+      "code": "ethmalose",
+      "nom": "Ethmalose",
+      "groupe": "pelagique",
+      "note": "Espèce cible déclarée dans 26 autorisations, absente des tableaux de captures 2024"
+    },
+    {
+      "code": "autre",
+      "nom": "Autre espèce",
+      "groupe": "autre"
+    },
+    {
+      "code": "merou_geant",
+      "nom": "Mérou géant (protégé)",
+      "groupe": "demersal",
+      "protegee": true
+    },
+    {
+      "code": "requin_marteau",
+      "nom": "Requin marteau (protégé)",
+      "groupe": "pelagique",
+      "protegee": true
+    },
+    {
+      "code": "tortue_marine",
+      "nom": "Tortue marine (protégée)",
+      "groupe": "autre",
+      "protegee": true
+    },
+    {
+      "code": "raie_manta",
+      "nom": "Raie manta (protégée)",
+      "groupe": "pelagique",
+      "protegee": true
+    }
+  ],
+  "especes_protegees": [
+    {
+      "code": "merou_geant",
+      "nom": "Mérou géant"
+    },
+    {
+      "code": "requin_marteau",
+      "nom": "Requin marteau"
+    },
+    {
+      "code": "tortue_marine",
+      "nom": "Tortue marine"
+    },
+    {
+      "code": "raie_manta",
+      "nom": "Raie manta"
+    }
+  ],
+  "prix_moyens_2024_fcfa_kg": {
+    "sardine": 500,
+    "mulet": 1000,
+    "bars": 2000,
+    "bossu": 2000,
+    "capitaine": 2500
+  },
+  "engins": [
+    {
+      "code": "filet_sardine",
+      "nom": "Filet à sardine",
+      "dossiers_2024_2025": 365
+    },
+    {
+      "code": "filet_maillant_fond",
+      "nom": "Filet maillant de fond",
+      "dossiers_2024_2025": 239
+    },
+    {
+      "code": "filet_multifilament",
+      "nom": "Filet multifilament",
+      "dossiers_2024_2025": 169
+    },
+    {
+      "code": "filet_mulet",
+      "nom": "Filet à mulet",
+      "dossiers_2024_2025": 46
+    },
+    {
+      "code": "senne_tournante",
+      "nom": "Senne tournante (tiré-tiré)",
+      "dossiers_2024_2025": 28
+    },
+    {
+      "code": "filet_maillant_derivant",
+      "nom": "Filet maillant dérivant",
+      "dossiers_2024_2025": 20
+    },
+    {
+      "code": "ligne_fond",
+      "nom": "Ligne de fond",
+      "dossiers_2024_2025": 17
+    },
+    {
+      "code": "ligne_main",
+      "nom": "Ligne à main",
+      "dossiers_2024_2025": 14
+    },
+    {
+      "code": "palangre",
+      "nom": "Palangre",
+      "dossiers_2024_2025": 8
+    },
+    {
+      "code": "nasse",
+      "nom": "Nasse"
+    },
+    {
+      "code": "autre",
+      "nom": "Autre engin"
+    }
+  ],
+  "engins_generiques": [
+    "filet",
+    "ligne",
+    "senne"
+  ],
+  "types_pirogue": [
+    {
+      "code": "artisanale_motorisee",
+      "nom": "Artisanale motorisée"
+    },
+    {
+      "code": "artisanale_non_motorisee",
+      "nom": "Artisanale non motorisée"
+    },
+    {
+      "code": "semi_industrielle",
+      "nom": "Semi-industrielle"
+    }
+  ],
+  "materiaux": [
+    {
+      "code": "bois",
+      "nom": "Bois",
+      "dossiers_2024_2025": 846
+    },
+    {
+      "code": "plastique",
+      "nom": "Plastique",
+      "dossiers_2024_2025": 58
+    },
+    {
+      "code": "fibre_verre",
+      "nom": "Fibre de verre",
+      "dossiers_2024_2025": 2
+    }
+  ],
+  "filieres": [
+    {
+      "code": "artisanale_maritime",
+      "nom": "Pêche artisanale maritime"
+    },
+    {
+      "code": "artisanale_continentale",
+      "nom": "Pêche artisanale continentale"
+    },
+    {
+      "code": "industrielle",
+      "nom": "Pêche industrielle"
+    }
+  ],
+  "strates": [
+    {
+      "code": "aviation",
+      "nom": "Aviation",
+      "dossiers_2024_2025": 389
+    },
+    {
+      "code": "libreville",
+      "nom": "Libreville",
+      "dossiers_2024_2025": 250
+    },
+    {
+      "code": "owendo",
+      "nom": "Owendo",
+      "dossiers_2024_2025": 98
+    },
+    {
+      "code": "kango",
+      "nom": "Kango",
+      "note": "Présente uniquement dans les hypothèses d'estimation"
+    }
+  ],
+  "prefixes_immatriculation_observes": [
+    {
+      "prefixe": "OW",
+      "dossiers": 411,
+      "lieu_probable": "Owendo"
+    },
+    {
+      "prefixe": "L",
+      "dossiers": 255,
+      "lieu_probable": "Libreville"
+    },
+    {
+      "prefixe": "AK",
+      "dossiers": 98,
+      "lieu_probable": "Akanda"
+    },
+    {
+      "prefixe": "CC",
+      "dossiers": 75,
+      "lieu_probable": "Cocobeach"
+    },
+    {
+      "prefixe": "KG",
+      "dossiers": 58,
+      "lieu_probable": "Kango"
+    }
+  ],
+  "sites_debarquement": [
+    {
+      "code": "ozoungue",
+      "nom": "Ozoungué",
+      "dossiers_2024_2025": 169
+    },
+    {
+      "code": "grande_poubelle",
+      "nom": "Grande Poubelle",
+      "dossiers_2024_2025": 134
+    },
+    {
+      "code": "capal",
+      "nom": "Capal",
+      "dossiers_2024_2025": 107
+    },
+    {
+      "code": "bac_aviation",
+      "nom": "Bac Aviation",
+      "strate": "aviation",
+      "dossiers_2024_2025": 78
+    },
+    {
+      "code": "razel",
+      "nom": "Razel",
+      "dossiers_2024_2025": 73
+    },
+    {
+      "code": "petite_poubelle",
+      "nom": "Petite Poubelle",
+      "dossiers_2024_2025": 52
+    },
+    {
+      "code": "alenakiri",
+      "nom": "Alenakiri",
+      "dossiers_2024_2025": 45
+    },
+    {
+      "code": "bambouchine",
+      "nom": "Bambouchine",
+      "dossiers_2024_2025": 43
+    },
+    {
+      "code": "ambowe",
+      "nom": "Ambowé",
+      "dossiers_2024_2025": 32
+    },
+    {
+      "code": "michel_marine",
+      "nom": "Michel Marine",
+      "dossiers_2024_2025": 32
+    },
+    {
+      "code": "soduco",
+      "nom": "Soduco",
+      "dossiers_2024_2025": 29
+    },
+    {
+      "code": "owendo",
+      "nom": "Owendo"
+    },
+    {
+      "code": "libreville",
+      "nom": "Libreville"
+    },
+    {
+      "code": "port_gentil",
+      "nom": "Port-Gentil"
+    },
+    {
+      "code": "cap_lopez",
+      "nom": "Cap Lopez"
+    },
+    {
+      "code": "cocobeach",
+      "nom": "Cocobeach"
+    },
+    {
+      "code": "mayumba",
+      "nom": "Mayumba"
+    }
+  ],
+  "nationalites": [
+    {
+      "code": "gabon",
+      "nom": "Gabon",
+      "proprietaires_2024_2025": 441
+    },
+    {
+      "code": "nigeria",
+      "nom": "Nigéria",
+      "proprietaires_2024_2025": 345
+    },
+    {
+      "code": "benin",
+      "nom": "Bénin",
+      "proprietaires_2024_2025": 104
+    },
+    {
+      "code": "togo",
+      "nom": "Togo",
+      "proprietaires_2024_2025": 7
+    },
+    {
+      "code": "mali",
+      "nom": "Mali",
+      "proprietaires_2024_2025": 5
+    },
+    {
+      "code": "cameroun",
+      "nom": "Cameroun",
+      "proprietaires_2024_2025": 2
+    },
+    {
+      "code": "ghana",
+      "nom": "Ghana",
+      "proprietaires_2024_2025": 1
+    },
+    {
+      "code": "burkina_faso",
+      "nom": "Burkina Faso",
+      "proprietaires_2024_2025": 1
+    },
+    {
+      "code": "autre",
+      "nom": "Autre"
+    }
+  ],
+  "categories_infraction": [
+    {
+      "code": "engin_prohibe",
+      "nom": "Engin prohibé ou non déclaré"
+    },
+    {
+      "code": "zone_interdite",
+      "nom": "Pêche en zone interdite"
+    },
+    {
+      "code": "periode_fermeture",
+      "nom": "Pêche en période de fermeture"
+    },
+    {
+      "code": "licence_absente",
+      "nom": "Licence absente ou expirée"
+    },
+    {
+      "code": "espece_protegee",
+      "nom": "Capture d'espèce protégée"
+    },
+    {
+      "code": "non_declaration",
+      "nom": "Non-déclaration des captures"
+    },
+    {
+      "code": "securite",
+      "nom": "Équipement de sécurité manquant"
+    },
+    {
+      "code": "autre",
+      "nom": "Autre"
+    }
+  ],
+  "baremes": {
+    "note": "Montants observés dans les dossiers d'autorisation 2024-2025 et les tableurs de taxe 2024 (Grand Libreville). Référence réglementaire à renseigner par la DGPA ; le barème « crustacés » est une moyenne observée.",
+    "reference_texte": null,
+    "validite_debut": "2024-01-01",
+    "validite_fin": null,
+    "autorisation_annuelle": [
+      {
+        "code": "maritime_national",
+        "nom": "Pêche artisanale maritime, propriétaire national",
+        "montant_fcfa": 100000
+      },
+      {
+        "code": "maritime_etranger",
+        "nom": "Pêche artisanale maritime, propriétaire étranger",
+        "montant_fcfa": 150000
+      },
+      {
+        "code": "senne_tournante",
+        "nom": "Pêche à la senne tournante (tiré-tiré)",
+        "montant_fcfa": 200000
+      },
+      {
+        "code": "continentale",
+        "nom": "Pêche artisanale continentale",
+        "montant_fcfa": 50000
+      }
+    ],
+    "carte_pecheur_annuelle_fcfa": 10000,
+    "taxe_production_fcfa_kg": [
+      {
+        "code": "sardine",
+        "espece": "sardine",
+        "taux": 5
+      },
+      {
+        "code": "pelagique",
+        "groupe": "pelagique",
+        "taux": 10
+      },
+      {
+        "code": "demersal",
+        "groupe": "demersal",
+        "taux": 25
+      },
+      {
+        "code": "crustace",
+        "groupe": "crustace",
+        "taux": 78,
+        "approximatif": true
+      }
+    ]
+  },
+  "reperes_2024_grand_libreville": {
+    "debarquements_t": 5294,
+    "nb_debarquements": 27604,
+    "jours_de_peche": 46802,
+    "kg_par_jour_de_peche": 147,
+    "valeur_fcfa": 4900000000,
+    "taxe_production_due_fcfa": 53260000,
+    "autorisations_2024": {
+      "nombre": 382,
+      "montant_fcfa": 48100000
+    },
+    "autorisations_2025": {
+      "nombre": 524,
+      "montant_fcfa": 67400000
+    },
+    "production_estimee_t": 15555,
+    "pirogues_distinctes": 605,
+    "part_pirogues_bois_pct": 93,
+    "annee_construction_mediane": 2012
+  }
+}

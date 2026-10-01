@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     ais_prediction_horizon_h: float = 48.0
     # Clé partagée des récepteurs AIS locaux (POST /ais/ingest) — vide = désactivé
     ais_ingest_key: str | None = None
+    # Clé partagée du flux de balises satellitaires (POST /positions/balises/ingest,
+    # ADR-009) — vide = désactivé
+    balise_ingest_key: str | None = None
     # Présence au port calculée depuis le GPS PIGAP (aucun matériel)
     presence_port_min_minutes: int = 10  # immobile dans le rayon → « à quai »
     presence_fenetre_heures: int = 24
@@ -75,6 +78,12 @@ class Settings(BaseSettings):
     # Les aperçus Vercel sont couverts par l'expression régulière.
     cors_origins: str = "*"
     cors_origin_regex: str | None = None
+    # Durée de validité d'une autorisation de pêche artisanale (annuelle)
+    licence_validite_jours: int = 365
+    # Rappel de déclaration : délai après le retour au port sans capture déclarée
+    alerte_rappel_declaration_heures: float = 2.0
+    # Origine publique du portail (QR codes de vérification des licences et quittances)
+    public_web_url: str = "https://cbm-pigap-web.vercel.app"
     # Météo-marine (Open-Meteo, CC BY 4.0) : bulletin, zones calculées, alertes auto
     meteo_enabled: bool = True
     meteo_cache_minutes: int = 30

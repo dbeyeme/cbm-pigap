@@ -57,12 +57,14 @@ import { friendlyApiError } from './lib/apiErrors';
 import { canAccessPage, type NavId, type Page } from './nav';
 import ActeursHub from './pages/ActeursHub';
 import AlertesPage from './pages/AlertesPage';
+import ControlesPage from './pages/ControlesPage';
 import DashboardPage from './pages/DashboardPage';
 import LandingPage from './pages/LandingPage';
 import OrgPortalPage from './pages/OrgPortalPage';
 import PechesHub from './pages/PechesHub';
 import RapportsPage from './pages/RapportsPage';
 import UsersPage from './pages/UsersPage';
+import VerifPage from './pages/VerifPage';
 import ZonesPage from './pages/ZonesPage';
 
 const PALETTE = [
@@ -163,7 +165,7 @@ export default function App() {
   const [acteursTab, setActeursTab] = useState<
     'demandes' | 'licences' | 'organisations' | 'abonnements'
   >('demandes');
-  const [pechesTab, setPechesTab] = useState<'captures' | 'quotas'>('captures');
+  const [pechesTab, setPechesTab] = useState<'captures' | 'quotas' | 'redevances'>('captures');
 
   const boats = useMemo(() => {
     const map = new Map<string, { id: string; nom: string; immatriculation: string; trips: number }>();
@@ -996,6 +998,9 @@ export default function App() {
       case 'alertes':
         setPage('alertes');
         break;
+      case 'controles':
+        setPage('controles');
+        break;
       case 'rapports':
         setPage('rapports');
         break;
@@ -1071,6 +1076,11 @@ export default function App() {
     setShowZonesOverlay(false);
     setPage('dashboard');
     setError(null);
+  }
+
+  const verifMatch = /^\/verif\/(licence|quittance)\/([^/]+)$/.exec(window.location.pathname);
+  if (verifMatch) {
+    return <VerifPage type={verifMatch[1] as 'licence' | 'quittance'} numero={decodeURIComponent(verifMatch[2])} />;
   }
 
   if (!token) {
@@ -1497,7 +1507,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {page === 'peches' || page === 'captures' || page === 'quotas' ? (
+          {page === 'peches' || page === 'captures' || page === 'quotas' || page === 'redevances' ? (
             <>
               {error ? (
                 <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
@@ -1508,7 +1518,7 @@ export default function App() {
                 key={pechesTab}
                 token={token}
                 onError={setError}
-                initialTab={page === 'quotas' ? 'quotas' : pechesTab}
+                initialTab={page === 'quotas' ? 'quotas' : page === 'redevances' ? 'redevances' : pechesTab}
               />
             </>
           ) : null}
@@ -1521,6 +1531,17 @@ export default function App() {
                 </p>
               ) : null}
               <AlertesPage token={token} onError={setError} />
+            </>
+          ) : null}
+
+          {page === 'controles' ? (
+            <>
+              {error ? (
+                <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
+                  {error}
+                </p>
+              ) : null}
+              <ControlesPage token={token} onError={setError} />
             </>
           ) : null}
 

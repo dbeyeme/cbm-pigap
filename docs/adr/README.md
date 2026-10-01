@@ -13,6 +13,8 @@ Décisions techniques structurantes de CBM-PIGAP.
 | [ADR-005](ADR-005-ais-zee-gabon-open-data.md) | Couche AIS open data filtrée ZEE | Accepté | 2026-09-09 |
 | [ADR-006](ADR-006-ml-leger-predictions.md) | Graphiques de séries + ML léger (prédictions) | Accepté | 2026-09-10 |
 | [ADR-007](ADR-007-abonnements-mobile-money.md) | Abonnements & Mobile Money (écart §2.2) | Accepté | 2026-09-15 |
+| [ADR-008](ADR-008-meteo-marine-open-data.md) | Bulletin météo-marine et zones calculées (open data) | Accepté | 2026-09-20 |
+| [ADR-009](ADR-009-suivi-temps-reel-sources-position.md) | Suivi temps réel : triangulation GSM/GPS écartée, balises NEMO de l'État | Proposé | 2026-10-01 |
 
 ## Convention
 

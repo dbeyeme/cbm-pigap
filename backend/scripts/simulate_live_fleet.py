@@ -69,10 +69,7 @@ async def main() -> None:
         used.add(boat.id)
         state.append((boat, rid, 0))
 
-    print(
-        f"Flotte live : {len(state)} embarcation(s), tick={interval}s, "
-        "Ctrl+C pour arrêter."
-    )
+    print(f"Flotte live : {len(state)} embarcation(s), tick={interval}s, Ctrl+C pour arrêter.")
     for boat, rid, _ in state:
         meta = DEMO_ROUTE_META.get(rid, {})
         print(f"  • {boat.nom} → {meta.get('label', rid)}")

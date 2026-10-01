@@ -24,9 +24,7 @@ from app.core.config import settings
 
 _ZONE_ALIASES: dict[str, str] = {
     "estuaire": "EST",
-    "libreville": "EST",
-    "owendo": "EST",
-    "cocobeach": "EST",
+    "libreville": "L",
     "ogooue-maritime": "OGM",
     "ogooue maritime": "OGM",
     "port-gentil": "OGM",
@@ -43,6 +41,13 @@ _ZONE_ALIASES: dict[str, str] = {
     "ogooue-ivindo": "OGI",
     "ogooue-lolo": "OGL",
     "haut-ogooue": "HOG",
+    # Préfixes observés dans les immatriculations 2024-2025 du Grand Libreville
+    # (rapport NTSAGUI-2026-PGH-001 : OW 411, L 255, AK 98, CC 75, KG 58 dossiers) ;
+    # Libreville reçoit « L » pour la même raison.
+    "owendo": "OW",
+    "akanda": "AK",
+    "cocobeach": "CC",
+    "kango": "KG",
 }
 
 

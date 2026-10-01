@@ -393,3 +393,74 @@ export type Payeur = {
 export function getPayeur(token: string) {
   return request<Payeur>('/api/v1/abonnements/payeur', { token });
 }
+
+
+/* ——— Redevances : taxe à la production, quittances ——— */
+
+export type EncoursRedevances = {
+  pecheur_id: string | null;
+  organisation_id: string | null;
+  nb_captures: number;
+  quantite_kg: number;
+  montant_fcfa: number;
+  par_groupe: Array<{ groupe: string; quantite_kg: number; montant_fcfa: number }>;
+  depuis: string | null;
+  jusqu_a: string | null;
+};
+
+export type QuittancePaiement = {
+  id: string;
+  quittance_id: string | null;
+  montant_fcfa: number;
+  operateur: string;
+  msisdn: string | null;
+  statut: string;
+  reference_interne: string;
+  reference_operateur: string | null;
+};
+
+export type Quittance = {
+  id: string;
+  numero: string;
+  montant_fcfa: number;
+  nb_captures: number;
+  statut: 'en_attente' | 'payee' | 'annulee';
+  date_creation: string;
+  date_paiement: string | null;
+  paiement: QuittancePaiement | null;
+  titulaire: string | null;
+};
+
+export function getEncoursRedevances(token: string) {
+  return request<EncoursRedevances>('/api/v1/redevances/encours', { token });
+}
+
+export function listQuittances(token: string) {
+  return request<Quittance[]>('/api/v1/redevances/quittances', { token });
+}
+
+export function createQuittance(token: string) {
+  return request<Quittance>('/api/v1/redevances/quittances', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export function payerQuittance(
+  token: string,
+  quittanceId: string,
+  data: { operateur?: string; msisdn?: string; numero_tiers_autorise?: boolean },
+) {
+  return request<{ quittance: Quittance; paiement: QuittancePaiement }>(
+    `/api/v1/redevances/quittances/${quittanceId}/payer`,
+    { method: 'POST', token, body: JSON.stringify(data) },
+  );
+}
+
+export function confirmerQuittanceDemo(token: string, paiementId: string) {
+  return request<{ quittance: Quittance; paiement: QuittancePaiement }>(
+    `/api/v1/redevances/paiements/${paiementId}/confirmer-demo`,
+    { method: 'POST', token },
+  );
+}

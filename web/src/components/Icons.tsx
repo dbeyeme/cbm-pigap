@@ -290,6 +290,7 @@ export const NAV_ICONS = {
   rapports: IconReport,
   cartographie: IconMap,
   admin: IconSettings,
+  controles: IconShield,
 } as const;
 
 /* ——— Icônes d'action (boutons, onglets) ——— */

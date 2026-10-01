@@ -77,3 +77,29 @@ Masque d'eau : les quais hors polygone ZEE (Libreville, Port-Gentil, Mayumba,
 Cocobeach, Cap Lopez) sont acceptés dans le rayon `rayon_quai_km` du référentiel ;
 la rade intérieure de Port-Gentil au-delà de 2,5 km reste refusée (limite du
 masque, à traiter avec un polygone portuaire dédié).
+
+## Balises satellitaires, `source=balise` (ADR-009, ajout 2026-10-01)
+
+Point d'entrée du flux de balises déployées par l'État sur les pirogues (données
+**fictives** tant que l'accès au flux réel n'est pas obtenu).
+
+| Méthode | Chemin | Description |
+|---------|--------|-------------|
+| POST | `/api/v1/positions/balises/ingest` | Lot de messages de balises (clé `X-Balise-Ingest-Key` = `BALISE_INGEST_KEY`) |
+
+- Rapprochement balise ↔ embarcation par `embarcations.balise_id` (unique, saisi au registre M1).
+- Message pivot : `balise_id`, `lat`, `lon`, `horodatage`, `vitesse_noeuds`, `cap_degres`, `alerte`.
+- Règles : balise inconnue listée dans `balises_inconnues` ; position à terre comptée `hors_eau` ;
+  doublon (même embarcation, horodatage, source) ignoré ; `alerte=true` → alerte critique
+  `detresse_balise` (type anomalie, une seule par bouton maintenu pendant 12 h).
+- Les règles M7 (zone interdite, limite, concentration…) s'appliquent comme au mobile.
+
+```bash
+cd backend
+pytest app/tests/test_balises_ingest.py -q
+
+# Simulation fictive (attribue BAL-FICTIF-000n aux embarcations sans balise)
+BALISE_INGEST_KEY=demo-balise python scripts/simulate_balises_nemo.py
+# un lot puis sortie, avec détresse sur la première pirogue :
+BALISE_ONCE=1 BALISE_SOS=1 BALISE_INGEST_KEY=demo-balise python scripts/simulate_balises_nemo.py
+```

@@ -24,6 +24,7 @@ import { CreatePecheurScreen } from './src/screens/CreatePecheurScreen';
 import { AgentHomeScreen } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { PecheurHomeScreen } from './src/screens/PecheurHomeScreen';
+import { RedevancesScreen } from './src/screens/RedevancesScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { TrackingScreen } from './src/screens/TrackingScreen';
 import { colors, fonts, space } from './src/theme';
@@ -35,7 +36,8 @@ type Screen =
   | 'search'
   | 'tracking'
   | 'captures'
-  | 'abonnement';
+  | 'abonnement'
+  | 'redevances';
 
 function tabFromScreen(screen: Screen, mode: 'pecheur' | 'agent'): RoleTab {
   if (screen === 'captures') return 'captures';
@@ -164,8 +166,13 @@ export default function App() {
                     onCaptures={() => setScreen('captures')}
                     onTracking={() => setScreen('tracking')}
                     onAbonnement={() => setScreen('abonnement')}
+                    onRedevances={() => setScreen('redevances')}
                     onLogout={logout}
                   />
+                )}
+
+                {token && mode === 'pecheur' && screen === 'redevances' && (
+                  <RedevancesScreen token={token} onBack={() => setScreen('home')} />
                 )}
 
                 {token && mode === 'agent' && screen === 'create' && (

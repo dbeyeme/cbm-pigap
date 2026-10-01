@@ -9,6 +9,7 @@ export type Page =
   | 'alertes'
   | 'rapports'
   | 'cartographie'
+  | 'controles'
   | 'admin'
   /** Sous-vues / legacy ids still used by NotificationBell */
   | 'demandes'
@@ -18,6 +19,7 @@ export type Page =
   | 'org'
   | 'captures'
   | 'quotas'
+  | 'redevances'
   | 'map'
   | 'zones'
   | 'users';
@@ -31,6 +33,7 @@ export type NavId =
   | 'alertes'
   | 'rapports'
   | 'cartographie'
+  | 'controles'
   | 'admin';
 
 export type NavSection = 'pilotage' | 'registre' | 'operations' | 'systeme';
@@ -56,9 +59,10 @@ export const BO_NAV: NavItem[] = [
   { id: 'rapports', label: 'Rapports', hint: 'Documents et exports', section: 'pilotage', glyph: '▤' },
   { id: 'acteurs', label: 'Acteurs', hint: 'Pêcheurs, licences, organisations', section: 'registre', glyph: '◉' },
   { id: 'navires', label: 'Navires', hint: 'Flotte et trajectoires', section: 'registre', glyph: '⬡' },
-  { id: 'peches', label: 'Pêches et ressources', hint: 'Captures et quotas', section: 'registre', glyph: '◈' },
+  { id: 'peches', label: 'Pêches et ressources', hint: 'Captures, quotas, redevances', section: 'registre', glyph: '◈' },
   { id: 'surveillance', label: 'Surveillance', hint: 'Temps réel, AIS et zones', section: 'operations', glyph: '◎' },
   { id: 'alertes', label: 'Alertes', hint: 'Événements à traiter', section: 'operations', glyph: '!' },
+  { id: 'controles', label: 'Contrôles', hint: 'Missions, infractions, licences', section: 'operations', glyph: '✓' },
   { id: 'cartographie', label: 'Cartographie', hint: 'Zones réglementées', section: 'operations', glyph: '+' },
   { id: 'admin', label: 'Administration', hint: 'Équipe et paramètres', section: 'systeme', glyph: '*' },
 ];
@@ -72,6 +76,7 @@ const NAV_BY_ROLE: Record<string, NavId[]> = {
     'peches',
     'surveillance',
     'alertes',
+    'controles',
     'rapports',
     'cartographie',
     'admin',
@@ -83,13 +88,16 @@ const NAV_BY_ROLE: Record<string, NavId[]> = {
     'peches',
     'surveillance',
     'alertes',
+    'controles',
     'cartographie',
   ],
   autorite: [
     'dashboard',
     'navires',
+    'peches',
     'surveillance',
     'alertes',
+    'controles',
     'rapports',
     'cartographie',
   ],
@@ -117,7 +125,10 @@ export function canAccessPage(role: string | null | undefined, page: Page): bool
     return allowed.has('acteurs');
   }
   if (page === 'map' || page === 'navires') return allowed.has('navires');
-  if (page === 'captures' || page === 'quotas' || page === 'peches') return allowed.has('peches');
+  if (page === 'captures' || page === 'quotas' || page === 'redevances' || page === 'peches') {
+    return allowed.has('peches');
+  }
+  if (page === 'controles') return allowed.has('controles');
   if (page === 'zones' || page === 'cartographie') return allowed.has('cartographie');
   if (page === 'users' || page === 'admin') return allowed.has('admin');
   if (page === 'surveillance') return allowed.has('surveillance');
@@ -158,7 +169,9 @@ export function isNavActive(page: Page, id: NavId): boolean {
     );
   }
   if (id === 'navires') return page === 'map' || page === 'navires';
-  if (id === 'peches') return page === 'captures' || page === 'quotas' || page === 'peches';
+  if (id === 'peches') {
+    return page === 'captures' || page === 'quotas' || page === 'redevances' || page === 'peches';
+  }
   if (id === 'surveillance') return page === 'surveillance';
   if (id === 'cartographie') return page === 'zones' || page === 'cartographie';
   if (id === 'admin') return page === 'users' || page === 'admin';
@@ -176,6 +189,8 @@ export const PAGE_TITLES: Partial<Record<Page, string>> = {
   peches: 'Pêches et ressources',
   captures: 'Pêches · Captures',
   quotas: 'Pêches · Quotas',
+  redevances: 'Pêches · Redevances',
+  controles: 'Contrôles',
   surveillance: 'Surveillance',
   alertes: 'Alertes',
   rapports: 'Rapports & documents',

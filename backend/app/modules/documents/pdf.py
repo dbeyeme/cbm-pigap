@@ -6,6 +6,8 @@ import io
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
@@ -13,6 +15,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     Flowable,
+    KeepTogether,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -210,6 +213,30 @@ def signatures(styles: dict[str, ParagraphStyle]) -> Table:
         TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 16)])
     )
     return table
+
+
+def fmt_date(value: object | None) -> str:
+    """Date courte pour les documents (jamais de None à l'écran)."""
+    if value is None:
+        return "—"
+    try:
+        return value.strftime("%d/%m/%Y")  # type: ignore[attr-defined]
+    except AttributeError:
+        return str(value)
+
+
+def qr_flowable(data: str, *, size_mm: float = 30.0, caption: str | None = None) -> Flowable:
+    """QR code de vérification (lien public) avec sa légende."""
+    widget = qr.QrCodeWidget(data)
+    x0, y0, x1, y1 = widget.getBounds()
+    size = size_mm * mm
+    drawing = Drawing(size, size, transform=[size / (x1 - x0), 0, 0, size / (y1 - y0), 0, 0])
+    drawing.add(widget)
+    styles = _styles()
+    parts: list[Flowable] = [drawing]
+    if caption:
+        parts.append(Paragraph(_latin(caption), styles["foot"]))
+    return KeepTogether(parts)
 
 
 def _is_grid(payload: object) -> bool:

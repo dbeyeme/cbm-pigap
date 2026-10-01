@@ -4,7 +4,7 @@ type Props = {
   label: string;
   value: ReactNode;
   hint?: string;
-  tone?: 'default' | 'danger' | 'ok';
+  tone?: 'default' | 'danger' | 'ok' | 'warn';
   icon?: ReactNode;
 };
 

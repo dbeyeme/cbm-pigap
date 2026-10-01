@@ -16,6 +16,8 @@ from app.db.models import Embarcation, Pecheur, Position, Utilisateur
 from app.modules.geolocalisation.gabon_routes import is_on_water, segment_stays_on_water
 from app.modules.geolocalisation.geo import geojson_text_to_point, point_to_wkt
 from app.modules.geolocalisation.schemas import (
+    BaliseIngestPayload,
+    BaliseIngestResult,
     EmbarcationTrackRead,
     LicenceDossierRead,
     LiveVesselRead,
@@ -492,4 +494,81 @@ async def get_dossier_by_licence(
         statut=pecheur.statut.value if hasattr(pecheur.statut, "value") else str(pecheur.statut),
         embarcations=tracked,
         trajectories=trajectories,
+    )
+
+
+# --- Ingestion des balises satellitaires (ADR-009, source=balise) ---
+
+
+async def ingest_balises(db: AsyncSession, payload: BaliseIngestPayload) -> BaliseIngestResult:
+    """Intègre un lot de messages de balises comme positions `source=balise`.
+
+    Règles : balise inconnue ignorée (listée) ; position à terre ignorée ;
+    doublon (même embarcation, même horodatage, même source) ignoré ;
+    message avec `alerte` → alerte critique « détresse » (type anomalie).
+    Les règles métier (zone interdite, limite, concentration…) s'appliquent
+    comme pour une position mobile.
+    """
+    ids = sorted({m.balise_id.strip() for m in payload.messages})
+    result = await db.execute(select(Embarcation).where(Embarcation.balise_id.in_(ids)))
+    by_balise = {e.balise_id: e for e in result.scalars().all()}
+
+    now = datetime.now(UTC)
+    integres = doublons = hors_eau = detresse = 0
+    inconnues: set[str] = set()
+    for msg in sorted(payload.messages, key=lambda m: m.horodatage):
+        balise_id = msg.balise_id.strip()
+        emb = by_balise.get(balise_id)
+        if emb is None:
+            inconnues.add(balise_id)
+            continue
+        if not is_on_water(msg.lon, msg.lat):
+            hors_eau += 1
+            continue
+        existing = await db.scalar(
+            select(Position.id).where(
+                Position.embarcation_id == emb.id,
+                Position.horodatage == msg.horodatage,
+                Position.source == SourcePosition.balise,
+            )
+        )
+        if existing is not None:
+            doublons += 1
+            continue
+        point = PointGeoJSON(coordinates=(msg.lon, msg.lat))
+        db.add(
+            Position(
+                embarcation_id=emb.id,
+                position=point_to_wkt(point),
+                horodatage=msg.horodatage,
+                source=SourcePosition.balise,
+                synchronise_a=now,
+            )
+        )
+        await db.flush()
+        integres += 1
+
+        from app.modules.alertes.service import evaluate_after_position, signaler_detresse
+
+        await evaluate_after_position(
+            db, position=point, embarcation_id=emb.id, a_la_date=msg.horodatage
+        )
+        if msg.alerte:
+            created = await signaler_detresse(
+                db,
+                embarcation_id=emb.id,
+                position=point,
+                a_la_date=msg.horodatage,
+                origine=f"balise:{payload.fournisseur}:{balise_id}",
+            )
+            if created is not None:
+                detresse += 1
+    await db.commit()
+    return BaliseIngestResult(
+        recus=len(payload.messages),
+        integres=integres,
+        doublons=doublons,
+        hors_eau=hors_eau,
+        balises_inconnues=sorted(inconnues),
+        alertes_detresse=detresse,
     )

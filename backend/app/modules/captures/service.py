@@ -92,6 +92,10 @@ def _to_read(capture: Capture, geojson_raw: str | None) -> CaptureRead:
         point_debarquement=capture.point_debarquement,
         date_capture=capture.date_capture,
         synchronise_a=capture.synchronise_a,
+        taxe_fcfa=capture.taxe_fcfa,
+        taxe_taux_kg=capture.taxe_taux_kg,
+        taxe_statut=capture.taxe_statut.value if capture.taxe_statut else None,
+        quittance_id=capture.quittance_id,
     )
 
 
@@ -106,9 +110,11 @@ async def _load_read(db: AsyncSession, capture_id: UUID) -> CaptureRead:
 
 
 def _build_row(data: CaptureCreate, *, now: datetime) -> Capture:
+    from app.modules.redevances.service import appliquer_taxe
+
     capture_id = data.id or uuid.uuid4()
     geom = point_to_wkt(data.position_capture) if data.position_capture else None
-    return Capture(
+    row = Capture(
         id=capture_id,
         pecheur_id=data.pecheur_id,
         embarcation_id=data.embarcation_id,
@@ -120,11 +126,11 @@ def _build_row(data: CaptureCreate, *, now: datetime) -> Capture:
         date_capture=data.date_capture,
         synchronise_a=now,
     )
+    appliquer_taxe(row)
+    return row
 
 
-async def create_capture(
-    db: AsyncSession, user: Utilisateur, data: CaptureCreate
-) -> CaptureRead:
+async def create_capture(db: AsyncSession, user: Utilisateur, data: CaptureCreate) -> CaptureRead:
     await _assert_can_write_capture(db, user, data.pecheur_id, data.embarcation_id)
     now = datetime.now(UTC)
 
@@ -156,6 +162,8 @@ async def create_capture(
         embarcation_id=row.embarcation_id,
         position=data.position_capture,
         reference=row.date_capture,
+        espece=row.espece,
+        pecheur_id=row.pecheur_id,
     )
     await db.commit()
     return await _load_read(db, row.id)
@@ -174,9 +182,7 @@ async def sync_captures(
     for item in batch.captures:
         client_id = item.id
         try:
-            await _assert_can_write_capture(
-                db, user, item.pecheur_id, item.embarcation_id
-            )
+            await _assert_can_write_capture(db, user, item.pecheur_id, item.embarcation_id)
             if client_id is not None:
                 existing = await db.get(Capture, client_id)
                 if existing is not None:
@@ -203,6 +209,8 @@ async def sync_captures(
                 embarcation_id=row.embarcation_id,
                 position=item.position_capture,
                 reference=row.date_capture,
+                espece=row.espece,
+                pecheur_id=row.pecheur_id,
             )
         except ApiError as exc:
             rejects.append(
@@ -255,11 +263,12 @@ async def update_capture(
 ) -> CaptureRead:
     capture = await _get_capture_row(db, capture_id)
     # Pêcheur : uniquement ses captures ; agent/autorité/admin : toutes
-    await _assert_can_write_capture(
-        db, user, capture.pecheur_id, capture.embarcation_id
-    )
+    await _assert_can_write_capture(db, user, capture.pecheur_id, capture.embarcation_id)
 
     payload = data.model_dump(exclude_unset=True)
+    from app.modules.redevances.service import appliquer_taxe, assert_modifiable
+
+    assert_modifiable(capture, set(payload))
     new_pecheur_id = payload.get("pecheur_id", capture.pecheur_id)
     new_embarcation_id = payload.get("embarcation_id", capture.embarcation_id)
     if "pecheur_id" in payload or "embarcation_id" in payload:
@@ -272,6 +281,7 @@ async def update_capture(
     especes_before = {capture.espece}
     for key, value in payload.items():
         setattr(capture, key, value)
+    appliquer_taxe(capture)
 
     from app.modules.quotas.service import refresh_quotas_for_especes
 
@@ -284,9 +294,10 @@ async def update_capture(
 async def delete_capture(db: AsyncSession, user: Utilisateur, capture_id: UUID) -> None:
     """Suppression hard (aligné zones / pêcheurs — pas de soft-delete sur Capture)."""
     capture = await _get_capture_row(db, capture_id)
-    await _assert_can_write_capture(
-        db, user, capture.pecheur_id, capture.embarcation_id
-    )
+    await _assert_can_write_capture(db, user, capture.pecheur_id, capture.embarcation_id)
+    from app.modules.redevances.service import assert_modifiable
+
+    assert_modifiable(capture, {"quantite_kg"})
     espece = capture.espece
     await db.delete(capture)
     await db.flush()

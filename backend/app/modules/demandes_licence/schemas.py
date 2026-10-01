@@ -35,6 +35,8 @@ class DemandeLicenceCreate(BaseModel):
     embarcation_longueur: float | None = Field(None, gt=0, le=100)
     # Équipements utilisés (§5.1) : engins, moteur, sécurité, navigation
     embarcation_equipements: dict[str, Any] | None = None
+    # Nationalité du propriétaire : détermine le barème d'autorisation annuelle
+    nationalite: str | None = Field(None, max_length=64)
     message: str | None = Field(None, max_length=2000)
 
     @model_validator(mode="after")
@@ -128,6 +130,8 @@ class DemandeLicenceRead(OrmModel):
     embarcation_type: str | None
     embarcation_longueur: float | None = None
     embarcation_equipements: dict[str, Any] | None = None
+    nationalite: str | None = None
+    montant_autorisation_fcfa: int | None = None
     message: str | None
     pieces_jointes: list[PieceJointeRead] = Field(default_factory=list)
     motif_refus: str | None

@@ -78,6 +78,7 @@ async def create_pecheur(db: AsyncSession, data: PecheurCreate) -> Pecheur:
 
         numero_licence = await numero_licence_suivant(db)
     pecheur = Pecheur(
+        nationalite=data.nationalite,
         utilisateur=utilisateur,
         nom=data.nom,
         prenom=data.prenom,
@@ -172,7 +173,9 @@ async def create_embarcation(db: AsyncSession, data: EmbarcationCreate) -> Embar
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise conflict("Immatriculation déjà utilisée", "IMMATRICULATION_TAKEN") from exc
+        raise conflict(
+            "Immatriculation ou identifiant de balise déjà utilisé", "IMMATRICULATION_TAKEN"
+        ) from exc
     await db.refresh(embarcation)
     return embarcation
 
@@ -202,7 +205,9 @@ async def update_embarcation(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise conflict("Immatriculation déjà utilisée", "IMMATRICULATION_TAKEN") from exc
+        raise conflict(
+            "Immatriculation ou identifiant de balise déjà utilisé", "IMMATRICULATION_TAKEN"
+        ) from exc
     await db.refresh(embarcation)
     return embarcation
 

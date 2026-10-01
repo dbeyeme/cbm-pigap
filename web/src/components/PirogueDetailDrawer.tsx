@@ -252,7 +252,7 @@ export default function PirogueDetailDrawer({ token, embarcationId, onClose, onL
               </div>
               <div>
                 <dt>Source</dt>
-                <dd>{fiche.trajectoire.length ? (fiche.trajectoire[fiche.trajectoire.length - 1].source === 'mobile' ? 'Application mobile' : fiche.trajectoire[fiche.trajectoire.length - 1].source) : '—'}</dd>
+                <dd>{fiche.trajectoire.length ? (fiche.trajectoire[fiche.trajectoire.length - 1].source === 'mobile' ? 'Application mobile' : fiche.trajectoire[fiche.trajectoire.length - 1].source === 'balise' ? 'Balise satellitaire' : fiche.trajectoire[fiche.trajectoire.length - 1].source) : '—'}</dd>
               </div>
             </dl>
           </section>

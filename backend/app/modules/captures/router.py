@@ -51,8 +51,30 @@ CaptureReader = Annotated[
 
 @router.get("/catalog", response_model=EspecesCatalog)
 async def get_catalog(_: CaptureReader) -> EspecesCatalog:
-    """Listes fermées espèces / méthodes (formulaire mobile)."""
-    return EspecesCatalog(especes=list(ESPECES_MVP), methodes=list(METHODES_MVP))
+    """Référentiel espèces / engins / sites (formulaires web et mobile)."""
+    from app.modules.captures.schemas import EnginCatalogItem, EspeceCatalogItem
+    from app.modules.referentiels import service as ref
+
+    detail = []
+    for e in ref.especes():
+        taux, _ = ref.taux_taxe_production(e["code"])
+        detail.append(
+            EspeceCatalogItem(
+                code=e["code"],
+                nom=e["nom"],
+                groupe=e.get("groupe", "autre"),
+                taux_taxe_fcfa_kg=taux,
+                protegee=ref.espece_protegee(e["code"]),
+            )
+        )
+    return EspecesCatalog(
+        especes=list(ESPECES_MVP),
+        methodes=list(METHODES_MVP),
+        especes_detail=detail,
+        engins_detail=[EnginCatalogItem(code=g["code"], nom=g["nom"]) for g in ref.engins()],
+        sites_debarquement=[s["nom"] for s in ref.sites_debarquement()],
+        especes_protegees=[e["code"] for e in ref.especes_protegees()],
+    )
 
 
 @router.post("", response_model=CaptureRead, status_code=201)

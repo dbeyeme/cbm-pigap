@@ -36,8 +36,11 @@ from app.db.enums import (
     StatutAbonnement,
     StatutAlerte,
     StatutDemandeLicence,
+    StatutMission,
     StatutPaiement,
     StatutPecheur,
+    StatutQuittance,
+    TaxeStatut,
     TypeAlerte,
     TypeDemandeLicence,
     TypeZone,
@@ -137,6 +140,8 @@ class Pecheur(Base):
     prenom: Mapped[str] = mapped_column(String(255), nullable=False)
     numero_licence: Mapped[str] = mapped_column(String(64), nullable=False)
     date_delivrance_licence: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Nationalité du propriétaire (barème d'autorisation national / étranger)
+    nationalite: Mapped[str | None] = mapped_column(String(64), nullable=True)
     statut: Mapped[StatutPecheur] = mapped_column(
         Enum(StatutPecheur, name="statut_pecheur", native_enum=True),
         nullable=False,
@@ -155,7 +160,10 @@ class Pecheur(Base):
 
 class Embarcation(Base):
     __tablename__ = "embarcations"
-    __table_args__ = (UniqueConstraint("immatriculation", name="uq_embarcations_immatriculation"),)
+    __table_args__ = (
+        UniqueConstraint("immatriculation", name="uq_embarcations_immatriculation"),
+        UniqueConstraint("balise_id", name="uq_embarcations_balise_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     pecheur_id: Mapped[uuid.UUID] = mapped_column(
@@ -166,6 +174,16 @@ class Embarcation(Base):
     type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     longueur: Mapped[float | None] = mapped_column(Float, nullable=True)
     equipements: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Registre de la flotte (référentiels : filières, types de pirogue, matériaux, strates)
+    filiere: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    type_pirogue: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    materiau: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    puissance_moteur_cv: Mapped[float | None] = mapped_column(Float, nullable=True)
+    site_attache: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    strate: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Identifiant de la balise satellitaire embarquée (ADR-009, source=balise) :
+    # numéro de série du dispositif, rapproché à l'ingestion POST /positions/balises/ingest
+    balise_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     pecheur: Mapped[Pecheur] = relationship(back_populates="embarcations")
     positions: Mapped[list[Position]] = relationship(back_populates="embarcation")
@@ -239,6 +257,22 @@ class Capture(Base):
         DateTime(timezone=True), nullable=False, index=True
     )
     synchronise_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Taxe à la production (barème référentiel) : calculée une fois à l'insertion,
+    # figée dès que la capture est rattachée à une quittance
+    taxe_fcfa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    taxe_taux_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    taxe_statut: Mapped[TaxeStatut] = mapped_column(
+        Enum(TaxeStatut, name="taxe_statut", native_enum=True),
+        nullable=False,
+        default=TaxeStatut.due,
+        server_default="due",
+    )
+    quittance_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("quittances.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     pecheur: Mapped[Pecheur] = relationship(back_populates="captures")
     embarcation: Mapped[Embarcation] = relationship(back_populates="captures")
@@ -326,6 +360,8 @@ class DemandeLicence(Base):
     embarcation_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embarcation_longueur: Mapped[float | None] = mapped_column(Float, nullable=True)
     embarcation_equipements: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    nationalite: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    montant_autorisation_fcfa: Mapped[int | None] = mapped_column(Integer, nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Justificatifs FO — [{id, type_piece, nom_original, chemin, content_type, taille}]
     pieces_jointes: Mapped[list[dict[str, Any]]] = mapped_column(
@@ -398,7 +434,9 @@ class Abonnement(Base):
     # Flotte : embarcations couvertes au-delà du pack base (10)
     embarcations_incluses: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     date_debut: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    date_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    date_fin: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     auto_renouvellement: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     date_creation: Mapped[datetime] = mapped_column(
@@ -422,10 +460,17 @@ class PaiementMobileMoney(Base):
     __tablename__ = "paiements_mobile_money"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    abonnement_id: Mapped[uuid.UUID] = mapped_column(
+    abonnement_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("abonnements.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    # Paiement d'une quittance de redevances (taxe à la production)
+    quittance_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("quittances.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     montant_fcfa: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -449,7 +494,9 @@ class PaiementMobileMoney(Base):
     date_creation: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    date_confirmation: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    date_confirmation: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     abonnement: Mapped[Abonnement] = relationship(back_populates="paiements")
 
@@ -468,4 +515,118 @@ class LogAcces(Base):
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     horodatage: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
+class Quittance(Base):
+    """Quittance de redevances : regroupe les taxes dues d'un pêcheur ou d'une organisation."""
+
+    __tablename__ = "quittances"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    numero: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    pecheur_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pecheurs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    montant_fcfa: Mapped[int] = mapped_column(Integer, nullable=False)
+    nb_captures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    periode_debut: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    periode_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    statut: Mapped[StatutQuittance] = mapped_column(
+        Enum(StatutQuittance, name="statut_quittance", native_enum=True),
+        nullable=False,
+        default=StatutQuittance.en_attente,
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    date_paiement: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cree_par_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+
+class MissionControle(Base):
+    """Mission de surveillance : cadre d'une série de contrôles sur le terrain."""
+
+    __tablename__ = "missions_controle"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    type: Mapped[str] = mapped_column(String(64), nullable=False)
+    zone_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("zones_reglementees.id", ondelete="SET NULL"), nullable=True
+    )
+    zone_libelle: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    date_debut: Mapped[date] = mapped_column(Date, nullable=False)
+    date_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
+    responsable_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    statut: Mapped[StatutMission] = mapped_column(
+        Enum(StatutMission, name="statut_mission", native_enum=True),
+        nullable=False,
+        default=StatutMission.planifiee,
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Controle(Base):
+    """Contrôle d'une embarcation : licence, engins, infraction, sanction."""
+
+    __tablename__ = "controles"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    mission_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("missions_controle.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    embarcation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("embarcations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    pecheur_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pecheurs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    numero_licence_saisi: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    date_controle: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    position = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=True)
+    lieu: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    nationalite_proprietaire: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pecheurs_a_bord: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    engin_declare: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    engin_trouve: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    infraction: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    categorie_infraction: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    saisies: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sanction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    observations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    licence_valide: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

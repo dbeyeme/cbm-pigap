@@ -48,7 +48,8 @@ class AbonnementRead(BaseModel):
 
 class PaiementRead(BaseModel):
     id: UUID
-    abonnement_id: UUID
+    abonnement_id: UUID | None = None
+    quittance_id: UUID | None = None
     montant_fcfa: int
     operateur: OperateurMobileMoney
     msisdn: str | None

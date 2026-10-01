@@ -100,3 +100,24 @@ class OperateurMobileMoney(enum.StrEnum):
     airtel_money = "airtel_money"
     moov_money = "moov_money"
     demo = "demo"
+
+
+class TaxeStatut(enum.StrEnum):
+    """Taxe à la production calculée sur une capture déclarée."""
+
+    due = "due"
+    payee = "payee"
+    exoneree = "exoneree"
+    sans_bareme = "sans_bareme"
+
+
+class StatutQuittance(enum.StrEnum):
+    en_attente = "en_attente"
+    payee = "payee"
+    annulee = "annulee"
+
+
+class StatutMission(enum.StrEnum):
+    planifiee = "planifiee"
+    en_cours = "en_cours"
+    cloturee = "cloturee"

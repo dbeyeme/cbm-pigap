@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import not_found
 from app.db.enums import NiveauGravite, StatutAlerte, TypeAlerte, TypeZone
-from app.db.models import Alerte, Capture, Position, ZoneReglementee
+from app.db.models import Alerte, Capture, Embarcation, Pecheur, Position, ZoneReglementee
 from app.modules.alertes.schemas import AlerteRead, AlerteUpdateStatut
 from app.modules.geolocalisation.geo import point_to_wkt
 from app.schemas.common import PointGeoJSON
@@ -364,6 +364,174 @@ async def evaluate_concentration(
     return [alerte] if alerte else []
 
 
+async def evaluate_espece_protegee(
+    db: AsyncSession,
+    *,
+    espece: str | None,
+    embarcation_id: UUID,
+    reference: datetime | None = None,
+) -> list[Alerte]:
+    """Règle 6 : capture déclarée d'une espèce protégée (référentiel)."""
+    from app.modules.referentiels import service as ref
+
+    if not espece or not ref.espece_protegee(espece):
+        return []
+    when = reference or datetime.now(UTC)
+    alerte = await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.critique,
+        embarcation_id=embarcation_id,
+        declencheur={
+            "regle": "espece_protegee",
+            "fingerprint": f"protegee:{embarcation_id}:{espece}:{when.date().isoformat()}",
+            "espece": espece,
+            "horodatage": when.isoformat(),
+        },
+    )
+    return [alerte] if alerte else []
+
+
+async def evaluate_licence_pecheur(
+    db: AsyncSession,
+    *,
+    pecheur_id: UUID | None,
+    embarcation_id: UUID | None,
+    reference: datetime | None = None,
+) -> list[Alerte]:
+    """Règle 7 : activité avec une autorisation annuelle expirée ou un pêcheur suspendu."""
+    from app.core.licence import date_expiration, statut_licence
+
+    if pecheur_id is None and embarcation_id is not None:
+        emb = await db.get(Embarcation, embarcation_id)
+        pecheur_id = emb.pecheur_id if emb else None
+    if pecheur_id is None:
+        return []
+    pecheur = await db.get(Pecheur, pecheur_id)
+    if pecheur is None:
+        return []
+    when = reference or datetime.now(UTC)
+    statut = statut_licence(pecheur, today=when.date())
+    if statut not in ("expiree", "suspendue"):
+        return []
+    alerte = await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.attention,
+        embarcation_id=embarcation_id,
+        declencheur={
+            "regle": "licence_expiree" if statut == "expiree" else "pecheur_suspendu",
+            "fingerprint": f"licence:{pecheur_id}:{when.strftime('%Y-%m')}",
+            "pecheur_id": str(pecheur_id),
+            "numero_licence": pecheur.numero_licence,
+            "date_expiration": (date_expiration(pecheur) or when.date()).isoformat(),
+            "horodatage": when.isoformat(),
+        },
+    )
+    return [alerte] if alerte else []
+
+
+async def evaluate_declaration_manquante(
+    db: AsyncSession,
+    *,
+    embarcation_id: UUID,
+    a_la_date: datetime | None = None,
+) -> list[Alerte]:
+    """Règle 8 : retour au port sans déclaration de capture dans le délai (rappel).
+
+    Reconstitue les séjours port / mer des dernières heures depuis le GPS PIGAP :
+    si le dernier séjour est au port depuis plus de ``alerte_rappel_declaration_heures``
+    après une sortie en mer, et qu'aucune capture n'a été déclarée depuis le départ,
+    une alerte d'information est émise (une par sortie).
+    """
+    from geoalchemy2.functions import ST_AsGeoJSON
+
+    from app.modules.geolocalisation.geo import geojson_text_to_point
+    from app.modules.geolocalisation.presence import _intervals
+
+    when = a_la_date or datetime.now(UTC)
+    fenetre = timedelta(hours=int(settings.presence_fenetre_heures))
+    res = await db.execute(
+        select(Position.horodatage, ST_AsGeoJSON(Position.position))
+        .where(Position.embarcation_id == embarcation_id)
+        .where(Position.horodatage >= when - fenetre, Position.horodatage <= when)
+        .order_by(Position.horodatage.asc())
+        .limit(500)
+    )
+    raw: list[tuple[datetime, float, float]] = []
+    for ts, geo in res.all():
+        pt = geojson_text_to_point(geo)
+        if pt is None:
+            continue
+        lon, lat = pt.coordinates
+        raw.append((ts.astimezone(UTC), lon, lat))
+    intervals = _intervals(raw)
+    if len(intervals) < 2:
+        return []
+    last, prev = intervals[-1], intervals[-2]
+    if last.port_id is None or prev.port_id is not None:
+        return []
+    delai = timedelta(hours=float(settings.alerte_rappel_declaration_heures))
+    if when - last.debut < delai:
+        return []
+    if prev.fin - prev.debut < timedelta(minutes=int(settings.presence_port_min_minutes)):
+        return []  # simple manœuvre, pas une sortie
+    declared = await db.execute(
+        select(Capture.id)
+        .where(Capture.embarcation_id == embarcation_id)
+        .where(Capture.date_capture >= prev.debut - timedelta(hours=1))
+        .limit(1)
+    )
+    if declared.scalar_one_or_none() is not None:
+        return []
+    alerte = await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.info,
+        embarcation_id=embarcation_id,
+        declencheur={
+            "regle": "declaration_manquante",
+            "fingerprint": f"declaration:{embarcation_id}:{prev.debut.isoformat()}",
+            "sortie_debut": prev.debut.isoformat(),
+            "retour_port": last.debut.isoformat(),
+            "port_id": last.port_id,
+            "delai_heures": float(settings.alerte_rappel_declaration_heures),
+            "horodatage": when.isoformat(),
+        },
+    )
+    return [alerte] if alerte else []
+
+
+async def signaler_detresse(
+    db: AsyncSession,
+    *,
+    embarcation_id: UUID,
+    position: PointGeoJSON,
+    a_la_date: datetime | None,
+    origine: str,
+) -> Alerte | None:
+    """Alerte critique « détresse » déclenchée par le bouton d'une balise (ADR-009).
+
+    Empreinte = embarcation + origine : un même bouton maintenu ne crée pas
+    une alerte par message pendant 12 h (anti-doublon de `_create`).
+    """
+    lon, lat = position.coordinates
+    return await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.critique,
+        embarcation_id=embarcation_id,
+        declencheur={
+            "regle": "detresse_balise",
+            "fingerprint": f"detresse:{embarcation_id}:{origine}",
+            "origine": origine,
+            "position": {"lon": lon, "lat": lat},
+            "a_la_date": a_la_date.isoformat() if a_la_date else None,
+            "message": "Signal de détresse émis par la balise de l'embarcation",
+        },
+    )
+
+
 async def evaluate_after_position(
     db: AsyncSession,
     *,
@@ -380,6 +548,10 @@ async def evaluate_after_position(
     await evaluate_concentration(
         db, position=position, embarcation_id=embarcation_id, a_la_date=a_la_date
     )
+    await evaluate_licence_pecheur(
+        db, pecheur_id=None, embarcation_id=embarcation_id, reference=a_la_date
+    )
+    await evaluate_declaration_manquante(db, embarcation_id=embarcation_id, a_la_date=a_la_date)
 
 
 async def evaluate_after_capture(
@@ -388,9 +560,17 @@ async def evaluate_after_capture(
     embarcation_id: UUID,
     position: PointGeoJSON | None = None,
     reference: datetime | None = None,
+    espece: str | None = None,
+    pecheur_id: UUID | None = None,
 ) -> None:
     if position is not None:
         await evaluate_zone_interdite(
             db, position=position, embarcation_id=embarcation_id, a_la_date=reference
         )
     await evaluate_tendance_embarcation(db, embarcation_id=embarcation_id, reference=reference)
+    await evaluate_espece_protegee(
+        db, espece=espece, embarcation_id=embarcation_id, reference=reference
+    )
+    await evaluate_licence_pecheur(
+        db, pecheur_id=pecheur_id, embarcation_id=embarcation_id, reference=reference
+    )

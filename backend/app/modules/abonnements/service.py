@@ -170,10 +170,11 @@ def resoudre_msisdn_paiement(
 async def _lancer_pawapay_si_live(
     db: AsyncSession,
     *,
-    abonnement: Abonnement,
+    abonnement: Abonnement | None,
     paiement: PaiementMobileMoney,
     msisdn: str | None,
 ) -> None:
+    """Dépôt pawaPay pour un abonnement ou une quittance (abonnement=None)."""
     if not _is_live() or paiement.operateur == OperateurMobileMoney.demo:
         return
     if not msisdn or not msisdn.strip():
@@ -210,14 +211,16 @@ async def _lancer_pawapay_si_live(
         reason = result.get("failureReason") or {}
         msg = reason.get("failureMessage") or reason.get("failureCode") or "Dépôt refusé"
         paiement.statut = StatutPaiement.echoue
-        abonnement.statut = StatutAbonnement.annule
+        if abonnement is not None:
+            abonnement.statut = StatutAbonnement.annule
         meta["failure"] = reason
         paiement.metadata_json = meta
         await db.commit()
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"PawaPay : {msg}")
     if init_status not in ("ACCEPTED", "DUPLICATE_IGNORED"):
         paiement.statut = StatutPaiement.echoue
-        abonnement.statut = StatutAbonnement.annule
+        if abonnement is not None:
+            abonnement.statut = StatutAbonnement.annule
         await db.commit()
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
@@ -394,6 +397,37 @@ async def _activer_apres_paiement(
         await _appliquer_modules_defaut(db, abonnement)
 
 
+async def _appliquer_succes(db: AsyncSession, paiement: PaiementMobileMoney) -> None:
+    """Paiement confirmé : active l'abonnement ou solde la quittance de redevances."""
+    if paiement.abonnement_id is not None:
+        abonnement = await db.get(Abonnement, paiement.abonnement_id)
+        if abonnement is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
+        await _activer_apres_paiement(db, abonnement, paiement)
+        return
+    if paiement.quittance_id is not None:
+        from app.db.models import Quittance
+        from app.modules.redevances.service import marquer_payee
+
+        quittance = await db.get(Quittance, paiement.quittance_id)
+        if quittance is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Quittance introuvable")
+        await marquer_payee(db, quittance, paiement)
+        return
+    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paiement sans objet")
+
+
+async def _appliquer_echec(
+    db: AsyncSession, paiement: PaiementMobileMoney, statut: StatutPaiement
+) -> None:
+    paiement.statut = statut
+    if paiement.abonnement_id is not None:
+        abonnement = await db.get(Abonnement, paiement.abonnement_id)
+        if abonnement is not None and abonnement.statut == StatutAbonnement.en_attente_paiement:
+            abonnement.statut = StatutAbonnement.annule
+    # Quittance : reste en attente, un nouveau paiement peut être initié
+
+
 async def _appliquer_modules_defaut(db: AsyncSession, abonnement: Abonnement) -> None:
     from app.modules.abonnements.modules import default_modules_for
 
@@ -502,6 +536,11 @@ async def confirmer_demo(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Paiement introuvable")
     if data and data.reference_interne and data.reference_interne != paiement.reference_interne:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Référence incorrecte")
+    if paiement.abonnement_id is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Paiement de quittance : utilisez /redevances/paiements/{id}/confirmer-demo",
+        )
     if paiement.statut == StatutPaiement.reussi:
         ab = await db.get(Abonnement, paiement.abonnement_id)
         assert ab is not None
@@ -534,21 +573,17 @@ async def webhook_mobile_money(
     paiement = result.scalar_one_or_none()
     if paiement is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Paiement introuvable")
-    abonnement = await db.get(Abonnement, paiement.abonnement_id)
-    if abonnement is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
 
     statut = data.statut.lower().strip()
     if statut in ("reussi", "success", "paid", "ok"):
         if data.reference_operateur:
             paiement.reference_operateur = data.reference_operateur
-        await _activer_apres_paiement(db, abonnement, paiement)
+        if paiement.statut != StatutPaiement.reussi:
+            await _appliquer_succes(db, paiement)
     elif statut in ("echoue", "failed", "fail"):
-        paiement.statut = StatutPaiement.echoue
-        abonnement.statut = StatutAbonnement.annule
+        await _appliquer_echec(db, paiement, StatutPaiement.echoue)
     elif statut in ("expire", "expired"):
-        paiement.statut = StatutPaiement.expire
-        abonnement.statut = StatutAbonnement.annule
+        await _appliquer_echec(db, paiement, StatutPaiement.expire)
     else:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Statut webhook inconnu")
     await db.commit()
@@ -569,10 +604,6 @@ async def appliquer_statut_pawapay(
     paiement: PaiementMobileMoney,
     payload: dict[str, Any],
 ) -> PaiementMobileMoney:
-    abonnement = await db.get(Abonnement, paiement.abonnement_id)
-    if abonnement is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
-
     dep_status, deposit = _deposit_payload_status(payload)
     meta = dict(paiement.metadata_json or {})
     meta["pawapay_last"] = payload
@@ -584,13 +615,11 @@ async def appliquer_statut_pawapay(
 
     if dep_status == "COMPLETED":
         if paiement.statut != StatutPaiement.reussi:
-            await _activer_apres_paiement(db, abonnement, paiement)
+            await _appliquer_succes(db, paiement)
             if not paiement.reference_operateur:
                 paiement.reference_operateur = f"PAWA-{paiement.id}"
     elif dep_status in ("FAILED", "REJECTED"):
-        paiement.statut = StatutPaiement.echoue
-        if abonnement.statut == StatutAbonnement.en_attente_paiement:
-            abonnement.statut = StatutAbonnement.annule
+        await _appliquer_echec(db, paiement, StatutPaiement.echoue)
         reason = deposit.get("failureReason") or payload.get("failureReason")
         if reason:
             meta["failure"] = reason
@@ -773,9 +802,9 @@ async def payeur_attendu(
             telephone=org.telephone,
             msisdn=norm,
             valide=norm is not None,
-            motif=""
-            if norm
-            else "Aucun téléphone Mobile Money valide enregistré pour l'organisation",
+            motif=(
+                "" if norm else "Aucun téléphone Mobile Money valide enregistré pour l'organisation"
+            ),
         )
     pecheur = await _get_pecheur(db, pecheur_id=pecheur_id, numero_licence=numero_licence)
     tel = await telephone_pecheur(db, pecheur)

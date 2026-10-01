@@ -14,6 +14,7 @@ FILES = (
     "ports.json",
     "secteurs_mer.json",
     "demo_routes_opendata.json",
+    "referentiels_peche.json",
 )
 
 
@@ -25,13 +26,13 @@ def test_bundled_data_matches_source() -> None:
     src = ROOT / "data" / "open-data" / "gabon"
     dst = CANDIDATES[-1]
     for name in FILES:
-        assert (dst / name).exists(), (
-            f"{name} absent de backend/app/data/gabon : python scripts/sync_data.py"
-        )
+        assert (
+            dst / name
+        ).exists(), f"{name} absent de backend/app/data/gabon : python scripts/sync_data.py"
         if (src / name).exists():
-            assert _digest(src / name) == _digest(dst / name), (
-                f"{name} désynchronisé : python scripts/sync_data.py"
-            )
+            assert _digest(src / name) == _digest(
+                dst / name
+            ), f"{name} désynchronisé : python scripts/sync_data.py"
 
 
 def test_data_dir_resolves() -> None:

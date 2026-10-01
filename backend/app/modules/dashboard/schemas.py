@@ -31,6 +31,13 @@ class DashboardQuery(BaseModel):
     fin: datetime | None = None
 
 
+class RepartitionLibelle(BaseModel):
+    code: str
+    libelle: str
+    volume_kg: float
+    nb_captures: int = 0
+
+
 class DashboardRead(BaseModel):
     pecheurs_actifs: int
     volume_total_kg: float
@@ -40,6 +47,21 @@ class DashboardRead(BaseModel):
     periode_debut: datetime | None = None
     periode_fin: datetime | None = None
     genere_a: datetime = Field(..., description="Horodatage de calcul des indicateurs")
+    # Indicateurs d'effort et de recettes (repères des tableurs 2024 de l'administration)
+    nb_debarquements: int = 0
+    jours_de_peche: int = 0
+    kg_par_jour_de_peche: float = 0.0
+    valeur_estimee_fcfa: float = 0.0
+    valeur_estimee_couverture_pct: float = 0.0
+    taxe_due_fcfa: float = 0.0
+    taxe_payee_fcfa: float = 0.0
+    licences_expirees: int = 0
+    licences_valides: int = 0
+    controles_periode: int = 0
+    infractions_periode: int = 0
+    repartition_groupes: list[RepartitionLibelle] = []
+    repartition_engins: list[RepartitionLibelle] = []
+    repartition_sites: list[RepartitionLibelle] = []
 
 
 class DashboardEmbarcationFilter(BaseModel):

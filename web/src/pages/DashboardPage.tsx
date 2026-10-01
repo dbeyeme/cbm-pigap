@@ -24,14 +24,17 @@ import TrendCharts from '../components/TrendCharts';
 import {
   IconAlert,
   IconCalendar,
+  IconCard,
   IconCoast,
   IconEstuary,
   IconFish,
   IconHotspot,
   IconPirogue,
   IconRadar,
+  IconReceipt,
   IconRefresh,
   IconRiver,
+  IconShield,
   IconShip,
   IconUsers,
 } from '../components/Icons';
@@ -399,6 +402,35 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
           tone={alertCount > 0 ? 'danger' : 'ok'}
           hint={alertCount > 0 ? 'À traiter en priorité' : 'Situation calme'}
           icon={<IconAlert size={22} />}
+        />
+      </div>
+
+      <div className="ds-kpi-row ds-rise-in dash-kpi-effort">
+        <KpiCard
+          label="Débarquements"
+          value={data?.nb_debarquements ?? '—'}
+          hint={data ? `${data.jours_de_peche ?? 0} jour(s) de pêche · ${Math.round(data.kg_par_jour_de_peche ?? 0)} kg par jour` : undefined}
+          icon={<IconPirogue size={22} />}
+        />
+        <KpiCard
+          label="Valeur estimée"
+          value={data ? `${Math.round(data.valeur_estimee_fcfa ?? 0).toLocaleString('fr-FR')} FCFA` : '—'}
+          hint={data ? `Prix moyens 2024 · ${data.valeur_estimee_couverture_pct ?? 0} % du volume couvert` : undefined}
+          icon={<IconCard size={22} />}
+        />
+        <KpiCard
+          label="Taxe à la production"
+          value={data ? `${Math.round(data.taxe_due_fcfa ?? 0).toLocaleString('fr-FR')} FCFA dus` : '—'}
+          hint={data ? `${Math.round(data.taxe_payee_fcfa ?? 0).toLocaleString('fr-FR')} FCFA encaissés` : undefined}
+          tone={data && (data.taxe_due_fcfa ?? 0) > 0 ? 'warn' : 'default'}
+          icon={<IconReceipt size={22} />}
+        />
+        <KpiCard
+          label="Licences expirées"
+          value={data?.licences_expirees ?? '—'}
+          hint={data ? `${data.licences_valides ?? 0} licences valides · ${data.controles_periode ?? 0} contrôle(s), ${data.infractions_periode ?? 0} infraction(s)` : undefined}
+          tone={data && (data.licences_expirees ?? 0) > 0 ? 'danger' : 'ok'}
+          icon={<IconShield size={22} />}
         />
       </div>
 

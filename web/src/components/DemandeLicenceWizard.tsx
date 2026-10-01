@@ -5,6 +5,7 @@ import { friendlyApiError } from '../lib/apiErrors';
 import Modal from './Modal';
 import { useToast } from './ToastProvider';
 import { IconArrowLeft, IconArrowRight, IconBuilding, IconClose, IconUsers } from './Icons';
+import { NATIONALITES } from '../api';
 import EquipementsFields, {
   emptyEquipements,
   equipementsPayload,
@@ -64,6 +65,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
   const [zone, setZone] = useState('Estuaire');
   const [embNom, setEmbNom] = useState('');
   const [embImmat, setEmbImmat] = useState('');
+  const [nationalite, setNationalite] = useState('gabon');
   const [embLongueur, setEmbLongueur] = useState('');
   const [embEquip, setEmbEquip] = useState<Equipements>(emptyEquipements());
   const [message, setMessage] = useState('');
@@ -137,6 +139,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
         if (tel) fd.set('telephone', tel);
         if (mail) fd.set('email', mail);
         if (zone) fd.set('zone_activite', zone);
+        fd.set('nationalite', nationalite);
         if (embNom) fd.set('embarcation_nom', embNom);
         if (embImmat) fd.set('embarcation_immatriculation', embImmat);
         if (embLongueur.trim()) fd.set('embarcation_longueur', embLongueur.replace(',', '.'));
@@ -268,6 +271,16 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
               <label>
                 E-mail
                 <input type="email" value={mail} onChange={(e) => setMail(e.target.value)} />
+              </label>
+              <label>
+                Nationalité
+                <select value={nationalite} onChange={(e) => setNationalite(e.target.value)}>
+                  {NATIONALITES.map((n) => (
+                    <option key={n.code} value={n.code}>
+                      {n.nom}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
           ) : null}

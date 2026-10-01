@@ -28,6 +28,11 @@ const REGLE_LABELS: Record<string, string> = {
   crue_fleuve: 'Crue annoncée sur le fleuve',
   sortie_limite_geographique: 'Position relevée hors des zones de pêche autorisées',
   concentration_zone: 'Concentration excessive d’embarcations dans une zone',
+  licence_expiree: 'Activité avec une autorisation annuelle expirée',
+  pecheur_suspendu: 'Activité d’un pêcheur suspendu',
+  espece_protegee: 'Capture déclarée d’une espèce protégée',
+  declaration_manquante: 'Retour au port sans déclaration de capture',
+  infraction_constatee: 'Infraction constatée lors d’un contrôle',
 };
 
 function humanize(code: unknown): string {

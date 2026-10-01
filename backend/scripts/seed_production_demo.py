@@ -38,9 +38,33 @@ from app.schemas.common import PointGeoJSON, PolygonGeoJSON
 
 # (nom, prenom, licence, immat, boat_nom, email, boat_type)
 DEMO_PECHEURS = [
-    ("Mba", "Jean", "LIC-DEMO-01", "GA-M2-DEMO-01", "Pirogue Espoir", "pecheur1@example.com", "pirogue"),
-    ("Allogo", "Claire", "LIC-DEMO-04", "GA-M2-DEMO-04", "Pirogue Mondah", "pecheur4@example.com", "pirogue"),
-    ("Boussougou", "Amina", "LIC-DEMO-06", "GA-M2-DEMO-06", "Pirogue Ogooué", "pecheur6@example.com", "pirogue"),
+    (
+        "Mba",
+        "Jean",
+        "LIC-DEMO-01",
+        "GA-M2-DEMO-01",
+        "Pirogue Espoir",
+        "pecheur1@example.com",
+        "pirogue",
+    ),
+    (
+        "Allogo",
+        "Claire",
+        "LIC-DEMO-04",
+        "GA-M2-DEMO-04",
+        "Pirogue Mondah",
+        "pecheur4@example.com",
+        "pirogue",
+    ),
+    (
+        "Boussougou",
+        "Amina",
+        "LIC-DEMO-06",
+        "GA-M2-DEMO-06",
+        "Pirogue Ogooué",
+        "pecheur6@example.com",
+        "pirogue",
+    ),
     (
         "Mintsa",
         "Eric",
@@ -50,7 +74,15 @@ DEMO_PECHEURS = [
         "pecheur5@example.com",
         "chaloupe",
     ),
-    ("Nzé", "Marie", "LIC-DEMO-02", "GA-M2-DEMO-02", "Pirogue Mayumba", "pecheur2@example.com", "pirogue"),
+    (
+        "Nzé",
+        "Marie",
+        "LIC-DEMO-02",
+        "GA-M2-DEMO-02",
+        "Pirogue Mayumba",
+        "pecheur2@example.com",
+        "pirogue",
+    ),
 ]
 
 # Immatriculations hors jeu léger (ex. ancien Pirogue Komo) — positions purgées
@@ -261,11 +293,7 @@ async def purge_legacy_noise(session, keep_boats: list[Embarcation]) -> None:
         print(f"  purge positions hors jeu : {emb.immatriculation} ({emb.nom})")
 
     test_zones = list(
-        (
-            await session.execute(
-                select(ZoneReglementee).where(ZoneReglementee.nom.ilike("%M7%"))
-            )
-        )
+        (await session.execute(select(ZoneReglementee).where(ZoneReglementee.nom.ilike("%M7%"))))
         .scalars()
         .all()
     )
@@ -348,8 +376,10 @@ async def seed_captures_quotas(session, boats: list[Embarcation]) -> None:
     print(f"  + {len(samples)} captures")
 
     existing_q = (
-        await session.execute(select(Quota).where(Quota.espece == "crevette").limit(1))
-    ).scalars().first()
+        (await session.execute(select(Quota).where(Quota.espece == "crevette").limit(1)))
+        .scalars()
+        .first()
+    )
     if existing_q is None:
         debut = date.today().replace(day=1)
         fin = debut + timedelta(days=90)

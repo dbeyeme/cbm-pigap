@@ -1,10 +1,11 @@
 """Routes M2 — géolocalisation & trajectoires (§5.2)."""
 
+import hmac
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -13,6 +14,8 @@ from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
 from app.modules.geolocalisation import service
 from app.modules.geolocalisation.schemas import (
+    BaliseIngestPayload,
+    BaliseIngestResult,
     EmbarcationTrackRead,
     FicheEmbarcationRead,
     LicenceDossierRead,
@@ -78,6 +81,32 @@ async def post_positions_batch(
     user: GeolocUser,
 ) -> list[PositionRead]:
     return await service.create_positions_batch(db, user, payload)
+
+
+@router.post("/balises/ingest", response_model=BaliseIngestResult)
+async def post_balises_ingest(
+    payload: BaliseIngestPayload,
+    db: DbSession,
+    x_balise_ingest_key: Annotated[str | None, Header(alias="X-Balise-Ingest-Key")] = None,
+) -> BaliseIngestResult:
+    """Réception des positions d'un flux de balises satellitaires (ADR-009).
+
+    Authentification par clé partagée `X-Balise-Ingest-Key` (`BALISE_INGEST_KEY`),
+    sur le modèle des récepteurs AIS locaux. Les balises sont rapprochées des
+    embarcations par `balise_id` ; les positions sont enregistrées `source=balise`.
+    """
+    expected = (settings.balise_ingest_key or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Ingestion des balises non configurée (BALISE_INGEST_KEY)",
+        )
+    if not x_balise_ingest_key or not hmac.compare_digest(x_balise_ingest_key.strip(), expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Clé d'ingestion des balises invalide",
+        )
+    return await service.ingest_balises(db, payload)
 
 
 @router.get("/trajectory", response_model=list[PositionRead])

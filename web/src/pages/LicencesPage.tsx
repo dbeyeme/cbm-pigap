@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import {
   createEmbarcation,
+  NATIONALITES,
   createPecheur,
   deletePecheur,
   downloadBilanPdf,
@@ -58,6 +59,7 @@ export default function LicencesPage({
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
   const [telephone, setTelephone] = useState('');
+  const [nationalite, setNationalite] = useState('gabon');
 
   const [boatNom, setBoatNom] = useState('');
   const [boatImmat, setBoatImmat] = useState('');
@@ -127,6 +129,7 @@ export default function LicencesPage({
         email: email.trim() || null,
         mot_de_passe: motDePasse,
         telephone: telephone.trim() || null,
+        nationalite: nationalite || null,
       });
       setNom('');
       setPrenom('');
@@ -491,6 +494,16 @@ export default function LicencesPage({
                 placeholder="optionnel"
               />
             </label>
+              <label>
+                Nationalité du propriétaire
+                <select value={nationalite} onChange={(e) => setNationalite(e.target.value)}>
+                  {NATIONALITES.map((n) => (
+                    <option key={n.code} value={n.code}>
+                      {n.nom}
+                    </option>
+                  ))}
+                </select>
+              </label>
             <div className="row-actions">
               <button type="button" className="ghost" onClick={() => setCreateOpen(false)}><IconXCircle size={16} /> Annuler</button>
               <button type="submit" className="btn-primary" disabled={loading}><IconSave size={16} /> Enregistrer et délivrer la licence</button>

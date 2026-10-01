@@ -24,6 +24,7 @@ type Props = {
   onCaptures: () => void;
   onTracking: () => void;
   onAbonnement: () => void;
+  onRedevances?: () => void;
   onLogout: () => void;
 };
 
@@ -35,6 +36,7 @@ export function PecheurHomeScreen({
   onCaptures,
   onTracking,
   onAbonnement,
+  onRedevances,
   onLogout,
 }: Props) {
   const first = userName.trim().split(/\s+/)[0] || '';
@@ -110,6 +112,14 @@ export function PecheurHomeScreen({
         subtitle="Historique local et sync"
         onPress={onCaptures}
       />
+      {onRedevances ? (
+        <ActionTile
+          illustration={ILLU.abo}
+          title="Mes redevances"
+          subtitle="Taxe sur les captures, quittance, paiement Mobile Money"
+          onPress={onRedevances}
+        />
+      ) : null}
     </View>
   );
 }

@@ -95,6 +95,7 @@ async def soumettre_demande_avec_pieces(
     embarcation_longueur: Annotated[float | None, Form()] = None,
     # JSON sérialisé par le formulaire (multipart) : {"engins": [...], ...}
     embarcation_equipements: Annotated[str | None, Form()] = None,
+    nationalite: Annotated[str | None, Form()] = None,
     message: Annotated[str | None, Form()] = None,
     type_pieces: Annotated[list[str] | None, Form()] = None,
     pieces: Annotated[list[UploadFile] | None, File()] = None,
@@ -119,6 +120,7 @@ async def soumettre_demande_avec_pieces(
         embarcation_type=_empty_to_none(embarcation_type),
         embarcation_longueur=embarcation_longueur,
         embarcation_equipements=_parse_equipements(embarcation_equipements),
+        nationalite=_empty_to_none(nationalite),
         message=_empty_to_none(message),
     )
     row = await service.create_demande(db, payload, pieces=[])

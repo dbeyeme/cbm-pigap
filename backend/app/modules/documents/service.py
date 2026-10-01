@@ -126,9 +126,19 @@ def _boats_table(boats: list[Embarcation]) -> tuple[list[str], list[list[str]]]:
 
 
 async def licence_pdf(db: AsyncSession, pecheur_id: UUID, user: Utilisateur) -> tuple[bytes, str]:
+    from app.core.config import settings
+    from app.core.licence import date_expiration, statut_licence
+
     pecheur = await _load_pecheur(db, pecheur_id)
     boats = list(pecheur.embarcations or [])
     ref = pecheur.numero_licence
+    verif_url = f"{settings.public_web_url.rstrip('/')}/verif/licence/{ref}"
+    validite = [
+        ("Delivree le", pdf.fmt_date(pecheur.date_delivrance_licence)),
+        ("Valable jusqu'au", pdf.fmt_date(date_expiration(pecheur))),
+        ("Statut", statut_licence(pecheur).replace("_", " ")),
+        ("Nationalite", pecheur.nationalite or "—"),
+    ]
     content = pdf.build_pdf(
         kind="Licence de peche artisanale",
         title=f"Licence {pecheur.numero_licence}",
@@ -136,7 +146,9 @@ async def licence_pdf(db: AsyncSession, pecheur_id: UUID, user: Utilisateur) -> 
         include_signatures=True,
         sections=[
             ("Titulaire", _pecheur_identity(pecheur)),
+            ("Validite", validite),
             ("Embarcations rattachees", _boats_table(boats)),
+            ("Verification par QR code", pdf.qr_flowable(verif_url, caption=verif_url)),
             (
                 "Mentions",
                 [

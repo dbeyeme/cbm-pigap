@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from geoalchemy2.functions import ST_AsGeoJSON, ST_Centroid, ST_Intersects
-from sqlalchemy import and_, func, select
+from sqlalchemy import Integer, and_, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.enums import StatutAlerte, StatutPecheur, TypeZone
-from app.db.models import Alerte, Capture, Pecheur, ZoneReglementee
+from app.db.models import Alerte, Capture, Controle, Pecheur, ZoneReglementee
 from app.modules.alertes.schemas import AlerteRead
 from app.modules.dashboard.saisons import saison_calendaire
 from app.modules.dashboard.schemas import (
@@ -90,6 +90,7 @@ async def get_dashboard(
     alertes = [AlerteRead.model_validate(a) for a in alertes_rows]
 
     zones = await _zones_forte_activite(db, debut=debut, fin=fin)
+    effort = await _indicateurs_effort(db, capture_filters, repartition_rows, now=now)
 
     return DashboardRead(
         pecheurs_actifs=pecheurs_actifs,
@@ -100,7 +101,160 @@ async def get_dashboard(
         periode_debut=debut,
         periode_fin=fin,
         genere_a=now,
+        **effort,
     )
+
+
+async def _indicateurs_effort(
+    db: AsyncSession, capture_filters: list, repartition_rows: list, *, now: datetime
+) -> dict:
+    """Débarquements, jours de pêche, valeur, taxes, licences, contrôles."""
+    from app.core.config import settings
+    from app.db.enums import TaxeStatut
+    from app.modules.dashboard.schemas import RepartitionLibelle
+    from app.modules.referentiels import service as ref
+
+    nb_debarquements = int(
+        (await db.execute(select(func.count(Capture.id)).where(*capture_filters))).scalar_one() or 0
+    )
+    jours_sub = (
+        select(Capture.embarcation_id, func.date(Capture.date_capture).label("jour"))
+        .where(*capture_filters)
+        .group_by(Capture.embarcation_id, func.date(Capture.date_capture))
+        .subquery()
+    )
+    jours = int((await db.execute(select(func.count()).select_from(jours_sub))).scalar_one() or 0)
+    volume = sum(float(v or 0) for _, v in repartition_rows)
+    valeur = 0.0
+    couvert = 0.0
+    for espece, vol in repartition_rows:
+        prix = ref.prix_moyen_fcfa_kg(espece)
+        if prix is not None:
+            valeur += float(vol or 0) * prix
+            couvert += float(vol or 0)
+    taxes = (
+        await db.execute(
+            select(Capture.taxe_statut, func.coalesce(func.sum(Capture.taxe_fcfa), 0.0))
+            .where(*capture_filters)
+            .group_by(Capture.taxe_statut)
+        )
+    ).all()
+    taxe_due = sum(float(m or 0) for st, m in taxes if st == TaxeStatut.due)
+    taxe_payee = sum(float(m or 0) for st, m in taxes if st == TaxeStatut.payee)
+    limite = now.date() - timedelta(days=int(settings.licence_validite_jours))
+    expirees = int(
+        (
+            await db.execute(
+                select(func.count(Pecheur.id)).where(
+                    Pecheur.statut == StatutPecheur.actif,
+                    Pecheur.date_delivrance_licence.is_not(None),
+                    Pecheur.date_delivrance_licence < limite,
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+    valides = int(
+        (
+            await db.execute(
+                select(func.count(Pecheur.id)).where(
+                    Pecheur.statut == StatutPecheur.actif,
+                    (Pecheur.date_delivrance_licence.is_(None))
+                    | (Pecheur.date_delivrance_licence >= limite),
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+    ctrl_filters = []
+    for f in capture_filters:
+        # mêmes bornes de période appliquées aux contrôles
+        ctrl_filters.append(f)
+    ctrl_stmt = select(
+        func.count(Controle.id),
+        func.coalesce(func.sum(cast(Controle.infraction, Integer)), 0),
+    )
+    debut = next((f.right.value for f in capture_filters if f.operator.__name__ == "ge"), None)
+    fin = next((f.right.value for f in capture_filters if f.operator.__name__ == "le"), None)
+    if debut is not None:
+        ctrl_stmt = ctrl_stmt.where(Controle.date_controle >= debut)
+    if fin is not None:
+        ctrl_stmt = ctrl_stmt.where(Controle.date_controle <= fin)
+    ctrl = (await db.execute(ctrl_stmt)).one()
+
+    groupes: dict[str, tuple[float, int]] = {}
+    for espece, vol in repartition_rows:
+        g = ref.groupe_espece(espece) or "autre"
+        a, n = groupes.get(g, (0.0, 0))
+        groupes[g] = (a + float(vol or 0), n)
+    libelles_groupes = {
+        g["code"]: g["libelle"] for g in ref.load_referentiels().get("groupes_especes", [])
+    }
+    rep_groupes = [
+        RepartitionLibelle(code=g, libelle=libelles_groupes.get(g, g), volume_kg=round(v, 3))
+        for g, (v, _) in sorted(groupes.items(), key=lambda kv: -kv[1][0])
+    ]
+    engins_rows = (
+        await db.execute(
+            select(
+                Capture.methode,
+                func.coalesce(func.sum(Capture.quantite_kg), 0.0),
+                func.count(Capture.id),
+            )
+            .where(*capture_filters)
+            .group_by(Capture.methode)
+            .order_by(func.sum(Capture.quantite_kg).desc())
+            .limit(12)
+        )
+    ).all()
+    noms_engins = {e["code"]: e["nom"] for e in ref.engins()}
+    rep_engins = [
+        RepartitionLibelle(
+            code=str(m or "inconnu"),
+            libelle=noms_engins.get(str(m), str(m or "Non renseigné")),
+            volume_kg=float(v or 0),
+            nb_captures=int(n or 0),
+        )
+        for m, v, n in engins_rows
+    ]
+    sites_rows = (
+        await db.execute(
+            select(
+                Capture.point_debarquement,
+                func.coalesce(func.sum(Capture.quantite_kg), 0.0),
+                func.count(Capture.id),
+            )
+            .where(*capture_filters)
+            .group_by(Capture.point_debarquement)
+            .order_by(func.sum(Capture.quantite_kg).desc())
+            .limit(12)
+        )
+    ).all()
+    rep_sites = [
+        RepartitionLibelle(
+            code=str(s or "inconnu"),
+            libelle=str(s or "Non renseigné"),
+            volume_kg=float(v or 0),
+            nb_captures=int(n or 0),
+        )
+        for s, v, n in sites_rows
+    ]
+    return {
+        "nb_debarquements": nb_debarquements,
+        "jours_de_peche": jours,
+        "kg_par_jour_de_peche": round(volume / jours, 2) if jours else 0.0,
+        "valeur_estimee_fcfa": round(valeur, 0),
+        "valeur_estimee_couverture_pct": round(100.0 * couvert / volume, 1) if volume else 0.0,
+        "taxe_due_fcfa": round(taxe_due, 2),
+        "taxe_payee_fcfa": round(taxe_payee, 2),
+        "licences_expirees": expirees,
+        "licences_valides": valides,
+        "controles_periode": int(ctrl[0] or 0),
+        "infractions_periode": int(ctrl[1] or 0),
+        "repartition_groupes": rep_groupes,
+        "repartition_engins": rep_engins,
+        "repartition_sites": rep_sites,
+    }
 
 
 async def _zones_forte_activite(

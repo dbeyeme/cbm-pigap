@@ -14,7 +14,7 @@
 | **Dernière mise à jour** | 2026-10-01 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | Écarts TDR corrigés : alertes limite géographique et concentration, équipements embarcation, file GPS hors-ligne, CORS fermé (2026-10-01) · paiement Mobile Money depuis le numéro de l'acteur |
+| **Note récente** | Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -71,7 +71,7 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 
 - Liste fermée espèces/méthodes MVP à valider zone pilote (avant quotas réalistes)
 - Agrégateur Mobile Money live (SingPay/PViT) + calendrier `ABONNEMENT_ENFORCE=true`
-- _(ADR-001…007 acceptés)_
+- _(ADR-001…008 acceptés ; ADR-009 proposé : suivi temps réel, triangulation GSM/GPS écartée ; ingestion `source=balise` livrée avec données fictives)_
 
 ## Comment mettre à jour
 

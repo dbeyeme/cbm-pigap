@@ -92,6 +92,7 @@ class PecheurCreate(BaseModel):
     # None = attribution automatique (voir app.core.numerotation)
     numero_licence: str | None = Field(None, min_length=1, max_length=64)
     date_delivrance_licence: date | None = None
+    nationalite: str | None = Field(None, max_length=64)
     statut: StatutPecheur = StatutPecheur.actif
     organisation_id: UUID | None = None
     telephone: str | None = Field(None, max_length=32)
@@ -116,6 +117,7 @@ class PecheurUpdate(BaseModel):
     prenom: str | None = Field(None, min_length=1, max_length=255)
     numero_licence: str | None = Field(None, min_length=1, max_length=64)
     date_delivrance_licence: date | None = None
+    nationalite: str | None = Field(None, max_length=64)
     statut: StatutPecheur | None = None
     organisation_id: UUID | None = None
 
@@ -127,6 +129,7 @@ class PecheurRead(OrmModel):
     prenom: str
     numero_licence: str
     date_delivrance_licence: date | None
+    nationalite: str | None = None
     statut: StatutPecheur
     organisation_id: UUID | None
 
@@ -138,6 +141,16 @@ class EmbarcationCreate(BaseModel):
     type: str | None = Field(None, max_length=64)
     longueur: float | None = Field(None, gt=0)
     equipements: dict[str, Any] | None = None
+    # Registre de la flotte (référentiels)
+    filiere: str | None = Field(None, max_length=32)
+    type_pirogue: str | None = Field(None, max_length=64)
+    materiau: str | None = Field(None, max_length=32)
+    puissance_moteur_cv: float | None = Field(None, ge=0, le=2000)
+    site_attache: str | None = Field(None, max_length=128)
+    strate: str | None = Field(None, max_length=64)
+    balise_id: str | None = Field(
+        None, max_length=64, description="Identifiant de la balise satellitaire (ADR-009)"
+    )
 
 
 class EmbarcationUpdate(BaseModel):
@@ -146,6 +159,14 @@ class EmbarcationUpdate(BaseModel):
     type: str | None = None
     longueur: float | None = Field(None, gt=0)
     equipements: dict[str, Any] | None = None
+    # Registre de la flotte (référentiels)
+    filiere: str | None = Field(None, max_length=32)
+    type_pirogue: str | None = Field(None, max_length=64)
+    materiau: str | None = Field(None, max_length=32)
+    puissance_moteur_cv: float | None = Field(None, ge=0, le=2000)
+    site_attache: str | None = Field(None, max_length=128)
+    strate: str | None = Field(None, max_length=64)
+    balise_id: str | None = Field(None, max_length=64)
 
 
 class EmbarcationRead(OrmModel):
@@ -156,3 +177,10 @@ class EmbarcationRead(OrmModel):
     type: str | None
     longueur: float | None
     equipements: dict[str, Any] | None
+    filiere: str | None = None
+    type_pirogue: str | None = None
+    materiau: str | None = None
+    puissance_moteur_cv: float | None = None
+    site_attache: str | None = None
+    strate: str | None = None
+    balise_id: str | None = None

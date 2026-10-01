@@ -5,6 +5,8 @@ from app.modules.abonnements.router import router as abonnements_router
 from app.modules.ais_gabon.router import router as ais_router
 from app.modules.alertes.router import router as alertes_router
 from app.modules.captures.router import router as captures_router
+from app.modules.controles.router import public_router as public_router
+from app.modules.controles.router import router as controles_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.demandes_licence.router import router as demandes_licence_router
 from app.modules.documents.router import router as documents_router
@@ -15,6 +17,8 @@ from app.modules.notifications.router import router as notifications_router
 from app.modules.pecheurs.router import router as pecheurs_router
 from app.modules.predictions.router import router as predictions_router
 from app.modules.quotas.router import router as quotas_router
+from app.modules.redevances.router import router as redevances_router
+from app.modules.referentiels.router import router as referentiels_router
 from app.modules.utilisateurs.router import router as utilisateurs_router
 from app.modules.zones.router import router as zones_router
 from fastapi import APIRouter
@@ -37,3 +41,7 @@ api_router.include_router(dashboard_router)
 api_router.include_router(documents_router)
 api_router.include_router(predictions_router)
 api_router.include_router(alertes_router)
+api_router.include_router(referentiels_router)
+api_router.include_router(redevances_router)
+api_router.include_router(controles_router)
+api_router.include_router(public_router)

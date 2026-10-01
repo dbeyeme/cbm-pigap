@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
+  CaptureCatalog,
   CaptureRead,
   createCapture,
   deleteCapture,
@@ -32,6 +33,14 @@ function fromLocalDatetimeValue(local: string): string {
   return new Date(local).toISOString();
 }
 
+const GROUPES_ORDER = ['pelagique', 'demersal', 'crustace', 'autre'];
+const GROUPES_LABEL: Record<string, string> = {
+  pelagique: 'Pélagiques',
+  demersal: 'Démersaux',
+  crustace: 'Crustacés',
+  autre: 'Autres',
+};
+
 /** CRUD captures pour agents / autorités (complément M4 web). */
 export default function CapturesPage({ token, onError }: Props) {
   const [rows, setRows] = useState<CaptureRead[]>([]);
@@ -39,6 +48,10 @@ export default function CapturesPage({ token, onError }: Props) {
   const [embarcations, setEmbarcations] = useState<Embarcation[]>([]);
   const [especes, setEspeces] = useState<string[]>([]);
   const [methodes, setMethodes] = useState<string[]>([]);
+  const [especesDetail, setEspecesDetail] = useState<CaptureCatalog['especes_detail']>([]);
+  const [enginsDetail, setEnginsDetail] = useState<CaptureCatalog['engins_detail']>([]);
+  const [sites, setSites] = useState<string[]>([]);
+  const especeNom = (code: string) => especesDetail.find((e) => e.code === code)?.nom ?? code;
 
   const [filterEspece, setFilterEspece] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,6 +127,9 @@ export default function CapturesPage({ token, onError }: Props) {
         if (cancelled) return;
         setEspeces(catalog.especes);
         setMethodes(catalog.methodes);
+        setEspecesDetail(catalog.especes_detail ?? []);
+        setEnginsDetail(catalog.engins_detail ?? []);
+        setSites(catalog.sites_debarquement ?? []);
         setPecheurs(pech);
         setEmbarcations(emb);
         setEspece(catalog.especes[0] ?? '');
@@ -280,23 +296,48 @@ export default function CapturesPage({ token, onError }: Props) {
             <label>
               Espèce
               <select value={espece} onChange={(e) => setEspece(e.target.value)} required>
-                {especes.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+                {especesDetail.length
+                  ? GROUPES_ORDER.filter((g) => especesDetail.some((e) => e.groupe === g)).map((g) => (
+                      <optgroup key={g} label={GROUPES_LABEL[g] ?? g}>
+                        {especesDetail
+                          .filter((e) => e.groupe === g)
+                          .map((e) => (
+                            <option key={e.code} value={e.code}>
+                              {e.nom}
+                              {e.taux_taxe_fcfa_kg != null ? ` · ${e.taux_taxe_fcfa_kg} FCFA/kg` : ''}
+                              {e.protegee ? ' · protégée' : ''}
+                            </option>
+                          ))}
+                      </optgroup>
+                    ))
+                  : especes.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
               </select>
             </label>
             <label>
-              Méthode
+              Engin
               <select value={methode} onChange={(e) => setMethode(e.target.value)} required>
-                {methodes.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+                {enginsDetail.length
+                  ? enginsDetail.map((g) => (
+                      <option key={g.code} value={g.code}>
+                        {g.nom}
+                      </option>
+                    ))
+                  : methodes.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
               </select>
             </label>
+            <datalist id="sites-debarquement">
+              {sites.map((site) => (
+                <option key={site} value={site} />
+              ))}
+            </datalist>
             <label>
               Quantité (kg)
               <input
@@ -312,6 +353,7 @@ export default function CapturesPage({ token, onError }: Props) {
               Point de débarquement
               <input
                 value={debarquement}
+                list="sites-debarquement"
                 onChange={(e) => setDebarquement(e.target.value)}
                 placeholder="ex. Owendo"
                 required
@@ -367,7 +409,12 @@ export default function CapturesPage({ token, onError }: Props) {
                   }}
                 >
                   <span className="traj-title">
-                    {c.espece} · {c.quantite_kg} kg
+                    {especeNom(c.espece)} · {c.quantite_kg} kg
+                    {c.taxe_fcfa != null
+                      ? ` · taxe ${Math.round(c.taxe_fcfa).toLocaleString('fr-FR')} FCFA${c.taxe_statut === 'payee' ? ' (payée)' : ''}`
+                      : c.taxe_statut === 'sans_bareme'
+                        ? ' · sans barème'
+                        : ''}
                   </span>
                   <span className="traj-meta">
                     {c.methode ?? '—'} · {c.point_debarquement ?? '—'} ·{' '}

@@ -13,7 +13,7 @@ import { Embarcation, listTrackedEmbarcations } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
-import { ESPECES_MVP, METHODES_MVP } from '../offline/catalog';
+import { ENGINS_REF, ESPECES_MVP, ESPECES_REF, GROUPES_LABEL, METHODES_MVP, type GroupeEspece } from '../offline/catalog';
 import {
   CachedEmbarcation,
   LocalCapture,
@@ -258,32 +258,41 @@ export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
         )}
 
         <Text style={styles.section}>2. Quelle espèce ?</Text>
-        <View style={styles.wrapChips}>
-          {ESPECES_MVP.map((e) => {
-            const on = e === espece;
-            return (
-              <Pressable
-                key={e}
-                onPress={() => setEspece(e)}
-                style={[styles.chip, on && styles.chipOn]}
-              >
-                <Text style={[styles.chipText, on && styles.chipTextOn]}>{e}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {(['pelagique', 'demersal', 'crustace', 'autre'] as GroupeEspece[]).map((g) => (
+          <View key={g}>
+            <Text style={styles.groupeLabel}>{GROUPES_LABEL[g]}</Text>
+            <View style={styles.wrapChips}>
+              {ESPECES_REF.filter((e) => e.groupe === g).map((e) => {
+                const on = e.code === espece;
+                return (
+                  <Pressable
+                    key={e.code}
+                    onPress={() => setEspece(e.code)}
+                    style={[styles.chip, on && styles.chipOn, e.protegee && styles.chipProtegee]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{e.nom}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ))}
 
-        <Text style={styles.section}>3. Quelle méthode ?</Text>
+        <Text style={styles.section}>3. Quel engin ?</Text>
         <View style={styles.wrapChips}>
-          {METHODES_MVP.map((m) => {
-            const on = m === methode;
+          {ENGINS_REF.map((m) => {
+            const on = m.code === methode;
             return (
               <Pressable
-                key={m}
-                onPress={() => setMethode(m)}
+                key={m.code}
+                onPress={() => setMethode(m.code)}
                 style={[styles.chip, on && styles.chipOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.chipText, on && styles.chipTextOn]}>{m}</Text>
+                <Text style={[styles.chipText, on && styles.chipTextOn]}>{m.nom}</Text>
               </Pressable>
             );
           })}
@@ -534,4 +543,12 @@ const styles = StyleSheet.create({
   },
   badgeTextWait: { color: colors.warn },
   badgeTextOk: { color: colors.success },
+  groupeLabel: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMuted,
+    fontSize: 13,
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  chipProtegee: { borderColor: colors.danger },
 });

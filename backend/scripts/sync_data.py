@@ -19,6 +19,7 @@ FILES = (
     "ports.json",
     "secteurs_mer.json",
     "demo_routes_opendata.json",
+    "referentiels_peche.json",
 )
 
 if __name__ == "__main__":
