@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { alertTypeLabel, getFicheEmbarcation, graviteLabel, type FicheEmbarcation } from '../api';
+import { equipementsResume } from './EquipementsFields';
 import { IconClose, IconPirogue, IconShip } from './Icons';
 
 type Props = {
@@ -161,6 +162,10 @@ export default function PirogueDetailDrawer({ token, embarcationId, onClose, onL
                   {fiche.type ?? '—'}
                   {fiche.longueur_m ? ` · ${fiche.longueur_m} m` : ''}
                 </dd>
+              </div>
+              <div>
+                <dt>Équipements</dt>
+                <dd>{equipementsResume(fiche.equipements) || 'Non renseignés'}</dd>
               </div>
             </dl>
           </section>

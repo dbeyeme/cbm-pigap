@@ -5,6 +5,28 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-10-01] — Écarts fonctionnels TDR : limites, concentration, équipements, GPS hors-ligne, CORS
+
+**Ce qui a été construit :**
+- Alerte « dépassement d'une limite géographique » (TDR §5.3) : nouveau type de zone `autorisee` (zones de pêche autorisées, limites territoriales) ; une position maritime hors de toute zone autorisée active déclenche une alerte critique, une fois par embarcation et par jour ; sans zone autorisée, la limite est la ZEE élargie ; positions fluviales ignorées
+- Alerte « concentration excessive de pêcheurs dans une zone » (TDR §5.7) : embarcations distinctes dans un rayon (2 km) et une fenêtre (± 60 min) autour de chaque position ; seuil 10 par défaut (`ALERTE_CONCENTRATION_*`), alerte d'attention au niveau de la zone, une par cellule et par heure
+- Équipements utilisés (TDR §5.1) exposés dans les formulaires : engins, moteur, sécurité et navigation, longueur ; formulaire agent (Licences), formulaire public de demande de licence (transmis à l'embarcation à l'approbation), saisie mobile ; affichés dans la fiche embarcation
+- File hors-ligne des positions GPS (TDR §5.2, contrainte §10) : chaque relevé est écrit en SQLite avant envoi, synchronisation par lot et par embarcation, conservation en cas de coupure réseau, rejet définitif des positions refusées par le serveur (hors eau), indicateur « N positions conservées sur le téléphone »
+- CORS fermé : `CORS_ORIGINS` (liste) et `CORS_ORIGIN_REGEX` (aperçus Vercel) ; joker toléré en développement seulement, avertissement en production
+- Migration `c9e2b7a46788` (valeur d'enum `autorisee`, colonnes longueur et équipements sur les demandes), légende et couleur de zone autorisée sur les cartes web
+
+**Pourquoi :**
+- Mise en conformité avec les termes de référence du défi (points relevés dans l'analyse du 2026-10-01) et réserve sécurité CORS ouverte depuis la revue M1 à M7
+
+**Tests réalisés :**
+- `test_alertes_limite_concentration.py` (limite positive et négative, anti-doublon ; concentration sous et au-dessus du seuil), `test_equipements_demande.py` (transmission demande → embarcation, JSON invalide refusé), suites M2, M3, M7 et demandes de licence vertes ; type-check web et mobile, build web
+
+**Points ouverts :**
+- Seuils de concentration et polygones des zones autorisées à calibrer avec la DGPA (aucune zone autorisée chargée par défaut)
+- La file GPS hors-ligne se synchronise au relevé suivant et à l'ouverture de l'écran ; pas encore de tâche d'arrière-plan
+
+---
+
 ## [2026-09-21] — Paiement Mobile Money initié depuis le numéro enregistré de l'acteur
 
 **Ce qui a été construit :**

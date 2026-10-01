@@ -2925,3 +2925,19 @@ input.is-locked {
   font-size: 0.78rem;
   font-weight: 500;
 }
+
+
+/* ——— Équipements de l'embarcation (§5.1) ——— */
+.equip-fields { display: grid; gap: 10px; }
+.equip-group { border: 1px solid var(--line, #d7e0ea); border-radius: 10px; padding: 8px 10px 10px; margin: 0; min-width: 0; }
+.equip-group legend { font-size: 12px; font-weight: 600; padding: 0 4px; color: var(--ink-soft, #5b6b7b); }
+.equip-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.equip-chips .equip-chip {
+  display: inline-flex !important; flex-direction: row !important; align-items: center; gap: 6px;
+  padding: 5px 10px; margin: 0; border-radius: 999px; border: 1px solid var(--line, #d7e0ea);
+  font-size: 13px; font-weight: 500; cursor: pointer; background: var(--surface, #fff);
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.equip-chips .equip-chip:hover { transform: translateY(-1px); border-color: #0ea5a3; }
+.equip-chips .equip-chip input { margin: 0; width: 14px; height: 14px; accent-color: #0ea5a3; }
+.equip-chips .equip-chip.is-on { background: rgba(14, 165, 163, 0.12); border-color: #0ea5a3; color: #0b6b6a; }

@@ -26,6 +26,8 @@ const REGLE_LABELS: Record<string, string> = {
   silence_gps: 'Absence de signal GPS prolongée',
   meteo_marine: 'Conditions de mer dangereuses pour les pirogues',
   crue_fleuve: 'Crue annoncée sur le fleuve',
+  sortie_limite_geographique: 'Position relevée hors des zones de pêche autorisées',
+  concentration_zone: 'Concentration excessive d’embarcations dans une zone',
 };
 
 function humanize(code: unknown): string {

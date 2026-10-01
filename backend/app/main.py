@@ -38,10 +38,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+_wildcard = "*" in _origins or not _origins
+if _wildcard and settings.app_env == "production":
+    logger.warning("cors_wildcard_in_production", hint="définir CORS_ORIGINS")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"] if _wildcard else _origins,
+    allow_origin_regex=None if _wildcard else settings.cors_origin_regex,
+    # Authentification par jeton Bearer : pas de cookie, donc pas de credentials
+    # avec le joker ; activés uniquement pour une liste explicite d'origines.
+    allow_credentials=not _wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )

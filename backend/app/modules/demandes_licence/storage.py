@@ -63,7 +63,7 @@ async def save_pieces(
         filename = upload.filename or "document"
         ext = Path(filename).suffix.lower()
         content_type = (upload.content_type or "").split(";")[0].strip().lower()
-        if (content_type not in ALLOWED_CONTENT or ext not in ALLOWED_EXT):
+        if content_type not in ALLOWED_CONTENT or ext not in ALLOWED_EXT:
             raise bad_request(
                 "Formats acceptés : PDF, JPG, PNG, WEBP",
                 "INVALID_FILE_TYPE",

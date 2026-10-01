@@ -1,6 +1,7 @@
 /**
- * SQLite offline-first pour déclarations de captures (§5.4 / ADR-001).
- * Toute saisie est écrite localement avant tentative de sync réseau.
+ * SQLite offline-first pour déclarations de captures (§5.4 / ADR-001) et
+ * positions GPS (§5.2). Toute saisie est écrite localement avant tentative de
+ * sync réseau.
  */
 import * as SQLite from 'expo-sqlite';
 
@@ -41,6 +42,18 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
           created_at TEXT NOT NULL,
           last_error TEXT
         );
+        CREATE TABLE IF NOT EXISTS positions_local (
+          id TEXT PRIMARY KEY NOT NULL,
+          embarcation_id TEXT NOT NULL,
+          lon REAL NOT NULL,
+          lat REAL NOT NULL,
+          horodatage TEXT NOT NULL,
+          sync_status TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          last_error TEXT
+        );
+        CREATE INDEX IF NOT EXISTS ix_positions_local_status
+          ON positions_local (sync_status, horodatage);
         CREATE TABLE IF NOT EXISTS embarcations_cache (
           id TEXT PRIMARY KEY NOT NULL,
           pecheur_id TEXT NOT NULL,
@@ -193,4 +206,98 @@ export async function listCachedEmbarcations(): Promise<CachedEmbarcation[]> {
     immatriculation: String(row.immatriculation),
     type: row.type == null ? null : String(row.type),
   }));
+}
+
+
+/* ——— Positions GPS hors-ligne (§5.2) ——— */
+
+export type LocalPosition = {
+  id: string;
+  embarcation_id: string;
+  lon: number;
+  lat: number;
+  horodatage: string;
+  sync_status: 'pending' | 'synced' | 'rejected';
+  created_at: string;
+  last_error: string | null;
+};
+
+function rowToPosition(row: Record<string, unknown>): LocalPosition {
+  const status = String(row.sync_status);
+  return {
+    id: String(row.id),
+    embarcation_id: String(row.embarcation_id),
+    lon: Number(row.lon),
+    lat: Number(row.lat),
+    horodatage: String(row.horodatage),
+    sync_status: status === 'synced' ? 'synced' : status === 'rejected' ? 'rejected' : 'pending',
+    created_at: String(row.created_at),
+    last_error: row.last_error == null ? null : String(row.last_error),
+  };
+}
+
+function newId(): string {
+  const hex = () => Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0');
+  return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${hex()}-${hex()}${hex()}${hex()}`;
+}
+
+/** Écrit la position localement (toujours, même avec réseau). */
+export async function enqueuePosition(input: {
+  embarcation_id: string;
+  lon: number;
+  lat: number;
+  horodatage: string;
+}): Promise<LocalPosition> {
+  const db = await getDb();
+  const id = newId();
+  const created_at = new Date().toISOString();
+  await db.runAsync(
+    `INSERT INTO positions_local (id, embarcation_id, lon, lat, horodatage, sync_status, created_at, last_error)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL)`,
+    [id, input.embarcation_id, input.lon, input.lat, input.horodatage, created_at],
+  );
+  return { id, ...input, sync_status: 'pending', created_at, last_error: null };
+}
+
+export async function listPendingPositions(): Promise<LocalPosition[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM positions_local WHERE sync_status = 'pending' ORDER BY horodatage ASC`,
+  );
+  return rows.map(rowToPosition);
+}
+
+export async function countPendingPositions(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM positions_local WHERE sync_status = 'pending'`,
+  );
+  return Number(row?.c ?? 0);
+}
+
+export async function markPositionsSynced(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
+  const placeholders = ids.map(() => '?').join(',');
+  await db.runAsync(
+    `UPDATE positions_local SET sync_status = 'synced', last_error = NULL WHERE id IN (${placeholders})`,
+    ids,
+  );
+  // Les positions envoyées depuis plus de 7 jours n'ont plus d'utilité locale
+  const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  await db.runAsync(
+    `DELETE FROM positions_local WHERE sync_status = 'synced' AND created_at < ?`,
+    [cutoff],
+  );
+}
+
+/** Refus métier du serveur : la position ne sera pas renvoyée. */
+export async function markPositionsRejected(ids: string[], message: string): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
+  const placeholders = ids.map(() => '?').join(',');
+  await db.runAsync(
+    `UPDATE positions_local SET sync_status = 'rejected', last_error = ? WHERE id IN (${placeholders})`,
+    [message.slice(0, 500), ...ids],
+  );
 }

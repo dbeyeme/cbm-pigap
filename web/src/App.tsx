@@ -1357,6 +1357,9 @@ export default function App() {
                     <span>
                       <img src="/icons/zone-sensible.svg" alt="" width="16" height="16" /> sensible
                     </span>
+                    <span>
+                      <img src="/icons/zone-autorisee.svg" alt="" width="16" height="16" /> autorisée
+                    </span>
                   </div>
                 ) : null}
                 <label className="filter-label">

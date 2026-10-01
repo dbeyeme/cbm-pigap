@@ -200,6 +200,8 @@ async def approve_demande(
                 nom=row.embarcation_nom,
                 immatriculation=immatriculation,
                 type=row.embarcation_type,
+                longueur=row.embarcation_longueur,
+                equipements=row.embarcation_equipements,
             ),
         )
 

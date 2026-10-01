@@ -101,6 +101,8 @@ export function createEmbarcation(
     nom: string;
     immatriculation: string;
     type?: string;
+    longueur?: number | null;
+    equipements?: Record<string, unknown> | null;
   },
 ) {
   return request('/api/v1/embarcations', {

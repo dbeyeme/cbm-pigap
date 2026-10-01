@@ -132,7 +132,10 @@ async def create_position(
     from app.modules.alertes.service import evaluate_after_position
 
     await evaluate_after_position(
-        db, position=data.position, embarcation_id=data.embarcation_id
+        db,
+        position=data.position,
+        embarcation_id=data.embarcation_id,
+        a_la_date=data.horodatage,
     )
     await db.commit()
     await db.refresh(row)
@@ -172,7 +175,10 @@ async def create_positions_batch(
 
     for item in data.positions:
         await evaluate_after_position(
-            db, position=item.position, embarcation_id=item.embarcation_id
+            db,
+            position=item.position,
+            embarcation_id=item.embarcation_id,
+            a_la_date=item.horodatage,
         )
     await db.commit()
     for row in rows:

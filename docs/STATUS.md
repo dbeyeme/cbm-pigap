@@ -11,10 +11,10 @@
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-09-20 |
+| **Dernière mise à jour** | 2026-10-01 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | AIS : flotte accumulée + ports + ingestion récepteurs locaux (aucune couverture communautaire au Gabon) · numérotation automatique licences · couche design web |
+| **Note récente** | Écarts TDR corrigés : alertes limite géographique et concentration, équipements embarcation, file GPS hors-ligne, CORS fermé (2026-10-01) · paiement Mobile Money depuis le numéro de l'acteur |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -47,10 +47,10 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 
 | Expert | Verdict | Go Phase 3 |
 |--------|---------|------------|
-| Sécurité | **GO réserves** (CORS, JWT, vue agent, batch GPS) | Conditionnel |
+| Sécurité | **GO réserves** (~~CORS~~ fermé 2026-10-01, JWT, vue agent, batch GPS) | Conditionnel |
 | Backend / PostGIS | **GO réserves** (LogAcces, GIST, format 401) | Conditionnel |
 | Web / UX | **GO démo** (logout mobile, a11y, popups carte) | Oui démo |
-| Mobile offline | **GO réserves** (GPS online, sync manuelle, Jest) | Conditionnel |
+| Mobile offline | **GO réserves** (~~GPS online~~ file hors-ligne 2026-10-01, sync manuelle, Jest) | Conditionnel |
 | Maritime | **RÉSERVES** (buffer, Ogooué densifié) | Oui |
 | Halieutique | **GO conditionnel** (espèces / seuils pilote) | Conditionnel |
 | Architecte | **GO réserves** (E2E §9, staging, §10) | Conditionnel |

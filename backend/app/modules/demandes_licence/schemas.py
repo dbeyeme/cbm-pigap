@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
@@ -31,6 +32,9 @@ class DemandeLicenceCreate(BaseModel):
     embarcation_nom: str | None = Field(None, max_length=255)
     embarcation_immatriculation: str | None = Field(None, max_length=64)
     embarcation_type: str | None = Field(None, max_length=64)
+    embarcation_longueur: float | None = Field(None, gt=0, le=100)
+    # Équipements utilisés (§5.1) : engins, moteur, sécurité, navigation
+    embarcation_equipements: dict[str, Any] | None = None
     message: str | None = Field(None, max_length=2000)
 
     @model_validator(mode="after")
@@ -122,6 +126,8 @@ class DemandeLicenceRead(OrmModel):
     embarcation_nom: str | None
     embarcation_immatriculation: str | None
     embarcation_type: str | None
+    embarcation_longueur: float | None = None
+    embarcation_equipements: dict[str, Any] | None = None
     message: str | None
     pieces_jointes: list[PieceJointeRead] = Field(default_factory=list)
     motif_refus: str | None

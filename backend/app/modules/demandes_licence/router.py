@@ -1,5 +1,6 @@
 """Routes demandes de licence — POST public + CRUD / traitement BO."""
 
+import json
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.deps import DbSession, require_role
-from app.core.errors import not_found
+from app.core.errors import bad_request, not_found
 from app.db.enums import RoleUtilisateur, StatutDemandeLicence, TypeDemandeLicence
 from app.db.models import Utilisateur
 from app.modules.demandes_licence import service
@@ -32,6 +33,19 @@ StaffRoles = Annotated[
         )
     ),
 ]
+
+
+def _parse_equipements(raw: str | None) -> dict | None:
+    """Décode le JSON des équipements envoyé en multipart ; objet attendu."""
+    if raw is None or not raw.strip():
+        return None
+    try:
+        value = json.loads(raw)
+    except ValueError as exc:
+        raise bad_request("Équipements : format JSON invalide", "EQUIPEMENTS_INVALIDES") from exc
+    if not isinstance(value, dict):
+        raise bad_request("Équipements : un objet est attendu", "EQUIPEMENTS_INVALIDES")
+    return value
 
 
 def _empty_to_none(value: str | None) -> str | None:
@@ -78,6 +92,9 @@ async def soumettre_demande_avec_pieces(
     embarcation_nom: Annotated[str | None, Form()] = None,
     embarcation_immatriculation: Annotated[str | None, Form()] = None,
     embarcation_type: Annotated[str | None, Form()] = None,
+    embarcation_longueur: Annotated[float | None, Form()] = None,
+    # JSON sérialisé par le formulaire (multipart) : {"engins": [...], ...}
+    embarcation_equipements: Annotated[str | None, Form()] = None,
     message: Annotated[str | None, Form()] = None,
     type_pieces: Annotated[list[str] | None, Form()] = None,
     pieces: Annotated[list[UploadFile] | None, File()] = None,
@@ -100,6 +117,8 @@ async def soumettre_demande_avec_pieces(
         embarcation_nom=_empty_to_none(embarcation_nom),
         embarcation_immatriculation=_empty_to_none(embarcation_immatriculation),
         embarcation_type=_empty_to_none(embarcation_type),
+        embarcation_longueur=embarcation_longueur,
+        embarcation_equipements=_parse_equipements(embarcation_equipements),
         message=_empty_to_none(message),
     )
     row = await service.create_demande(db, payload, pieces=[])

@@ -16,6 +16,12 @@ import {
   TrajectorySegment,
   updatePecheur,
 } from '../api';
+import EquipementsFields, {
+  emptyEquipements,
+  equipementsPayload,
+  equipementsResume,
+  type Equipements,
+} from '../components/EquipementsFields';
 import CompactList from '../components/CompactList';
 import Modal from '../components/Modal';
 import { IconCheckCircle, IconEye, IconPlus, IconSave, IconSearch, IconTrash, IconXCircle } from '../components/Icons';
@@ -56,6 +62,8 @@ export default function LicencesPage({
   const [boatNom, setBoatNom] = useState('');
   const [boatImmat, setBoatImmat] = useState('');
   const [boatType, setBoatType] = useState('pirogue');
+  const [boatLongueur, setBoatLongueur] = useState('');
+  const [boatEquip, setBoatEquip] = useState<Equipements>(emptyEquipements());
 
   const refreshList = useCallback(
     async (query?: string) => {
@@ -148,10 +156,14 @@ export default function LicencesPage({
         nom: boatNom.trim(),
         immatriculation: boatImmat.trim(),
         type: boatType.trim() || null,
+        longueur: boatLongueur.trim() ? Number(boatLongueur.replace(',', '.')) : null,
+        equipements: equipementsPayload(boatEquip),
       });
       setBoatNom('');
       setBoatImmat('');
       setBoatType('pirogue');
+      setBoatLongueur('');
+      setBoatEquip(emptyEquipements());
       setStatus(`Embarcation ajoutée pour ${selected.prenom} ${selected.nom}`);
       const emb = await listEmbarcations(token, selected.id);
       setBoats(emb);
@@ -348,7 +360,11 @@ export default function LicencesPage({
                     <span className="traj-title">{e.nom}</span>
                     <span className="traj-meta">
                       {e.immatriculation} · {e.type ?? 'embarcation'}
+                      {e.longueur ? ` · ${e.longueur} m` : ''}
                     </span>
+                    {equipementsResume(e.equipements) ? (
+                      <span className="traj-meta">{equipementsResume(e.equipements)}</span>
+                    ) : null}
                   </div>
                 )}
               />
@@ -375,6 +391,12 @@ export default function LicencesPage({
                     placeholder="pirogue, chaloupe…"
                   />
                 </label>
+                <EquipementsFields
+                  value={boatEquip}
+                  onChange={setBoatEquip}
+                  longueur={boatLongueur}
+                  onLongueur={setBoatLongueur}
+                />
                 <button type="submit" disabled={loading}><IconPlus size={16} /> Ajouter embarcation</button>
               </form>
             </>

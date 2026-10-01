@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -189,6 +190,7 @@ class FicheEmbarcationRead(BaseModel):
     immatriculation: str
     type: str | None = None
     longueur_m: float | None = None
+    equipements: dict[str, Any] | None = None
     pecheur_id: UUID
     pecheur_nom: str
     numero_licence: str

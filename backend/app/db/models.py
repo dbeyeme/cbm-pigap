@@ -324,6 +324,8 @@ class DemandeLicence(Base):
     embarcation_nom: Mapped[str | None] = mapped_column(String(255), nullable=True)
     embarcation_immatriculation: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embarcation_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    embarcation_longueur: Mapped[float | None] = mapped_column(Float, nullable=True)
+    embarcation_equipements: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Justificatifs FO — [{id, type_piece, nom_original, chemin, content_type, taille}]
     pieces_jointes: Mapped[list[dict[str, Any]]] = mapped_column(

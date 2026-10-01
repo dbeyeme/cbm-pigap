@@ -6,6 +6,7 @@ export const ZONE_COLORS: Record<ZoneReglementee['type'], string> = {
   interdite: '#DC2626',
   protegee: '#2563EB',
   sensible: '#D97706',
+  autorisee: '#059669',
 };
 
 export function zoneColor(type: ZoneReglementee['type']): string {

@@ -23,6 +23,68 @@ type Props = {
   onBack: () => void;
 };
 
+/** Équipements utilisés (§5.1) : mêmes codes que le portail web. */
+const ENGINS = [
+  { code: 'filet', label: 'Filet' },
+  { code: 'ligne', label: 'Ligne' },
+  { code: 'nasse', label: 'Nasse' },
+  { code: 'senne', label: 'Senne' },
+  { code: 'palangre', label: 'Palangre' },
+];
+const SECURITE = [
+  { code: 'gilets', label: 'Gilets' },
+  { code: 'gps', label: 'GPS / téléphone' },
+  { code: 'vhf', label: 'Radio VHF' },
+  { code: 'feux', label: 'Feux' },
+  { code: 'glaciere', label: 'Glacière' },
+];
+
+function equipementsPayload(e: {
+  engins: string[];
+  moteur: string;
+  securite: string[];
+}): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {};
+  if (e.engins.length) out.engins = e.engins;
+  if (e.moteur.trim()) out.moteur = e.moteur.trim();
+  if (e.securite.length) out.securite = e.securite;
+  return Object.keys(out).length ? out : null;
+}
+
+function ChipGroup({
+  items,
+  selected,
+  onChange,
+}: {
+  items: Array<{ code: string; label: string }>;
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <View style={styles.chips}>
+      {items.map((item) => {
+        const on = selected.includes(item.code);
+        return (
+          <Pressable
+            key={item.code}
+            onPress={() =>
+              onChange(
+                on ? selected.filter((c) => c !== item.code) : [...selected, item.code],
+              )
+            }
+            style={[styles.chip, on && styles.chipOn]}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: on }}
+          >
+            {on ? <Ionicons name="checkmark" size={14} color="#F8FAFC" /> : null}
+            <Text style={[styles.chipText, on && styles.chipTextOn]}>{item.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
@@ -31,6 +93,10 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   const [password, setPassword] = useState('PecheurPass1!');
   const [bateau, setBateau] = useState('');
   const [immat, setImmat] = useState('');
+  const [longueur, setLongueur] = useState('');
+  const [moteur, setMoteur] = useState('');
+  const [engins, setEngins] = useState<string[]>([]);
+  const [securite, setSecurite] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [doneFlash, setDoneFlash] = useState(false);
@@ -66,6 +132,8 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
         nom: bateau.trim() || `Embarcation ${pecheur.numero_licence}`,
         immatriculation: immat.trim(),
         type: 'pirogue',
+        longueur: longueur.trim() ? Number(longueur.replace(',', '.')) : null,
+        equipements: equipementsPayload({ engins, moteur, securite }),
       });
       setDoneFlash(true);
       setTimeout(onDone, 700);
@@ -137,6 +205,25 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
             value={immat}
             onChangeText={setImmat}
           />
+          <GlassField
+            label="Longueur (m)"
+            icon="resize-outline"
+            value={longueur}
+            onChangeText={setLongueur}
+            keyboardType="decimal-pad"
+            placeholder="ex. 7,5"
+          />
+          <Text style={styles.chipsLabel}>Engins de pêche</Text>
+          <ChipGroup items={ENGINS} selected={engins} onChange={setEngins} />
+          <GlassField
+            label="Moteur"
+            icon="speedometer-outline"
+            value={moteur}
+            onChangeText={setMoteur}
+            placeholder="ex. hors-bord 15 ch, ou aucun"
+          />
+          <Text style={styles.chipsLabel}>Sécurité et navigation</Text>
+          <ChipGroup items={SECURITE} selected={securite} onChange={setSecurite} />
         </GlassPanel>
 
         {error ? (
@@ -233,4 +320,27 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   success: { color: colors.success, fontFamily: fonts.bodyBold },
+  chipsLabel: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.inkMuted,
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.card,
+    minHeight: 36,
+  },
+  chipOn: { backgroundColor: colors.tide, borderColor: colors.tide },
+  chipText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 14 },
+  chipTextOn: { color: '#F8FAFC' },
 });

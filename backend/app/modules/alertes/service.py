@@ -6,13 +6,15 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from geoalchemy2.functions import ST_Intersects
-from sqlalchemy import func, select
+from geoalchemy2 import Geography
+from geoalchemy2.functions import ST_DWithin, ST_Intersects
+from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import not_found
 from app.db.enums import NiveauGravite, StatutAlerte, TypeAlerte, TypeZone
-from app.db.models import Alerte, Capture, ZoneReglementee
+from app.db.models import Alerte, Capture, Position, ZoneReglementee
 from app.modules.alertes.schemas import AlerteRead, AlerteUpdateStatut
 from app.modules.geolocalisation.geo import point_to_wkt
 from app.schemas.common import PointGeoJSON
@@ -41,9 +43,7 @@ async def list_alertes(
     return [to_read(r) for r in rows]
 
 
-async def update_statut(
-    db: AsyncSession, alerte_id: UUID, data: AlerteUpdateStatut
-) -> AlerteRead:
+async def update_statut(db: AsyncSession, alerte_id: UUID, data: AlerteUpdateStatut) -> AlerteRead:
     row = await db.get(Alerte, alerte_id)
     if row is None:
         raise not_found("Alerte introuvable", "ALERTE_NOT_FOUND")
@@ -226,14 +226,159 @@ async def evaluate_tendance_embarcation(
     return [alerte] if alerte else []
 
 
+async def evaluate_sortie_limite(
+    db: AsyncSession,
+    *,
+    position: PointGeoJSON,
+    embarcation_id: UUID,
+    a_la_date: datetime | None = None,
+) -> list[Alerte]:
+    """Règle 4 : dépassement d'une limite géographique (§5.3).
+
+    Les zones de type ``autorisee`` délimitent les eaux où la pêche est permise
+    (zone artisanale, limites territoriales). Une position maritime relevée hors
+    de toute zone autorisée active déclenche une alerte critique. Sans zone
+    autorisée définie, la limite retenue est la ZEE gabonaise élargie de la
+    marge côtière (eaux nationales). Les positions fluviales sont ignorées.
+    """
+    from app.modules.ais_gabon.service import point_in_gabon_waters
+    from app.modules.geolocalisation.service import _classify_secteur
+
+    lon, lat = position.coordinates
+    if _classify_secteur(lon, lat) == "fleuve":
+        return []
+    when = a_la_date or datetime.now(UTC)
+    point = point_to_wkt(position)
+    stmt = (
+        select(ZoneReglementee)
+        .where(ZoneReglementee.actif.is_(True))
+        .where(ZoneReglementee.type == TypeZone.autorisee)
+    )
+    zones = (await db.execute(stmt)).scalars().all()
+    actives = [
+        z
+        for z in zones
+        if not (z.periode_debut and when.date() < z.periode_debut)
+        and not (z.periode_fin and when.date() > z.periode_fin)
+    ]
+    if actives:
+        inside = await db.execute(
+            select(ZoneReglementee.id)
+            .where(ZoneReglementee.id.in_([z.id for z in actives]))
+            .where(ST_Intersects(ZoneReglementee.geometrie, point))
+            .limit(1)
+        )
+        if inside.scalar_one_or_none() is not None:
+            return []
+        limite = "zones_autorisees"
+        reference = ", ".join(z.nom for z in actives[:5])
+    else:
+        if point_in_gabon_waters(lon, lat):
+            return []
+        limite = "zee_gabon"
+        reference = "ZEE gabonaise (Marine Regions) élargie de la marge côtière"
+
+    alerte = await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.critique,
+        embarcation_id=embarcation_id,
+        declencheur={
+            "regle": "sortie_limite_geographique",
+            "fingerprint": f"limite:{embarcation_id}:{when.date().isoformat()}",
+            "limite": limite,
+            "reference": reference,
+            "position": {"type": "Point", "coordinates": [lon, lat]},
+            "horodatage": when.isoformat(),
+        },
+    )
+    return [alerte] if alerte else []
+
+
+def _cellule(lon: float, lat: float, *, pas_deg: float = 0.02) -> str:
+    """Cellule de grille (~2 km) utilisée comme empreinte anti-doublon."""
+    return f"{round(lon / pas_deg) * pas_deg:.2f},{round(lat / pas_deg) * pas_deg:.2f}"
+
+
+async def evaluate_concentration(
+    db: AsyncSession,
+    *,
+    position: PointGeoJSON,
+    embarcation_id: UUID,
+    a_la_date: datetime | None = None,
+) -> list[Alerte]:
+    """Règle 5 : concentration excessive de pêcheurs dans une zone (§5.7).
+
+    Compte les embarcations distinctes ayant relevé une position dans le rayon
+    ``alerte_concentration_rayon_km`` autour de la position, dans la fenêtre
+    ``alerte_concentration_fenetre_min`` centrée sur l'horodatage. Au-delà du
+    seuil ``alerte_concentration_seuil``, une alerte d'attention est émise au
+    niveau de la zone (sans embarcation ciblée), une fois par cellule et par heure.
+    """
+    seuil = int(settings.alerte_concentration_seuil)
+    if seuil <= 0:
+        return []
+    when = a_la_date or datetime.now(UTC)
+    fenetre = timedelta(minutes=int(settings.alerte_concentration_fenetre_min))
+    rayon_m = float(settings.alerte_concentration_rayon_km) * 1000.0
+    lon, lat = position.coordinates
+    point = point_to_wkt(position)
+    stmt = select(func.count(func.distinct(Position.embarcation_id))).where(
+        Position.horodatage >= when - fenetre,
+        Position.horodatage <= when + fenetre,
+        ST_DWithin(cast(Position.position, Geography), cast(point, Geography), rayon_m),
+    )
+    nb = int((await db.execute(stmt)).scalar_one() or 0)
+    if nb < seuil:
+        return []
+
+    zone_nom: str | None = None
+    zres = await db.execute(
+        select(ZoneReglementee.nom)
+        .where(ZoneReglementee.actif.is_(True))
+        .where(ZoneReglementee.type != TypeZone.autorisee)
+        .where(ST_Intersects(ZoneReglementee.geometrie, point))
+        .limit(1)
+    )
+    zone_nom = zres.scalar_one_or_none()
+    cellule = _cellule(lon, lat)
+    heure = when.astimezone(UTC).strftime("%Y-%m-%dT%H")
+    alerte = await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.attention,
+        embarcation_id=None,
+        declencheur={
+            "regle": "concentration_zone",
+            "fingerprint": f"concentration:{cellule}:{heure}",
+            "cellule": cellule,
+            "zone_nom": zone_nom,
+            "nb_embarcations": nb,
+            "seuil": seuil,
+            "rayon_km": float(settings.alerte_concentration_rayon_km),
+            "fenetre_min": int(settings.alerte_concentration_fenetre_min),
+            "position": {"type": "Point", "coordinates": [lon, lat]},
+            "horodatage": when.isoformat(),
+        },
+    )
+    return [alerte] if alerte else []
+
+
 async def evaluate_after_position(
     db: AsyncSession,
     *,
     position: PointGeoJSON,
     embarcation_id: UUID,
+    a_la_date: datetime | None = None,
 ) -> None:
     await evaluate_zone_interdite(
-        db, position=position, embarcation_id=embarcation_id
+        db, position=position, embarcation_id=embarcation_id, a_la_date=a_la_date
+    )
+    await evaluate_sortie_limite(
+        db, position=position, embarcation_id=embarcation_id, a_la_date=a_la_date
+    )
+    await evaluate_concentration(
+        db, position=position, embarcation_id=embarcation_id, a_la_date=a_la_date
     )
 
 
@@ -248,6 +393,4 @@ async def evaluate_after_capture(
         await evaluate_zone_interdite(
             db, position=position, embarcation_id=embarcation_id, a_la_date=reference
         )
-    await evaluate_tendance_embarcation(
-        db, embarcation_id=embarcation_id, reference=reference
-    )
+    await evaluate_tendance_embarcation(db, embarcation_id=embarcation_id, reference=reference)

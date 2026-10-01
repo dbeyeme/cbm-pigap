@@ -26,6 +26,9 @@ class TypeZone(enum.StrEnum):
     interdite = "interdite"
     protegee = "protegee"
     sensible = "sensible"
+    # Zone de pêche autorisée (limite géographique) : une position relevée
+    # hors de toute zone autorisée active déclenche l'alerte §5.3 / §5.7
+    autorisee = "autorisee"
 
 
 class TypeAlerte(enum.StrEnum):

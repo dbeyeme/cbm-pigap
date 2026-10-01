@@ -65,6 +65,16 @@ class Settings(BaseSettings):
     presence_fenetre_heures: int = 24
     presence_silence_heures: int = 6  # au-delà : « sans signal »
     presence_tolerance_heures: int = 6  # déclaration vs présence GPS
+    # Alerte « concentration excessive de pêcheurs dans une zone » (§5.7) :
+    # embarcations distinctes vues dans le rayon autour d'une position, dans la
+    # fenêtre temporelle. Seuils indicatifs, à calibrer avec la DGPA.
+    alerte_concentration_seuil: int = 10
+    alerte_concentration_rayon_km: float = 2.0
+    alerte_concentration_fenetre_min: int = 60
+    # Origines autorisées (CORS) : liste séparée par des virgules, ou "*" (dev).
+    # Les aperçus Vercel sont couverts par l'expression régulière.
+    cors_origins: str = "*"
+    cors_origin_regex: str | None = None
     # Météo-marine (Open-Meteo, CC BY 4.0) : bulletin, zones calculées, alertes auto
     meteo_enabled: bool = True
     meteo_cache_minutes: int = 30

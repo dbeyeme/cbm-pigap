@@ -12,6 +12,7 @@ export type Embarcation = {
   derniere_position_a?: string | null;
   pecheur_id?: string;
   longueur?: number | null;
+  equipements?: Record<string, unknown> | null;
 };
 
 export type Pecheur = {
@@ -47,6 +48,9 @@ export type EmbarcationCreate = {
   nom: string;
   immatriculation: string;
   type?: string | null;
+  longueur?: number | null;
+  /** Équipements utilisés (§5.1) : engins, moteur, sécurité. */
+  equipements?: Record<string, unknown> | null;
 };
 
 export type PositionPoint = {
@@ -442,7 +446,7 @@ export function createEmbarcation(token: string, data: EmbarcationCreate) {
 export type ZoneReglementee = {
   id: string;
   nom: string;
-  type: 'interdite' | 'protegee' | 'sensible';
+  type: 'interdite' | 'protegee' | 'sensible' | 'autorisee';
   geometrie: { type: 'Polygon'; coordinates: [number, number][][] };
   periode_debut: string | null;
   periode_fin: string | null;
@@ -1357,6 +1361,8 @@ export const ALERT_RULE_LABELS: Record<string, string> = {
   silence_gps: 'Absence de signal GPS prolongée',
   meteo_marine: 'Conditions de mer dangereuses pour les pirogues',
   crue_fleuve: 'Crue annoncée sur le fleuve',
+  sortie_limite_geographique: 'Position relevée hors des zones de pêche autorisées',
+  concentration_zone: 'Concentration excessive d’embarcations dans une zone',
 };
 
 export const GRAVITE_LABELS: Record<string, string> = {
@@ -1497,6 +1503,7 @@ export type FicheEmbarcation = {
   immatriculation: string;
   type: string | null;
   longueur_m: number | null;
+  equipements: Record<string, unknown> | null;
   pecheur_id: string;
   pecheur_nom: string;
   numero_licence: string;

@@ -640,6 +640,9 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
           <span>
             <img src="/icons/zone-sensible.svg" alt="" width="18" height="18" /> sensible
           </span>
+          <span>
+            <img src="/icons/zone-autorisee.svg" alt="" width="18" height="18" /> autorisée
+          </span>
         </div>
 
         {flash ? <p className="zones-flash">{flash}</p> : null}
@@ -667,6 +670,7 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
                 <option value="interdite">Interdite</option>
                 <option value="protegee">Protégée</option>
                 <option value="sensible">Sensible</option>
+                <option value="autorisee">Autorisée (limite de pêche)</option>
               </select>
             </label>
             <div className="zone-actions">

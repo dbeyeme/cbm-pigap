@@ -5,6 +5,11 @@ import { friendlyApiError } from '../lib/apiErrors';
 import Modal from './Modal';
 import { useToast } from './ToastProvider';
 import { IconArrowLeft, IconArrowRight, IconBuilding, IconClose, IconUsers } from './Icons';
+import EquipementsFields, {
+  emptyEquipements,
+  equipementsPayload,
+  type Equipements,
+} from './EquipementsFields';
 
 type Props = {
   open: boolean;
@@ -59,6 +64,8 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
   const [zone, setZone] = useState('Estuaire');
   const [embNom, setEmbNom] = useState('');
   const [embImmat, setEmbImmat] = useState('');
+  const [embLongueur, setEmbLongueur] = useState('');
+  const [embEquip, setEmbEquip] = useState<Equipements>(emptyEquipements());
   const [message, setMessage] = useState('');
   const [pieces, setPieces] = useState<PieceDraft[]>([]);
   const [pickType, setPickType] = useState('piece_identite');
@@ -132,6 +139,9 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
         if (zone) fd.set('zone_activite', zone);
         if (embNom) fd.set('embarcation_nom', embNom);
         if (embImmat) fd.set('embarcation_immatriculation', embImmat);
+        if (embLongueur.trim()) fd.set('embarcation_longueur', embLongueur.replace(',', '.'));
+        const equip = equipementsPayload(embEquip);
+        if (equip) fd.set('embarcation_equipements', JSON.stringify(equip));
       } else {
         fd.set('org_nom', orgNom);
         fd.set('org_type', orgType);
@@ -320,6 +330,13 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
                     Immatriculation
                     <input value={embImmat} onChange={(e) => setEmbImmat(e.target.value)} />
                   </label>
+                  <EquipementsFields
+                    className="span-2"
+                    value={embEquip}
+                    onChange={setEmbEquip}
+                    longueur={embLongueur}
+                    onLongueur={setEmbLongueur}
+                  />
                 </>
               ) : null}
               <label className="span-2">

@@ -8,7 +8,7 @@ from geoalchemy2.functions import ST_AsGeoJSON, ST_Centroid, ST_Intersects
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.enums import StatutAlerte, StatutPecheur
+from app.db.enums import StatutAlerte, StatutPecheur, TypeZone
 from app.db.models import Alerte, Capture, Pecheur, ZoneReglementee
 from app.modules.alertes.schemas import AlerteRead
 from app.modules.dashboard.saisons import saison_calendaire
@@ -129,6 +129,7 @@ async def _zones_forte_activite(
         .select_from(ZoneReglementee)
         .outerjoin(Capture, and_(*join_conds))
         .where(ZoneReglementee.actif.is_(True))
+        .where(ZoneReglementee.type != TypeZone.autorisee)
         .group_by(ZoneReglementee.id)
         .having(func.count(Capture.id) > 0)
         .order_by(func.count(Capture.id).desc(), ZoneReglementee.nom)

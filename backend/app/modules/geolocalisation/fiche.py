@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import not_found
+from app.db.enums import TypeZone
 from app.db.models import (
     Alerte,
     Capture,
@@ -152,6 +153,7 @@ async def fiche_embarcation(
         zres = await db.execute(
             select(ZoneReglementee)
             .where(ZoneReglementee.actif.is_(True))
+            .where(ZoneReglementee.type != TypeZone.autorisee)
             .where(ST_Intersects(ZoneReglementee.geometrie, point))
         )
         today = now.date()
@@ -205,6 +207,7 @@ async def fiche_embarcation(
         immatriculation=emb.immatriculation,
         type=emb.type,
         longueur_m=emb.longueur,
+        equipements=emb.equipements,
         pecheur_id=pecheur.id,
         pecheur_nom=f"{pecheur.prenom} {pecheur.nom}",
         numero_licence=pecheur.numero_licence,

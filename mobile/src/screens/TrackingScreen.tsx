@@ -10,7 +10,6 @@ import {
   getTrajectory,
   listTrackedEmbarcations,
   PositionPoint,
-  postPosition,
   postPositionsBatch,
 } from '../api';
 import { GlassPanel } from '../components/GlassPanel';
@@ -22,6 +21,8 @@ import {
   isOnWater,
 } from '../geo/gabonMaritimeRoutes';
 import { friendlyApiError } from '../lib/apiErrors';
+import { countPendingPositions, enqueuePosition } from '../offline/db';
+import { syncPendingPositions } from '../offline/syncPositions';
 import type { MobileMode } from '../auth/roles';
 import { colors, fonts, radii, space } from '../theme';
 
@@ -45,8 +46,36 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDemoHelp, setShowDemoHelp] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [offlineNote, setOfflineNote] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const boatIdRef = useRef<string | null>(null);
+
+  const refreshPending = useCallback(async () => {
+    try {
+      setPendingCount(await countPendingPositions());
+    } catch {
+      // SQLite indisponible : l'indicateur reste à zéro
+    }
+  }, []);
+
+  /** Pousse la file locale ; conserve les positions si le réseau manque. */
+  const flushQueue = useCallback(async (): Promise<boolean> => {
+    const report = await syncPendingPositions(token);
+    await refreshPending();
+    if (report.error) {
+      setOfflineNote(
+        `${report.error}. ${report.remaining} position${report.remaining > 1 ? 's' : ''} en attente, envoi automatique au prochain relevé.`,
+      );
+      return false;
+    }
+    setOfflineNote(
+      report.rejected > 0
+        ? `${report.rejected} position${report.rejected > 1 ? 's' : ''} refusée${report.rejected > 1 ? 's' : ''} par le serveur (hors eau).`
+        : null,
+    );
+    return report.accepted > 0 || report.pushed === 0;
+  }, [token, refreshPending]);
 
   const refreshBoats = useCallback(async () => {
     const emb = await listTrackedEmbarcations(token);
@@ -80,6 +109,13 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
 
   useEffect(() => {
     (async () => {
+      await refreshPending();
+      try {
+        // Positions restées en attente lors d'une session précédente
+        await flushQueue();
+      } catch {
+        // ignoré : nouvelle tentative au prochain relevé
+      }
       try {
         const [cfg, emb] = await Promise.all([getGeolocConfig(token), refreshBoats()]);
         setIntervalMin(cfg.gps_interval_minutes);
@@ -91,7 +127,7 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [token, refreshBoats, selectBoat]);
+  }, [token, refreshBoats, selectBoat, refreshPending, flushQueue]);
 
   async function ensurePermission() {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -112,15 +148,15 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
         'Position hors mer / fleuve gabonais. Sur simulateur, utilisez « Afficher un parcours d’exemple ».',
       );
     }
-    await postPosition(token, {
+    // Écriture locale d'abord (§10 : faible couverture réseau), puis envoi
+    await enqueuePosition({
       embarcation_id: targetBoat,
-      position: {
-        type: 'Point',
-        coordinates: [lon, lat],
-      },
+      lon,
+      lat,
       horodatage: new Date(loc.timestamp).toISOString(),
-      source: 'mobile',
     });
+    const sent = await flushQueue();
+    if (!sent) return;
     setLast(new Date().toLocaleTimeString('fr-FR'));
     await loadTrajectory(targetBoat);
     await refreshBoats();
@@ -308,6 +344,20 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
 
               {last ? (
                 <Text style={styles.meta}>Dernier envoi : {last}</Text>
+              ) : null}
+              {pendingCount > 0 || offlineNote ? (
+                <View style={styles.queueBox}>
+                  <Ionicons
+                    name={pendingCount > 0 ? 'cloud-offline-outline' : 'information-circle-outline'}
+                    size={18}
+                    color={colors.warn}
+                  />
+                  <Text style={styles.queueText}>
+                    {pendingCount > 0
+                      ? `${pendingCount} position${pendingCount > 1 ? 's' : ''} conservée${pendingCount > 1 ? 's' : ''} sur le téléphone, envoi dès le retour du réseau.`
+                      : offlineNote}
+                  </Text>
+                </View>
               ) : null}
               {error ? (
                 <View style={styles.errorBox}>
@@ -575,6 +625,21 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontFamily: fonts.bodyMedium,
     fontSize: 14,
+  },
+  queueBox: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(217, 119, 6, 0.10)',
+  },
+  queueText: {
+    flex: 1,
+    color: colors.ink,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    lineHeight: 19,
   },
   errorBox: {
     flexDirection: 'row',
