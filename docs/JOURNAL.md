@@ -1249,7 +1249,7 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - `PATCH /api/v1/auth/me/telephone` : le pêcheur connecté met à jour son numéro Mobile Money ; normalisation gabonaise (`+241…`), unicité entre comptes, rôle pêcheur uniquement (403 sinon)
 - Mobile, écran Abonnement : champ téléphone saisissable, bouton « Enregistrer ce numéro », paiement bloqué tant que le numéro saisi n'est pas enregistré
 - Mobile, écran de bienvenue à la première ouverture : trois volets (déclarer, naviguer, régler), numéro en filigrane, barre de progression segmentée, « Passer » ; mémorisé dans SQLite (`app_settings`)
-- APK Android : identifiant `com.kimbaconnect.cbmpigap`, `expo prebuild` + `gradlew assembleRelease`, API de production lue dans `mobile/.env` ; procédure dans `mobile/README.md`
+- APK Android : identifiant `com.kimbaconnect.cbmpigap`, `expo prebuild` + `gradlew assembleRelease` (JDK 17 ; les JDK 24 et 25 font échouer l'étape CMake), API de production lue dans `mobile/.env` ; APK produit le 2026-10-02 (`mobile/dist/CBM-PIGAP-0.1.0.apk`, hors git, 95 Mo, URL de production vérifiée dans le bundle) ; procédure dans `mobile/README.md`
 
 **Pourquoi (lien avec le cahier des charges / ce document) :**
 - Paiement depuis le numéro de l'acteur (journal 2026-10-01) : le pêcheur doit pouvoir corriger ce numéro sans passer par un agent

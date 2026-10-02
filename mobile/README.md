@@ -61,7 +61,9 @@ l’APK reste donc connecté à l’API déclarée dans ce fichier.
 
 ```bash
 cd mobile
-export ANDROID_HOME="$HOME/Library/Android/sdk" JAVA_HOME="$(/usr/libexec/java_home)"
+# JDK 17 ou 21 requis (brew install openjdk@17) ; les JDK 24 et 25 font échouer l'étape CMake
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
 npx expo prebuild --platform android --no-install   # génère android/ (ignoré par git)
 cd android && ./gradlew assembleRelease
 # APK : android/app/build/outputs/apk/release/app-release.apk
