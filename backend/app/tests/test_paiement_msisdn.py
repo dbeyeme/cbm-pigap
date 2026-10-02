@@ -105,3 +105,55 @@ async def test_payeur_sans_telephone_signale(client: AsyncClient, agent_headers:
     assert res.status_code == 200
     assert res.json()["valide"] is False
     assert "Aucun téléphone" in res.json()["motif"]
+
+
+@pytest.mark.asyncio
+async def test_pecheur_modifie_son_numero_et_devient_payeur(
+    client: AsyncClient, agent_headers: dict
+) -> None:
+    _, token = await _pecheur(client, agent_headers, None)
+    auth = {"Authorization": f"Bearer {token}"}
+
+    avant = await client.get("/api/v1/abonnements/payeur", headers=auth)
+    assert avant.status_code == 200, avant.text
+    assert avant.json()["valide"] is False
+
+    maj = await client.patch(
+        "/api/v1/auth/me/telephone", headers=auth, json={"telephone": "077 65 43 21"}
+    )
+    assert maj.status_code == 200, maj.text
+    assert maj.json()["telephone"] == "+24177654321"
+
+    apres = await client.get("/api/v1/abonnements/payeur", headers=auth)
+    assert apres.json()["msisdn"] == "24177654321"
+    assert apres.json()["valide"] is True
+
+    invalide = await client.patch(
+        "/api/v1/auth/me/telephone", headers=auth, json={"telephone": "12"}
+    )
+    assert invalide.status_code == 422, invalide.text
+
+
+@pytest.mark.asyncio
+async def test_numero_deja_utilise_et_agent_refuse(
+    client: AsyncClient, agent_headers: dict
+) -> None:
+    _, token_a = await _pecheur(client, agent_headers, None)
+    _, token_b = await _pecheur(client, agent_headers, None)
+    auth_a = {"Authorization": f"Bearer {token_a}"}
+    auth_b = {"Authorization": f"Bearer {token_b}"}
+
+    ok = await client.patch(
+        "/api/v1/auth/me/telephone", headers=auth_a, json={"telephone": "+241 62 11 22 33"}
+    )
+    assert ok.status_code == 200, ok.text
+
+    doublon = await client.patch(
+        "/api/v1/auth/me/telephone", headers=auth_b, json={"telephone": "062112233"}
+    )
+    assert doublon.status_code == 409, doublon.text
+
+    agent = await client.patch(
+        "/api/v1/auth/me/telephone", headers=agent_headers, json={"telephone": "062112299"}
+    )
+    assert agent.status_code == 403, agent.text

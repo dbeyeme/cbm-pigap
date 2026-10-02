@@ -1,21 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { createEmbarcation, createPecheur } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
+import { Chip, Notice, ScreenHeader, SectionTitle, StepBar, type IconName, type Step } from '../components/ui';
 import { friendlyApiError } from '../lib/apiErrors';
-import { colors, fonts, space } from '../theme';
+import { space } from '../theme';
+
+const STEPS: ReadonlyArray<Step> = [
+  { label: 'Pêcheur', icon: 'person-outline' },
+  { label: 'Embarcation', icon: 'boat-outline' },
+];
 
 type Props = {
   token: string;
@@ -24,19 +21,19 @@ type Props = {
 };
 
 /** Équipements utilisés (§5.1) : mêmes codes que le portail web. */
-const ENGINS = [
-  { code: 'filet', label: 'Filet' },
-  { code: 'ligne', label: 'Ligne' },
-  { code: 'nasse', label: 'Nasse' },
-  { code: 'senne', label: 'Senne' },
-  { code: 'palangre', label: 'Palangre' },
+const ENGINS: Array<{ code: string; label: string; icon: IconName }> = [
+  { code: 'filet', label: 'Filet', icon: 'mci:waves' },
+  { code: 'ligne', label: 'Ligne', icon: 'mci:hook' },
+  { code: 'nasse', label: 'Nasse', icon: 'mci:basket-outline' },
+  { code: 'senne', label: 'Senne', icon: 'mci:waves' },
+  { code: 'palangre', label: 'Palangre', icon: 'mci:hook' },
 ];
-const SECURITE = [
-  { code: 'gilets', label: 'Gilets' },
-  { code: 'gps', label: 'GPS / téléphone' },
-  { code: 'vhf', label: 'Radio VHF' },
-  { code: 'feux', label: 'Feux' },
-  { code: 'glaciere', label: 'Glacière' },
+const SECURITE: Array<{ code: string; label: string; icon: IconName }> = [
+  { code: 'gilets', label: 'Gilets', icon: 'mci:lifebuoy' },
+  { code: 'gps', label: 'GPS / téléphone', icon: 'phone-portrait-outline' },
+  { code: 'vhf', label: 'Radio VHF', icon: 'radio-outline' },
+  { code: 'feux', label: 'Feux', icon: 'flashlight-outline' },
+  { code: 'glaciere', label: 'Glacière', icon: 'snow-outline' },
 ];
 
 function equipementsPayload(e: {
@@ -56,7 +53,7 @@ function ChipGroup({
   selected,
   onChange,
 }: {
-  items: Array<{ code: string; label: string }>;
+  items: Array<{ code: string; label: string; icon: IconName }>;
   selected: string[];
   onChange: (next: string[]) => void;
 }) {
@@ -65,20 +62,16 @@ function ChipGroup({
       {items.map((item) => {
         const on = selected.includes(item.code);
         return (
-          <Pressable
+          <Chip
             key={item.code}
+            label={item.label}
+            icon={item.icon}
+            on={on}
+            multi
             onPress={() =>
-              onChange(
-                on ? selected.filter((c) => c !== item.code) : [...selected, item.code],
-              )
+              onChange(on ? selected.filter((c) => c !== item.code) : [...selected, item.code])
             }
-            style={[styles.chip, on && styles.chipOn]}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: on }}
-          >
-            {on ? <Ionicons name="checkmark" size={14} color="#F8FAFC" /> : null}
-            <Text style={[styles.chipText, on && styles.chipTextOn]}>{item.label}</Text>
-          </Pressable>
+          />
         );
       })}
     </View>
@@ -100,6 +93,20 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [doneFlash, setDoneFlash] = useState(false);
+  const [step, setStep] = useState(0);
+
+  function nextStep() {
+    setError(null);
+    if (!nom.trim() || !prenom.trim()) {
+      setError('Indiquez le nom et le prénom du pêcheur.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Mot de passe : saisissez au moins 8 caractères.');
+      return;
+    }
+    setStep(1);
+  }
 
   async function onSubmit() {
     setLoading(true);
@@ -149,120 +156,80 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <ScreenHeader kicker="Agent" title="Nouveau dossier" onBack={step === 0 ? onBack : () => setStep(0)} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={onBack} style={styles.backRow}>
-          <Ionicons name="chevron-back" size={22} color={colors.foam} />
-          <Text style={styles.backText}>Retour</Text>
-        </Pressable>
+        <StepBar steps={STEPS} current={step} onSelect={setStep} />
 
-        <Text style={styles.title}>Nouveau dossier</Text>
-        <Text style={styles.lead}>Pêcheur et embarcation en une seule saisie.</Text>
+        {step === 0 ? (
+          <GlassPanel style={styles.panel}>
+            <SectionTitle icon="person-outline" text="Identité du pêcheur" style={{ marginTop: 0 }} />
+            <GlassField label="Nom" icon="person-outline" value={nom} onChangeText={setNom} />
+            <GlassField label="Prénom" icon="person-outline" value={prenom} onChangeText={setPrenom} />
+            <GlassField
+              label="N° licence"
+              icon="ribbon-outline"
+              value={licence}
+              onChangeText={setLicence}
+              placeholder="Vide : attribution automatique"
+            />
+            <SectionTitle icon="key-outline" text="Compte mobile" />
+            <GlassField
+              label="E-mail"
+              icon="mail-outline"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="optionnel"
+            />
+            <GlassField
+              label="Mot de passe"
+              icon="key-outline"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            {error ? <Notice tone="error" text={error} style={{ marginTop: 0, marginBottom: 12 }} /> : null}
+            <GlowButton label="Suivant : embarcation" icon="chevron-forward" onPress={nextStep} />
+          </GlassPanel>
+        ) : (
+          <GlassPanel style={styles.panel}>
+            <SectionTitle icon="boat-outline" text="Embarcation" style={{ marginTop: 0 }} />
+            <GlassField label="Nom du bateau" icon="boat-outline" value={bateau} onChangeText={setBateau} />
+            <GlassField label="Immatriculation" icon="pricetag-outline" value={immat} onChangeText={setImmat} />
+            <GlassField
+              label="Longueur (m)"
+              icon="resize-outline"
+              value={longueur}
+              onChangeText={setLongueur}
+              keyboardType="decimal-pad"
+              placeholder="ex. 7,5"
+            />
+            <GlassField
+              label="Moteur"
+              icon="speedometer-outline"
+              value={moteur}
+              onChangeText={setMoteur}
+              placeholder="ex. hors-bord 15 ch, ou aucun"
+            />
+            <SectionTitle icon="mci:hook" text="Engins de pêche" />
+            <ChipGroup items={ENGINS} selected={engins} onChange={setEngins} />
+            <SectionTitle icon="mci:lifebuoy" text="Sécurité et navigation" />
+            <ChipGroup items={SECURITE} selected={securite} onChange={setSecurite} />
 
-        <GlassPanel style={styles.panel}>
-          <SectionLabel icon="person-outline" text="Identité pêcheur" />
-          <GlassField label="Nom" icon="text-outline" value={nom} onChangeText={setNom} />
-          <GlassField
-            label="Prénom"
-            icon="text-outline"
-            value={prenom}
-            onChangeText={setPrenom}
-          />
-          <GlassField
-            label="N° licence"
-            icon="ribbon-outline"
-            value={licence}
-            onChangeText={setLicence}
-            placeholder="Laisser vide : attribution automatique"
-          />
-          <GlassField
-            label="E-mail compte"
-            icon="mail-outline"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="optionnel"
-          />
-          <GlassField
-            label="Mot de passe compte"
-            icon="key-outline"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-        </GlassPanel>
+            {error ? <Notice tone="error" text={error} style={{ marginTop: 0, marginBottom: 12 }} /> : null}
+            {doneFlash ? <Notice tone="ok" text="Dossier enregistré" style={{ marginTop: 0, marginBottom: 12 }} /> : null}
 
-        <GlassPanel style={styles.panel}>
-          <SectionLabel icon="boat-outline" text="Embarcation" />
-          <GlassField
-            label="Nom du bateau"
-            icon="boat-outline"
-            value={bateau}
-            onChangeText={setBateau}
-          />
-          <GlassField
-            label="Immatriculation"
-            icon="pricetag-outline"
-            value={immat}
-            onChangeText={setImmat}
-          />
-          <GlassField
-            label="Longueur (m)"
-            icon="resize-outline"
-            value={longueur}
-            onChangeText={setLongueur}
-            keyboardType="decimal-pad"
-            placeholder="ex. 7,5"
-          />
-          <Text style={styles.chipsLabel}>Engins de pêche</Text>
-          <ChipGroup items={ENGINS} selected={engins} onChange={setEngins} />
-          <GlassField
-            label="Moteur"
-            icon="speedometer-outline"
-            value={moteur}
-            onChangeText={setMoteur}
-            placeholder="ex. hors-bord 15 ch, ou aucun"
-          />
-          <Text style={styles.chipsLabel}>Sécurité et navigation</Text>
-          <ChipGroup items={SECURITE} selected={securite} onChange={setSecurite} />
-        </GlassPanel>
-
-        {error ? (
-          <View style={styles.errorRow}>
-            <Ionicons name="alert-circle" size={16} color={colors.danger} />
-            <Text style={styles.error}>{error}</Text>
-          </View>
-        ) : null}
-        {doneFlash ? (
-          <View style={styles.successRow}>
-            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-            <Text style={styles.success}>Dossier enregistré</Text>
-          </View>
-        ) : null}
-
-        <GlowButton
-          label="Enregistrer le dossier"
-          icon="save-outline"
-          onPress={onSubmit}
-          loading={loading}
-          variant="accent"
-        />
+            <GlowButton
+              label="Enregistrer le dossier"
+              icon="save-outline"
+              onPress={onSubmit}
+              loading={loading}
+              variant="accent"
+            />
+          </GlassPanel>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-function SectionLabel({
-  icon,
-  text,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  text: string;
-}) {
-  return (
-    <View style={styles.section}>
-      <Ionicons name={icon} size={16} color={colors.foam} />
-      <Text style={styles.sectionText}>{text}</Text>
-    </View>
   );
 }
 
@@ -270,77 +237,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.xxl,
+    paddingTop: 4,
     paddingBottom: space.xxl,
   },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: space.md,
-  },
-  backText: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.foam,
-    marginLeft: 2,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 32,
-    color: colors.ink,
-  },
-  lead: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    marginBottom: space.lg,
-    marginTop: 4,
-  },
   panel: { marginBottom: space.md },
-  section: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: space.md,
-  },
-  sectionText: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    fontSize: 15,
-  },
-  errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: space.md,
-  },
-  error: { flex: 1, color: colors.danger, fontFamily: fonts.body, fontSize: 13 },
-  successRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: space.md,
-  },
-  success: { color: colors.success, fontFamily: fonts.bodyBold },
-  chipsLabel: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMuted,
-    fontSize: 13,
-    marginTop: 4,
-    marginBottom: 8,
-  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: colors.glassBorder,
-    backgroundColor: colors.card,
-    minHeight: 36,
-  },
-  chipOn: { backgroundColor: colors.tide, borderColor: colors.tide },
-  chipText: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 14 },
-  chipTextOn: { color: '#F8FAFC' },
 });

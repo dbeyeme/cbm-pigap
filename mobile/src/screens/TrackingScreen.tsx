@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   Embarcation,
@@ -15,6 +15,15 @@ import {
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
 import { TrajectoryNativeMap } from '../components/TrajectoryNativeMap';
+import {
+  Chip,
+  IconBadge,
+  Notice,
+  ScreenHeader,
+  SectionTitle,
+  StatRow,
+  StatTile,
+} from '../components/ui';
 import {
   GABON_MARITIME_ROUTES,
   MaritimeRouteId,
@@ -48,6 +57,7 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
   const [showDemoHelp, setShowDemoHelp] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [offlineNote, setOfflineNote] = useState<string | null>(null);
+  const [showAllPoints, setShowAllPoints] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const boatIdRef = useRef<string | null>(null);
 
@@ -243,454 +253,292 @@ export function TrackingScreen({ token, mode = 'agent', onBack }: Props) {
   }
 
   const selected = boats.find((b) => b.id === boatId);
+  const recent = [...points].reverse();
+  const visible = showAllPoints ? recent : recent.slice(0, 5);
+  const lastPoint = points[points.length - 1];
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={[...points].reverse()}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View>
-            <Pressable
-              onPress={onBack}
-              style={styles.backRow}
-              accessibilityRole="button"
-              accessibilityLabel="Retour"
-            >
-              <Ionicons name="chevron-back" size={24} color={colors.tide} />
-              <Text style={styles.backText}>Retour</Text>
-            </Pressable>
-            <Text style={styles.kicker}>Localisation</Text>
-            <Text style={styles.title}>Suivi GPS</Text>
-            <Text style={styles.lead}>
-              Choisissez le bateau, regardez la carte, puis envoyez la position.
-            </Text>
+    <View style={styles.root}>
+      <ScreenHeader
+        kicker="Localisation"
+        title="Suivi GPS"
+        onBack={onBack}
+        right={
+          <IconBadge
+            icon={active ? 'navigate' : pendingCount > 0 ? 'cloud-offline-outline' : 'navigate-outline'}
+            tone={active ? 'ok' : pendingCount > 0 ? 'warn' : 'muted'}
+            solid={active}
+            size={44}
+          />
+        }
+      />
 
-            <Text style={styles.label}>1. Quel bateau suivre ?</Text>
-            {boats.length === 0 ? (
-              <Text style={styles.empty}>
-                Aucun bateau — créez d’abord un dossier pêcheur.
-              </Text>
-            ) : (
-              boats.map((b) => {
-                const activeBoat = boatId === b.id;
-                const count = b.positions_count ?? 0;
-                return (
-                  <Pressable
-                    key={b.id}
-                    onPress={() => void selectBoat(b.id)}
-                    style={[styles.boat, activeBoat && styles.boatActive]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: activeBoat }}
-                  >
-                    <View style={[styles.boatIcon, activeBoat && styles.boatIconOn]}>
-                      <Ionicons
-                        name="boat-outline"
-                        size={20}
-                        color={activeBoat ? '#F8FAFC' : colors.tide}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[styles.boatText, activeBoat && styles.boatTextActive]}
-                      >
-                        {b.nom}
-                        {b.type ? ` · ${b.type}` : ''}
-                      </Text>
-                      <Text
-                        style={[styles.boatMeta, activeBoat && styles.boatMetaActive]}
-                      >
-                        {b.immatriculation} · {count} point{count === 1 ? '' : 's'} sur la carte
-                      </Text>
-                    </View>
-                    {activeBoat ? (
-                      <Ionicons name="checkmark-circle" size={22} color="#F8FAFC" />
-                    ) : null}
-                  </Pressable>
-                );
-              })
-            )}
-
-            <GlassPanel style={styles.panel}>
-              <Text style={styles.panelTitle}>
-                {selected ? `Carte — ${selected.nom}` : 'Carte'}
-              </Text>
-              <Text style={styles.mapHint}>
-                La ligne bleue montre le parcours. Le navire indique la dernière
-                position.
-              </Text>
-              <TrajectoryNativeMap points={points} />
-
-              <GlowButton
-                label={busy ? 'Envoi…' : 'Envoyer ma position'}
-                icon="locate-outline"
-                onPress={onSendNow}
-                disabled={!boatId || busy}
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {boats.length === 0 ? (
+          <Notice
+            tone="warn"
+            icon="boat-outline"
+            text={
+              mode === 'pecheur'
+                ? 'Aucun bateau lié à votre compte. Contactez un agent.'
+                : 'Aucun bateau. Créez d’abord un dossier pêcheur.'
+            }
+          />
+        ) : boats.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.boatRow}
+            style={{ marginBottom: 12 }}
+          >
+            {boats.map((b) => (
+              <Chip
+                key={b.id}
+                label={b.nom}
+                icon="boat-outline"
+                on={boatId === b.id}
+                onPress={() => void selectBoat(b.id)}
               />
-              <GlowButton
-                label={
-                  active
-                    ? 'Arrêter le suivi automatique'
-                    : useDemoInterval
-                      ? `Suivi auto (toutes les ${DEMO_INTERVAL_SEC} s)`
-                      : `Suivi auto (toutes les ${intervalMin} min)`
-                }
-                icon={active ? 'stop-circle-outline' : 'navigate-outline'}
-                onPress={toggleTracking}
-                variant="ghost"
-                disabled={!boatId || busy}
-                style={{ marginTop: 10 }}
-              />
+            ))}
+          </ScrollView>
+        ) : null}
 
-              {last ? (
-                <Text style={styles.meta}>Dernier envoi : {last}</Text>
-              ) : null}
-              {pendingCount > 0 || offlineNote ? (
-                <View style={styles.queueBox}>
-                  <Ionicons
-                    name={pendingCount > 0 ? 'cloud-offline-outline' : 'information-circle-outline'}
-                    size={18}
-                    color={colors.warn}
-                  />
-                  <Text style={styles.queueText}>
-                    {pendingCount > 0
-                      ? `${pendingCount} position${pendingCount > 1 ? 's' : ''} conservée${pendingCount > 1 ? 's' : ''} sur le téléphone, envoi dès le retour du réseau.`
-                      : offlineNote}
-                  </Text>
+        <GlassPanel style={styles.panel} contentStyle={styles.panelInner}>
+          {selected ? (
+            <View style={styles.boatHead}>
+              <IconBadge icon="boat-outline" size={36} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.boatName} numberOfLines={1}>
+                  {selected.nom}
+                </Text>
+                <Text style={styles.boatMeta} numberOfLines={1}>
+                  {[selected.immatriculation, selected.type].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+              {active ? (
+                <View style={styles.livePill}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.liveText}>Suivi actif</Text>
                 </View>
               ) : null}
-              {error ? (
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle" size={18} color={colors.danger} />
-                  <Text style={styles.error}>{error}</Text>
-                </View>
-              ) : null}
-            </GlassPanel>
+            </View>
+          ) : null}
 
+          <TrajectoryNativeMap points={points} />
+
+          <StatRow>
+            <StatTile icon="mci:map-marker-path" value={points.length} label="points" />
+            <StatTile
+              icon="time-outline"
+              value={last ?? (lastPoint ? new Date(lastPoint.horodatage).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—')}
+              label={last ? 'dernier envoi' : 'dernier relevé'}
+              tone={last ? 'ok' : 'muted'}
+            />
+            <StatTile
+              icon={pendingCount > 0 ? 'cloud-offline-outline' : 'cloud-done-outline'}
+              value={pendingCount}
+              label="en attente"
+              tone={pendingCount > 0 ? 'warn' : 'muted'}
+            />
+          </StatRow>
+
+          <View style={styles.actions}>
+            <GlowButton
+              label={busy ? 'Envoi…' : 'Envoyer ma position'}
+              icon="locate-outline"
+              onPress={onSendNow}
+              disabled={!boatId || busy}
+            />
+            <GlowButton
+              label={
+                active
+                  ? 'Arrêter le suivi'
+                  : useDemoInterval
+                    ? `Suivi auto · ${DEMO_INTERVAL_SEC} s`
+                    : `Suivi auto · ${intervalMin} min`
+              }
+              icon={active ? 'stop-circle-outline' : 'navigate-outline'}
+              onPress={toggleTracking}
+              variant="ghost"
+              disabled={!boatId || busy}
+            />
+          </View>
+
+          {pendingCount > 0 ? (
+            <Notice
+              tone="warn"
+              icon="cloud-offline-outline"
+              text={`${pendingCount} position${pendingCount > 1 ? 's' : ''} sur le téléphone, envoi au retour du réseau.`}
+            />
+          ) : offlineNote ? (
+            <Notice tone="warn" text={offlineNote} />
+          ) : null}
+          {error ? <Notice tone="error" text={error} /> : null}
+        </GlassPanel>
+
+        <Pressable
+          onPress={() => setShowDemoHelp((v) => !v)}
+          style={styles.toggleRow}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showDemoHelp }}
+        >
+          <IconBadge icon="flask-outline" size={32} tone="muted" />
+          <Text style={styles.toggleText}>Parcours d’exemple (démo)</Text>
+          <Ionicons name={showDemoHelp ? 'chevron-up' : 'chevron-down'} size={20} color={colors.inkSoft} />
+        </Pressable>
+
+        {showDemoHelp ? (
+          <GlassPanel style={styles.panel} contentStyle={styles.panelInner}>
+            {GABON_MARITIME_ROUTES.map((r) => {
+              const on = routeId === r.id;
+              return (
+                <Pressable
+                  key={r.id}
+                  onPress={() => setRouteId(r.id)}
+                  style={[styles.route, on && styles.routeOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                >
+                  <IconBadge icon="fa6:sailboat" size={32} tone={on ? 'info' : 'muted'} solid={on} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[styles.routeTitle, on && styles.routeTitleOn]} numberOfLines={1}>
+                      {r.label}
+                    </Text>
+                    <Text style={styles.routeSub} numberOfLines={1}>
+                      {r.subtitle}
+                    </Text>
+                  </View>
+                  {on ? <Ionicons name="checkmark-circle" size={20} color={colors.tide} /> : null}
+                </Pressable>
+              );
+            })}
+            <GlowButton
+              label="Afficher ce parcours"
+              icon="boat-outline"
+              onPress={onSimulateTrip}
+              variant="accent"
+              disabled={!boatId || busy}
+            />
             <Pressable
-              onPress={() => setShowDemoHelp((v) => !v)}
-              style={styles.helpToggle}
-              accessibilityRole="button"
+              onPress={() => setUseDemoInterval((v) => !v)}
+              style={styles.toggleInline}
+              disabled={active}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: useDemoInterval }}
             >
               <Ionicons
-                name={showDemoHelp ? 'chevron-up' : 'chevron-down'}
+                name={useDemoInterval ? 'flask-outline' : 'timer-outline'}
                 size={18}
                 color={colors.tide}
               />
-              <Text style={styles.helpToggleText}>
-                {showDemoHelp ? 'Masquer les exemples' : 'Parcours d’exemple (démo)'}
+              <Text style={styles.toggleInlineText}>
+                {useDemoInterval
+                  ? `Envoi rapide démo : ${DEMO_INTERVAL_SEC} s`
+                  : `Envoi terrain : ${intervalMin} min`}
               </Text>
+              <Ionicons name="swap-horizontal" size={18} color={colors.inkSoft} />
             </Pressable>
-
-            {showDemoHelp ? (
-              <GlassPanel style={styles.demoPanel}>
-                <Text style={styles.demoLead}>
-                  {mode === 'pecheur'
-                    ? 'Utile sur simulateur — remplace le parcours actuel par un trajet en eau gabonaise.'
-                    : 'Utile sur simulateur ou pour former un agent — remplace le parcours actuel par un trajet en eau gabonaise.'}
-                </Text>
-                {GABON_MARITIME_ROUTES.map((r) => {
-                  const on = routeId === r.id;
-                  return (
-                    <Pressable
-                      key={r.id}
-                      onPress={() => setRouteId(r.id)}
-                      style={[styles.routeChip, on && styles.routeChipOn]}
-                    >
-                      <Text
-                        style={[styles.routeChipTitle, on && styles.routeChipTitleOn]}
-                      >
-                        {r.label}
-                      </Text>
-                      <Text style={[styles.routeChipSub, on && styles.routeChipSubOn]}>
-                        {r.subtitle}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-                <GlowButton
-                  label="Afficher ce parcours d’exemple"
-                  icon="boat-outline"
-                  onPress={onSimulateTrip}
-                  variant="accent"
-                  disabled={!boatId || busy}
-                />
-                <Pressable
-                  onPress={() => setUseDemoInterval((v) => !v)}
-                  style={styles.demoToggle}
-                  disabled={active}
-                >
-                  <Ionicons
-                    name={useDemoInterval ? 'flask-outline' : 'timer-outline'}
-                    size={18}
-                    color={colors.tide}
-                  />
-                  <Text style={styles.demoText}>
-                    {useDemoInterval
-                      ? `Envoi rapide (démo) : toutes les ${DEMO_INTERVAL_SEC} s`
-                      : `Envoi terrain : toutes les ${intervalMin} min`}
-                  </Text>
-                </Pressable>
-              </GlassPanel>
-            ) : null}
-
-            <Text style={styles.section}>
-              Historique ({points.length} point{points.length === 1 ? '' : 's'})
-            </Text>
-          </View>
-        }
-        renderItem={({ item, index }) => (
-          <GlassPanel contentStyle={styles.row} style={{ marginBottom: 8 }}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{points.length - index}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>
-                Point {points.length - index}
-              </Text>
-              <Text style={styles.rowMeta}>
-                {new Date(item.horodatage).toLocaleString('fr-FR')}
-              </Text>
-            </View>
           </GlassPanel>
-        )}
-        ListEmptyComponent={
-          points.length === 0 ? (
-            <Text style={styles.emptyList}>
-              Aucun point sur la carte. Envoyez une position, ou ouvrez « Parcours
-              d’exemple ».
-            </Text>
-          ) : null
-        }
-        contentContainerStyle={{ paddingBottom: 48 }}
-      />
+        ) : null}
+
+        {points.length > 0 ? (
+          <>
+            <SectionTitle icon="time-outline" text="Derniers relevés" />
+            <GlassPanel contentStyle={styles.historyInner}>
+              {visible.map((item, index) => {
+                const n = points.length - index;
+                const d = new Date(item.horodatage);
+                return (
+                  <View key={item.id} style={[styles.pointRow, index === visible.length - 1 && styles.pointRowLast]}>
+                    <View style={[styles.pointDot, index === 0 && styles.pointDotLast]} />
+                    <Text style={styles.pointIndex}>#{n}</Text>
+                    <Text style={styles.pointDate}>{d.toLocaleDateString('fr-FR')}</Text>
+                    <Text style={styles.pointTime}>
+                      {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                );
+              })}
+              {recent.length > 5 ? (
+                <Pressable
+                  onPress={() => setShowAllPoints((v) => !v)}
+                  style={styles.moreBtn}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.moreText}>
+                    {showAllPoints ? 'Réduire' : `Voir les ${recent.length} relevés`}
+                  </Text>
+                  <Ionicons name={showAllPoints ? 'chevron-up' : 'chevron-down'} size={16} color={colors.tide} />
+                </Pressable>
+              ) : null}
+            </GlassPanel>
+          </>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: space.lg,
-    paddingTop: space.xl,
-  },
-  backRow: {
+  root: { flex: 1 },
+  scroll: { paddingHorizontal: space.lg, paddingBottom: 56, paddingTop: 4 },
+  boatRow: { gap: 8, paddingRight: space.lg },
+  panel: { marginBottom: space.md },
+  panelInner: { padding: 14, gap: 12 },
+  boatHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  boatName: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 16 },
+  boatMeta: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13, marginTop: 1 },
+  livePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: space.md,
-    alignSelf: 'flex-start',
-    minHeight: 44,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(4, 120, 87, 0.12)',
   },
-  backText: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.tide,
-    marginLeft: 2,
-    fontSize: 16,
-  },
-  kicker: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.tide,
-    fontSize: 14,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.abyss,
-  },
-  lead: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    marginBottom: space.md,
-    marginTop: 6,
-    lineHeight: 24,
-    fontSize: 16,
-  },
-  label: {
-    fontFamily: fonts.bodyBold,
-    color: colors.abyss,
-    marginBottom: 10,
-    fontSize: 15,
-  },
-  boat: {
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  liveText: { fontFamily: fonts.bodyBold, fontSize: 12, color: colors.success },
+  actions: { gap: 8 },
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    minHeight: 72,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.glassBorder,
-    marginBottom: 10,
-    backgroundColor: colors.card,
-  },
-  boatActive: {
-    backgroundColor: colors.tide,
-    borderColor: colors.tide,
-  },
-  boatIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(37, 99, 168, 0.1)',
-  },
-  boatIconOn: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-  boatText: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 16 },
-  boatTextActive: { color: '#F8FAFC' },
-  boatMeta: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    fontSize: 13,
-    marginTop: 3,
-  },
-  boatMetaActive: { color: 'rgba(248,250,252,0.85)' },
-  panel: { marginTop: space.sm, marginBottom: space.md },
-  panelTitle: {
-    fontFamily: fonts.bodyBold,
-    color: colors.abyss,
-    marginBottom: 6,
-    fontSize: 17,
-  },
-  mapHint: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  helpToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 6,
     marginBottom: space.sm,
-    paddingVertical: 8,
   },
-  helpToggleText: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.tide,
-    fontSize: 15,
-  },
-  demoPanel: { marginBottom: space.md },
-  demoLead: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 12,
-  },
-  routeChip: {
-    padding: 14,
+  toggleText: { flex: 1, fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 15 },
+  route: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
     borderRadius: radii.md,
     borderWidth: 1.5,
     borderColor: colors.glassBorder,
-    marginBottom: 8,
     backgroundColor: colors.card,
   },
-  routeChipOn: {
-    backgroundColor: 'rgba(37, 99, 168, 0.1)',
-    borderColor: colors.foam,
-  },
-  routeChipTitle: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    fontSize: 15,
-  },
-  routeChipTitleOn: { color: colors.tide },
-  routeChipSub: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  routeChipSubOn: { color: colors.inkMuted },
-  demoToggle: {
+  routeOn: { borderColor: colors.tide, backgroundColor: 'rgba(37, 99, 168, 0.08)' },
+  routeTitle: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
+  routeTitleOn: { color: colors.tide },
+  routeSub: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 12, marginTop: 2 },
+  toggleInline: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  toggleInlineText: { flex: 1, fontFamily: fonts.bodyMedium, color: colors.tide, fontSize: 13 },
+  historyInner: { paddingVertical: 6, paddingHorizontal: 14 },
+  pointRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.glassBorder,
   },
-  demoText: {
-    fontFamily: fonts.body,
-    color: colors.tide,
-    fontSize: 13,
-    flex: 1,
-    lineHeight: 18,
-  },
-  meta: {
-    marginTop: 14,
-    color: colors.success,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-  },
-  queueBox: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(217, 119, 6, 0.10)',
-  },
-  queueText: {
-    flex: 1,
-    color: colors.ink,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  errorBox: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(185, 28, 28, 0.08)',
-  },
-  error: {
-    flex: 1,
-    color: colors.danger,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  section: {
-    fontFamily: fonts.bodyBold,
-    color: colors.abyss,
-    marginBottom: 10,
-    fontSize: 15,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  badge: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: colors.tide,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { color: '#F8FAFC', fontFamily: fonts.bodyBold, fontSize: 13 },
-  rowTitle: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
-  rowMeta: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    marginTop: 2,
-    fontSize: 13,
-  },
-  empty: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    marginBottom: 12,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  emptyList: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    marginTop: 4,
-    fontSize: 15,
-    lineHeight: 22,
-  },
+  pointRowLast: { borderBottomWidth: 0 },
+  pointDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.glassBorder },
+  pointDotLast: { backgroundColor: colors.tide },
+  pointIndex: { width: 40, fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 13 },
+  pointDate: { flex: 1, fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13 },
+  pointTime: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 13 },
+  moreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10 },
+  moreText: { fontFamily: fonts.bodyMedium, color: colors.tide, fontSize: 14 },
 });

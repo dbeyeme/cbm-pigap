@@ -9,7 +9,7 @@ import {
 } from '@expo-google-fonts/fraunces';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { Component, useMemo, useState, type ReactNode } from 'react';
+import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,13 +23,16 @@ import { CapturesScreen } from './src/screens/CapturesScreen';
 import { CreatePecheurScreen } from './src/screens/CreatePecheurScreen';
 import { AgentHomeScreen } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PecheurHomeScreen } from './src/screens/PecheurHomeScreen';
 import { RedevancesScreen } from './src/screens/RedevancesScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { TrackingScreen } from './src/screens/TrackingScreen';
+import { getSetting, setSetting } from './src/offline/db';
 import { colors, fonts, space } from './src/theme';
 
 type Screen =
+  | 'onboarding'
   | 'login'
   | 'home'
   | 'create'
@@ -87,6 +90,22 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UtilisateurMe | null>(null);
   const [screen, setScreen] = useState<Screen>('login');
+  // Écran de bienvenue : une seule fois, mémorisé sur le téléphone
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    getSetting('onboarding_done')
+      .then((v) => {
+        if (!cancelled && !v) setScreen('onboarding');
+      })
+      .catch((err) => console.warn('[onboarding] lecture réglage impossible', err))
+      .finally(() => {
+        if (!cancelled) setOnboardingChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [fontsLoaded, fontError] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -114,7 +133,7 @@ export default function App() {
     );
   }
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !onboardingChecked) {
     return (
       <OceanBackground>
         <View style={styles.boot}>
@@ -127,6 +146,7 @@ export default function App() {
   const showNav =
     Boolean(token && user && mode) &&
     screen !== 'login' &&
+    screen !== 'onboarding' &&
     screen !== 'create' &&
     !(mode === 'agent' && screen === 'abonnement');
 
@@ -138,7 +158,16 @@ export default function App() {
             <StatusBar style="dark" />
             <View style={[styles.body, showNav && styles.bodyWithNav]}>
               <ScreenTransition screenKey={`${mode ?? 'guest'}-${screen}`}>
-                {(!token || !user || screen === 'login') && (
+                {screen === 'onboarding' && (
+                  <OnboardingScreen
+                    onDone={() => {
+                      void setSetting('onboarding_done', new Date().toISOString()).catch(() => undefined);
+                      setScreen('login');
+                    }}
+                  />
+                )}
+
+                {screen !== 'onboarding' && (!token || !user || screen === 'login') && (
                   <LoginScreen
                     onLoggedIn={({ token: t, user: u }) => {
                       setToken(t);

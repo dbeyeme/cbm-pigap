@@ -1,19 +1,35 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Embarcation, listTrackedEmbarcations } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
-import { ENGINS_REF, ESPECES_MVP, ESPECES_REF, GROUPES_LABEL, METHODES_MVP, type GroupeEspece } from '../offline/catalog';
+import {
+  Chip,
+  IconBadge,
+  ListRow,
+  Notice,
+  ScreenHeader,
+  Segmented,
+  StatRow,
+  StatTile,
+  StepBar,
+  type IconName,
+  type Step,
+} from '../components/ui';
+import {
+  ENGINS_REF,
+  ESPECES_MVP,
+  ESPECES_REF,
+  GROUPES_ICON,
+  GROUPES_LABEL,
+  METHODES_MVP,
+  engineIcon,
+  enginNom,
+  especeNom,
+  type GroupeEspece,
+} from '../offline/catalog';
 import {
   CachedEmbarcation,
   LocalCapture,
@@ -26,13 +42,24 @@ import {
 import { syncPendingCaptures } from '../offline/syncCaptures';
 import { friendlyApiError } from '../lib/apiErrors';
 import type { MobileMode } from '../auth/roles';
-import { colors, fonts, radii, space } from '../theme';
+import { colors, fonts, space } from '../theme';
 
 type Props = {
   token: string;
   mode?: MobileMode;
   onBack: () => void;
 };
+
+type View_ = 'nouvelle' | 'historique';
+
+const STEPS: ReadonlyArray<Step> = [
+  { label: 'Bateau', icon: 'boat-outline' },
+  { label: 'Espèce', icon: 'fish-outline' },
+  { label: 'Engin', icon: 'mci:hook' },
+  { label: 'Détails', icon: 'scale-outline' },
+];
+
+const GROUPES: ReadonlyArray<GroupeEspece> = ['pelagique', 'demersal', 'crustace', 'autre'];
 
 function newClientId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -55,9 +82,17 @@ function asBoats(cached: CachedEmbarcation[]): Embarcation[] {
   }));
 }
 
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
+  const [view, setView] = useState<View_>('nouvelle');
+  const [step, setStep] = useState(0);
   const [boats, setBoats] = useState<Embarcation[]>([]);
   const [boatId, setBoatId] = useState<string | null>(null);
+  const [groupe, setGroupe] = useState<GroupeEspece>('pelagique');
   const [espece, setEspece] = useState<string>(ESPECES_MVP[0]);
   const [methode, setMethode] = useState<string>(METHODES_MVP[0]);
   const [quantite, setQuantite] = useState('5');
@@ -107,7 +142,7 @@ export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
         if (cached.length) {
           setBoats(asBoats(cached));
           if (!boatId && cached[0]) setBoatId(cached[0].id);
-          setStatus('Pas de réseau — bateaux lus depuis le téléphone');
+          setStatus('Pas de réseau : bateaux lus depuis le téléphone');
         } else {
           setError(
             friendlyApiError(err) ||
@@ -121,12 +156,29 @@ export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
   }, [token, refresh]);
 
   const selectedBoat = boats.find((b) => b.id === boatId) ?? null;
+  const especesDuGroupe = useMemo(() => ESPECES_REF.filter((e) => e.groupe === groupe), [groupe]);
+  const especeRef = ESPECES_REF.find((e) => e.code === espece);
+
+  function goTo(next: number) {
+    setError(null);
+    setStatus(null);
+    setStep(Math.max(0, Math.min(STEPS.length - 1, next)));
+  }
+
+  function next() {
+    if (step === 0 && !selectedBoat) {
+      setError('Choisissez un bateau');
+      return;
+    }
+    goTo(step + 1);
+  }
 
   async function onSaveLocal() {
     setError(null);
     setStatus(null);
     if (!selectedBoat) {
-      setError('Choisissez un bateau ci-dessus');
+      setError('Choisissez un bateau');
+      goTo(0);
       return;
     }
     const qty = Number(quantite.replace(',', '.'));
@@ -155,7 +207,8 @@ export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
         date_capture: isoDate,
       });
       await refresh();
-      setStatus('Enregistré sur le téléphone. Vous pourrez l’envoyer plus tard.');
+      setStatus('Enregistré sur le téléphone. Envoi possible depuis l’historique.');
+      setStep(1);
     } catch (err) {
       setError(friendlyApiError(err));
     } finally {
@@ -172,12 +225,12 @@ export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
       await refresh();
       if (report.error) {
         setError(report.error);
-        setStatus('Pas de réseau — vos déclarations restent sur le téléphone');
+        setStatus('Pas de réseau : vos déclarations restent sur le téléphone');
       } else if (report.pushed === 0) {
         setStatus('Rien à envoyer pour le moment');
       } else {
         setStatus(
-          `Envoi terminé — ${report.accepted} acceptée(s)${
+          `Envoi terminé : ${report.accepted} acceptée(s)${
             report.rejected ? `, ${report.rejected} refusée(s)` : ''
           }`,
         );
@@ -189,366 +242,286 @@ export function CapturesScreen({ token, mode = 'agent', onBack }: Props) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.top}>
-        <Pressable
-          onPress={onBack}
-          style={styles.backBtn}
-          hitSlop={14}
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.tide} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>Déclaration</Text>
-          <Text style={styles.title}>Captures</Text>
-        </View>
+      <ScreenHeader kicker="Déclaration" title="Captures" onBack={onBack} />
+      <View style={styles.segWrap}>
+        <Segmented<View_>
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            setError(null);
+            setStatus(null);
+          }}
+          options={[
+            { id: 'nouvelle', label: 'Nouvelle', icon: 'add-circle-outline' },
+            { id: 'historique', label: 'Historique', icon: 'list-outline', badge: counts.pending },
+          ]}
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <GlassPanel
-          style={styles.banner}
-          contentStyle={counts.pending > 0 ? styles.bannerWait : styles.bannerOk}
-        >
-          <View style={styles.bannerRow}>
-            <Ionicons
-              name={counts.pending > 0 ? 'cloud-upload-outline' : 'checkmark-circle'}
-              size={22}
-              color={counts.pending > 0 ? colors.warn : colors.success}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bannerTitle}>
-                {counts.pending > 0
-                  ? `${counts.pending} déclaration(s) à envoyer`
-                  : 'Tout est à jour'}
-              </Text>
-              <Text style={styles.bannerSub}>
-                {counts.synced > 0
-                  ? `${counts.synced} déjà envoyée(s) au serveur`
-                  : 'Remplissez le formulaire puis appuyez sur Enregistrer'}
-              </Text>
-            </View>
-          </View>
-        </GlassPanel>
+        {view === 'nouvelle' ? (
+          <>
+            <StepBar steps={STEPS} current={step} onSelect={goTo} />
 
-        <Text style={styles.section}>1. Quel bateau ?</Text>
-        {boats.length === 0 ? (
-          <Text style={styles.empty}>
-            {mode === 'pecheur'
-              ? 'Aucun bateau lie a votre compte — contactez un agent.'
-              : 'Aucun bateau — creez d’abord un dossier pecheur.'}
-          </Text>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
-            {boats.map((b) => {
-              const on = b.id === boatId;
-              return (
-                <Pressable
-                  key={b.id}
-                  onPress={() => setBoatId(b.id)}
-                  style={[styles.chip, on && styles.chipOn]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                >
-                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{b.nom}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        <Text style={styles.section}>2. Quelle espèce ?</Text>
-        {(['pelagique', 'demersal', 'crustace', 'autre'] as GroupeEspece[]).map((g) => (
-          <View key={g}>
-            <Text style={styles.groupeLabel}>{GROUPES_LABEL[g]}</Text>
-            <View style={styles.wrapChips}>
-              {ESPECES_REF.filter((e) => e.groupe === g).map((e) => {
-                const on = e.code === espece;
-                return (
-                  <Pressable
-                    key={e.code}
-                    onPress={() => setEspece(e.code)}
-                    style={[styles.chip, on && styles.chipOn, e.protegee && styles.chipProtegee]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                  >
-                    <Text style={[styles.chipText, on && styles.chipTextOn]}>{e.nom}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-
-        <Text style={styles.section}>3. Quel engin ?</Text>
-        <View style={styles.wrapChips}>
-          {ENGINS_REF.map((m) => {
-            const on = m.code === methode;
-            return (
-              <Pressable
-                key={m.code}
-                onPress={() => setMethode(m.code)}
-                style={[styles.chip, on && styles.chipOn]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-              >
-                <Text style={[styles.chipText, on && styles.chipTextOn]}>{m.nom}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={styles.section}>4. Détails</Text>
-        <GlassField
-          label="Quantité (kilogrammes)"
-          icon="scale-outline"
-          value={quantite}
-          onChangeText={setQuantite}
-          keyboardType="decimal-pad"
-          placeholder="Ex. 5"
-        />
-        <GlassField
-          label="Lieu de débarquement"
-          icon="boat-outline"
-          value={debarquement}
-          onChangeText={setDebarquement}
-          placeholder="Ex. Owendo"
-        />
-        <GlassField
-          label="Date et heure"
-          icon="calendar-outline"
-          value={dateCapture}
-          onChangeText={setDateCapture}
-          autoCapitalize="none"
-          placeholder="AAAA-MM-JJTHH:mm"
-        />
-
-        <GlowButton
-          label={busy ? '…' : 'Enregistrer'}
-          icon="save-outline"
-          onPress={() => void onSaveLocal()}
-          disabled={busy}
-        />
-        <View style={{ height: space.sm }} />
-        <GlowButton
-          label={busy ? '…' : 'Envoyer au serveur'}
-          icon="cloud-upload-outline"
-          onPress={() => void onSync()}
-          disabled={busy}
-          variant="ghost"
-        />
-
-        {status ? (
-          <View style={styles.msgOk}>
-            <Ionicons name="information-circle" size={18} color={colors.success} />
-            <Text style={styles.statusOk}>{status}</Text>
-          </View>
-        ) : null}
-        {error ? (
-          <View style={styles.msgErr}>
-            <Ionicons name="alert-circle" size={18} color={colors.danger} />
-            <Text style={styles.statusErr}>{error}</Text>
-          </View>
-        ) : null}
-
-        <Text style={[styles.section, { marginTop: space.lg }]}>Mes déclarations</Text>
-        <FlatList
-          data={localRows}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          ListEmptyComponent={
-            <Text style={styles.empty}>Aucune déclaration pour l’instant.</Text>
-          }
-          renderItem={({ item }) => (
-            <GlassPanel style={styles.row} contentStyle={styles.rowInner}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>
-                  {item.espece} · {item.quantite_kg} kg
-                </Text>
-                <Text style={styles.rowMeta}>
-                  {item.methode} · {item.point_debarquement}
-                </Text>
-                <Text style={styles.rowMeta}>
-                  {new Date(item.date_capture).toLocaleString('fr-FR')}
-                </Text>
+            {/* Récapitulatif des choix déjà faits */}
+            {step > 0 ? (
+              <View style={styles.recap}>
+                {selectedBoat ? <RecapPill icon="boat-outline" text={selectedBoat.nom} /> : null}
+                {step > 1 && especeRef ? (
+                  <RecapPill icon={GROUPES_ICON[especeRef.groupe] as IconName} text={especeRef.nom} />
+                ) : null}
+                {step > 2 ? <RecapPill icon={engineIcon(methode) as IconName} text={enginNom(methode)} /> : null}
               </View>
-              <View
-                style={[
-                  styles.badge,
-                  item.sync_status === 'synced' ? styles.badgeOk : styles.badgeWait,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    item.sync_status === 'synced' ? styles.badgeTextOk : styles.badgeTextWait,
-                  ]}
-                >
-                  {item.sync_status === 'synced' ? 'Envoyé' : 'Sur le téléphone'}
-                </Text>
+            ) : null}
+
+            {status ? <Notice tone="ok" text={status} style={styles.topNotice} /> : null}
+            {error ? <Notice tone="error" text={error} style={styles.topNotice} /> : null}
+
+            <GlassPanel contentStyle={styles.panel}>
+              {step === 0 ? (
+                <>
+                  <Text style={styles.question}>Quel bateau ?</Text>
+                  {boats.length === 0 ? (
+                    <Notice
+                      tone="warn"
+                      icon="boat-outline"
+                      text={
+                        mode === 'pecheur'
+                          ? 'Aucun bateau lié à votre compte. Contactez un agent.'
+                          : 'Aucun bateau. Créez d’abord un dossier pêcheur.'
+                      }
+                    />
+                  ) : (
+                    boats.map((b) => (
+                      <ListRow
+                        key={b.id}
+                        icon="boat-outline"
+                        tone={b.id === boatId ? 'info' : 'muted'}
+                        solid={b.id === boatId}
+                        title={b.nom}
+                        meta={[b.immatriculation, b.type].filter(Boolean).join(' · ')}
+                        onPress={() => {
+                          setBoatId(b.id);
+                          goTo(1);
+                        }}
+                        right={
+                          b.id === boatId ? (
+                            <IconBadge icon="checkmark" tone="ok" solid size={28} />
+                          ) : undefined
+                        }
+                      />
+                    ))
+                  )}
+                </>
+              ) : null}
+
+              {step === 1 ? (
+                <>
+                  <Text style={styles.question}>Quelle espèce ?</Text>
+                  <Segmented<GroupeEspece>
+                    value={groupe}
+                    onChange={setGroupe}
+                    style={{ marginBottom: 12 }}
+                    options={GROUPES.map((g) => ({
+                      id: g,
+                      label: GROUPES_LABEL[g],
+                      icon: GROUPES_ICON[g] as IconName,
+                    }))}
+                  />
+                  <View style={styles.wrapChips}>
+                    {especesDuGroupe.map((e) => (
+                      <Chip
+                        key={e.code}
+                        label={e.nom.replace(/\s*\(protégée?\)/, '')}
+                        icon={e.protegee ? 'shield-outline' : (GROUPES_ICON[e.groupe] as IconName)}
+                        alert={e.protegee}
+                        on={e.code === espece}
+                        onPress={() => {
+                          setEspece(e.code);
+                          if (!e.protegee) goTo(2);
+                        }}
+                      />
+                    ))}
+                  </View>
+                  {especeRef?.protegee ? (
+                    <Notice tone="error" icon="shield-outline" text="Espèce protégée : déclaration à signaler." />
+                  ) : null}
+                </>
+              ) : null}
+
+              {step === 2 ? (
+                <>
+                  <Text style={styles.question}>Quel engin ?</Text>
+                  <View style={styles.wrapChips}>
+                    {ENGINS_REF.map((m) => (
+                      <Chip
+                        key={m.code}
+                        label={m.nom}
+                        icon={engineIcon(m.code) as IconName}
+                        on={m.code === methode}
+                        onPress={() => {
+                          setMethode(m.code);
+                          goTo(3);
+                        }}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              {step === 3 ? (
+                <>
+                  <Text style={styles.question}>Combien, où, quand ?</Text>
+                  <GlassField
+                    label="Quantité (kg)"
+                    icon="scale-outline"
+                    value={quantite}
+                    onChangeText={setQuantite}
+                    keyboardType="decimal-pad"
+                    placeholder="Ex. 5"
+                  />
+                  <GlassField
+                    label="Lieu de débarquement"
+                    icon="location-outline"
+                    value={debarquement}
+                    onChangeText={setDebarquement}
+                    placeholder="Ex. Owendo"
+                  />
+                  <GlassField
+                    label="Date et heure"
+                    icon="calendar-outline"
+                    value={dateCapture}
+                    onChangeText={setDateCapture}
+                    autoCapitalize="none"
+                    placeholder="AAAA-MM-JJTHH:mm"
+                  />
+                </>
+              ) : null}
+
+              <View style={styles.navRow}>
+                {step > 0 ? (
+                  <GlowButton
+                    label="Précédent"
+                    icon="chevron-back"
+                    variant="ghost"
+                    onPress={() => goTo(step - 1)}
+                    style={styles.navBtn}
+                  />
+                ) : null}
+                {step < STEPS.length - 1 ? (
+                  <GlowButton
+                    label="Suivant"
+                    icon="chevron-forward"
+                    onPress={next}
+                    disabled={boats.length === 0}
+                    style={styles.navBtn}
+                  />
+                ) : (
+                  <GlowButton
+                    label={busy ? '…' : 'Enregistrer'}
+                    icon="save-outline"
+                    onPress={() => void onSaveLocal()}
+                    disabled={busy}
+                    style={styles.navBtn}
+                  />
+                )}
               </View>
             </GlassPanel>
-          )}
-        />
+          </>
+        ) : (
+          <>
+            <StatRow style={{ marginBottom: 12 }}>
+              <StatTile
+                icon="cloud-upload-outline"
+                value={counts.pending}
+                label="à envoyer"
+                tone={counts.pending > 0 ? 'warn' : 'muted'}
+              />
+              <StatTile icon="cloud-done-outline" value={counts.synced} label="envoyées" tone="ok" />
+              <StatTile icon="fish-outline" value={localRows.length} label="déclarations" />
+            </StatRow>
+
+            <GlowButton
+              label={busy ? '…' : counts.pending > 0 ? `Envoyer ${counts.pending} déclaration(s)` : 'Tout est envoyé'}
+              icon={counts.pending > 0 ? 'cloud-upload-outline' : 'checkmark-circle-outline'}
+              onPress={() => void onSync()}
+              disabled={busy || counts.pending === 0}
+              variant={counts.pending > 0 ? 'primary' : 'ghost'}
+            />
+            {status ? <Notice tone="ok" text={status} /> : null}
+            {error ? <Notice tone="error" text={error} /> : null}
+
+            <View style={{ height: space.md }} />
+            {localRows.length === 0 ? (
+              <Notice tone="muted" icon="fish-outline" text="Aucune déclaration pour l’instant." />
+            ) : (
+              localRows.map((item) => {
+                const ref = ESPECES_REF.find((e) => e.code === item.espece);
+                const synced = item.sync_status === 'synced';
+                return (
+                  <ListRow
+                    key={item.id}
+                    icon={(ref ? GROUPES_ICON[ref.groupe] : 'fish-outline') as IconName}
+                    tone={ref?.protegee ? 'error' : 'info'}
+                    title={`${especeNom(item.espece)} · ${item.quantite_kg} kg`}
+                    meta={`${enginNom(item.methode)} · ${item.point_debarquement} · ${fmtDate(item.date_capture)}`}
+                    right={
+                      <IconBadge
+                        icon={synced ? 'cloud-done-outline' : 'phone-portrait-outline'}
+                        tone={synced ? 'ok' : 'warn'}
+                        size={32}
+                      />
+                    }
+                  />
+                );
+              })
+            )}
+          </>
+        )}
       </ScrollView>
+    </View>
+  );
+}
+
+function RecapPill({ icon, text }: { icon: IconName; text: string }) {
+  return (
+    <View style={styles.pill}>
+      <IconBadge icon={icon} size={24} />
+      <Text style={styles.pillText} numberOfLines={1}>
+        {text}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  top: {
+  segWrap: { paddingHorizontal: space.lg, marginBottom: space.sm },
+  scroll: { paddingHorizontal: space.lg, paddingBottom: 56, paddingTop: 4 },
+  panel: { padding: 16 },
+  question: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    color: colors.abyss,
+    marginBottom: 12,
+  },
+  recap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  topNotice: { marginTop: 0, marginBottom: 12 },
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: space.lg,
-    paddingTop: space.xl,
-    gap: 10,
-  },
-  backBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingRight: 10,
+    paddingLeft: 4,
+    paddingVertical: 4,
+    borderRadius: 999,
     backgroundColor: colors.glassStrong,
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    maxWidth: '100%',
   },
-  kicker: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.tide,
-    fontSize: 14,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.abyss,
-  },
-  scroll: { paddingHorizontal: space.lg, paddingBottom: 56 },
-  banner: { marginTop: space.md, marginBottom: space.md },
-  bannerWait: {},
-  bannerOk: {},
-  bannerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  bannerTitle: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    fontSize: 16,
-  },
-  bannerSub: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    marginTop: 4,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  section: {
-    fontFamily: fonts.bodyBold,
-    color: colors.abyss,
-    fontSize: 15,
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  chips: { marginBottom: space.md },
-  wrapChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: space.md,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 48,
-    borderRadius: radii.md,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.glassBorder,
-    marginRight: 8,
-    justifyContent: 'center',
-  },
-  chipOn: {
-    backgroundColor: colors.tide,
-    borderColor: colors.tide,
-  },
-  chipText: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.ink,
-    fontSize: 15,
-  },
-  chipTextOn: { color: '#F8FAFC', fontFamily: fonts.bodyBold },
-  msgOk: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: space.md,
-    padding: 12,
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(4, 120, 87, 0.08)',
-  },
-  msgErr: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: space.sm,
-    padding: 12,
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(185, 28, 28, 0.08)',
-  },
-  statusOk: {
-    flex: 1,
-    fontFamily: fonts.bodyMedium,
-    color: colors.success,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  statusErr: {
-    flex: 1,
-    fontFamily: fonts.bodyMedium,
-    color: colors.danger,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  empty: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    marginBottom: space.md,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  row: { marginBottom: space.sm },
-  rowInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  rowTitle: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    fontSize: 16,
-  },
-  rowMeta: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
-    fontSize: 13,
-    marginTop: 3,
-  },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radii.pill,
-    maxWidth: 120,
-  },
-  badgeWait: { backgroundColor: 'rgba(180, 83, 9, 0.14)' },
-  badgeOk: { backgroundColor: 'rgba(4, 120, 87, 0.14)' },
-  badgeText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  badgeTextWait: { color: colors.warn },
-  badgeTextOk: { color: colors.success },
-  groupeLabel: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.inkMuted,
-    fontSize: 13,
-    marginBottom: 6,
-    marginTop: 4,
-  },
-  chipProtegee: { borderColor: colors.danger },
+  pillText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink, flexShrink: 1 },
+  wrapChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  navRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  navBtn: { flex: 1 },
 });

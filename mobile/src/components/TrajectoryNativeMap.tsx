@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 
 import { PositionPoint } from '../api';
-import { GABON_COAST_BOUNDS, isOnWater } from '../geo/gabonMaritimeRoutes';
+import { isOnWater } from '../geo/gabonMaritimeRoutes';
 import { colors, fonts, radii } from '../theme';
 import { ShipRadarMarker } from './ShipRadarMarker';
 
@@ -20,14 +20,10 @@ export function TrajectoryNativeMap({ points }: Props) {
   if (local.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>Carte Gabon</Text>
-        <Text style={styles.emptyBody}>
-          Aucun point en mer / fleuve gabonais. Simule un corridor (Estuaire, Ogooué,
-          Ntem…) pour afficher la trajectoire ici.
-          {skipped > 0
-            ? ` ${skipped} point(s) hors zone (ex. GPS simulateur) ignoré(s).`
-            : ''}
-        </Text>
+        <Text style={styles.emptyTitle}>Aucun parcours en eau gabonaise</Text>
+        {skipped > 0 ? (
+          <Text style={styles.emptyBody}>{skipped} point(s) hors zone ignoré(s).</Text>
+        ) : null}
         <MapView
           style={styles.mapPreview}
           provider={PROVIDER_DEFAULT}
@@ -61,10 +57,6 @@ export function TrajectoryNativeMap({ points }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.caption}>
-        Parcours · {local.length} point{local.length > 1 ? 's' : ''}
-        {skipped > 0 ? ` · ${skipped} hors zone ignoré(s)` : ''}
-      </Text>
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -99,10 +91,9 @@ export function TrajectoryNativeMap({ points }: Props) {
           <ShipRadarMarker size={48} />
         </Marker>
       </MapView>
-      <Text style={styles.hint}>
-        Emprise : lon {GABON_COAST_BOUNDS.west}–{GABON_COAST_BOUNDS.east} · lat{' '}
-        {GABON_COAST_BOUNDS.south}–{GABON_COAST_BOUNDS.north}
-      </Text>
+      {skipped > 0 ? (
+        <Text style={styles.hint}>{skipped} point(s) hors zone ignoré(s)</Text>
+      ) : null}
     </View>
   );
 }
@@ -124,13 +115,14 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 6,
   },
-  map: { width: '100%', height: 240 },
+  map: { width: '100%', height: 260 },
   mapPreview: { width: '100%', height: 160, marginTop: 10, borderRadius: radii.sm },
   hint: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bodyMedium,
     color: colors.inkMuted,
-    fontSize: 10,
-    padding: 8,
+    fontSize: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   empty: {
     borderRadius: radii.md,

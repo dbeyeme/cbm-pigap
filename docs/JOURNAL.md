@@ -1206,3 +1206,68 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - Les PDF ne sont pas des actes ministériels : mention « usage officiel soumis à validation »
 - Modèle graphique à caler avec Kimba Connect (cachet, QR, photo)
 - Si l’API locale ne répond plus : relancer `uvicorn` (un export trop large peut bloquer le worker unique)
+
+---
+
+## [2026-10-02] — Mobile : écrans allégés, parcours par étapes, repères visuels
+
+**Ce qui a été construit :**
+- Bibliothèque `mobile/src/components/ui/` : `ScreenHeader`, `Segmented`, `StepBar`, `Chip`, `ListRow`, `StatTile`, `Notice`, `IconBadge`, `SectionTitle`, `ActionTile`, `AppIcon` (Ionicons, Material Community, FontAwesome 6 via préfixes `mci:` et `fa6:`)
+- Captures : parcours en 4 étapes (bateau, espèce, engin, détails), un choix fait avance l'étape ; espèces regroupées par famille avec icône ; onglet Historique séparé (3 chiffres clés, bouton d'envoi, une ligne par déclaration)
+- Suivi GPS : bateaux en pastilles, carte sans légende technique, tuiles points / dernier envoi / en attente, relevés compacts (5 visibles, « voir tout »), démo repliée
+- Accueils pêcheur et agent : grille de tuiles 2 colonnes, textes d'accroche réduits à une ligne, avis de mer en pastilles chiffrées
+- Recherche licence : chiffres clés du dossier, statut en pastille, panneau de recherche masqué quand un dossier est ouvert
+- Nouveau dossier : 2 étapes (pêcheur, embarcation), équipements avec icônes
+- Abonnement et Redevances : en-tête unique, formules en cartes, récapitulatif total, lignes de quittances avec statut
+- `tones` dans `theme.ts` (info, ok, warn, error, muted) pour tous les messages et badges
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §10 : public terrain peu digital, écrans utilisés au soleil ; moins de texte, plus de repères visuels, moins de défilement
+- Retour porteur du 2026-10-02 : écrans trop chargés, trop de texte, éléments sans icône
+
+**Technologies / principes utilisés :**
+- Aucune dépendance ajoutée : `@expo/vector-icons` déjà présent fournit les trois jeux d'icônes
+- Logique métier et appels API inchangés ; seule la présentation évolue
+- Note constante `note_infractions` de l'API (cadre M2/M7) non affichée sur mobile : texte technique sans valeur pour l'agent
+
+**Tests réalisés :**
+- `tsc --noEmit` (mobile) : OK
+- Vérification visuelle sur simulateur iPhone 16 Pro, Expo Go SDK 57, API Railway : accueil agent, captures (4 étapes + historique), GPS (sans et avec parcours), licences (liste et dossier), nouveau dossier, accueil pêcheur, abonnement, redevances
+- Enregistrement local d'une déclaration de test (non envoyée au serveur)
+
+**Points ouverts / dette technique :**
+- Pas de tests Jest mobile (réserve déjà connue)
+- `note_infractions` : l'API renvoie une phrase constante ; à remplacer par une note réelle par dossier ou à supprimer côté backend
+- Le bouton flottant de développement d'Expo Go recouvre le coin supérieur droit en mode dev uniquement
+
+
+---
+
+## [2026-10-02] — Numéro Mobile Money du pêcheur, écran de bienvenue, APK Android
+
+**Ce qui a été construit :**
+- `PATCH /api/v1/auth/me/telephone` : le pêcheur connecté met à jour son numéro Mobile Money ; normalisation gabonaise (`+241…`), unicité entre comptes, rôle pêcheur uniquement (403 sinon)
+- Mobile, écran Abonnement : champ téléphone saisissable, bouton « Enregistrer ce numéro », paiement bloqué tant que le numéro saisi n'est pas enregistré
+- Mobile, écran de bienvenue à la première ouverture : trois volets (déclarer, naviguer, régler), numéro en filigrane, barre de progression segmentée, « Passer » ; mémorisé dans SQLite (`app_settings`)
+- APK Android : identifiant `com.kimbaconnect.cbmpigap`, `expo prebuild` + `gradlew assembleRelease`, API de production lue dans `mobile/.env` ; procédure dans `mobile/README.md`
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Paiement depuis le numéro de l'acteur (journal 2026-10-01) : le pêcheur doit pouvoir corriger ce numéro sans passer par un agent
+- §10 : première prise en main par un public peu digital ; l'écran de bienvenue explique l'application en trois promesses
+- Phase 3 : installation directe sur les téléphones de la zone pilote
+
+**Technologies / principes utilisés :**
+- Réutilisation de `normalize_gabon_msisdn` (module abonnements) ; aucun nouveau modèle ni migration
+- Génération native continue : `android/` reste hors git, régénéré à chaque build
+
+**Tests réalisés :**
+- `pytest app/tests/test_paiement_msisdn.py app/tests/test_phase1_contracts.py` : 8 passed (2 nouveaux)
+- Régression backend complète : 99 passed, 1 failed (`test_m6_dashboard::test_dashboard_alertes_actives_et_zone_activite`) ; échec identique sur le commit précédent sans ces changements : le tableau de bord limite `alertes_actives` à 50 et la base de développement partagée a accumulé des alertes de tests. Dette d'environnement, pas de régression
+- `tsc --noEmit` (mobile) : OK
+- Simulateur : lecture du réglage de bienvenue vérifiée (journal Metro), écran Abonnement avec saisie du numéro
+
+**Points ouverts / dette technique :**
+- L'API de production doit être redéployée (push `main` → Railway) pour que la modification du numéro fonctionne depuis l'APK
+- APK signé avec la clé de débogage : prévoir une clé de signature propre avant publication
+- Carte Android sans clé Google Maps : fond vide ; clé à fournir par le client dans `app.json`
+- Test M6 `alertes_actives` : purger la base de test ou filtrer les alertes par période pour rendre le test indépendant des données accumulées

@@ -63,3 +63,14 @@ export const gradients = {
   accent: ['#2563A8', '#1E4D7B'] as const,
   glass: ['rgba(255,255,255,0.92)', 'rgba(248,250,252,0.78)'] as const,
 };
+
+/** Tonalités d'état partagées (messages, badges, tuiles). */
+export const tones = {
+  info: { fg: '#1E4D7B', bg: 'rgba(37, 99, 168, 0.10)' },
+  ok: { fg: '#047857', bg: 'rgba(4, 120, 87, 0.10)' },
+  warn: { fg: '#B45309', bg: 'rgba(180, 83, 9, 0.12)' },
+  error: { fg: '#B91C1C', bg: 'rgba(185, 28, 28, 0.09)' },
+  muted: { fg: '#64748B', bg: 'rgba(100, 116, 139, 0.12)' },
+} as const;
+
+export type Tone = keyof typeof tones;

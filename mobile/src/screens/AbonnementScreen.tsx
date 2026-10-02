@@ -1,13 +1,5 @@
 import { Component, PropsWithChildren, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   confirmerPaiementDemo,
@@ -18,10 +10,13 @@ import {
   PaiementConfig,
   synchroniserPaiement,
   getPayeur,
+  updateMonTelephone,
   type Payeur,
 } from '../api';
+import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
+import { IconBadge, Notice, ScreenHeader, SectionTitle, type IconName } from '../components/ui';
 import { colors, fonts, radii, space } from '../theme';
 
 type Props = {
@@ -45,6 +40,16 @@ function formatDate(iso: string): string {
   }
 }
 
+/** « Licence pêcheur — mensuel » devient « Mensuel » : la carte porte déjà le contexte. */
+function offerLabel(o: OffreAbonnement): string {
+  const short = o.libelle.replace(/^licence\s+p[êe]cheur\s*[—–-]\s*/i, '').trim();
+  return short ? short.charAt(0).toUpperCase() + short.slice(1) : o.libelle;
+}
+
+function offerIcon(o: OffreAbonnement): IconName {
+  return /an/i.test(o.code) || /an/i.test(o.libelle) ? 'ribbon-outline' : 'calendar-outline';
+}
+
 /** Evite un crash silencieux si le catalogue ou le paiement echoue. */
 class ScreenSafe extends Component<
   PropsWithChildren<{ onBack: () => void }>,
@@ -59,11 +64,11 @@ class ScreenSafe extends Component<
   render() {
     if (this.state.error) {
       return (
-        <View style={styles.container}>
-          <Pressable onPress={this.props.onBack} hitSlop={12}>
-            <Text style={styles.back}>Retour</Text>
-          </Pressable>
-          <Text style={styles.error}>{this.state.error}</Text>
+        <View style={styles.root}>
+          <ScreenHeader kicker="Licence d'usage" title="Abonnement" onBack={this.props.onBack} />
+          <View style={styles.container}>
+            <Notice tone="error" text={this.state.error} />
+          </View>
         </View>
       );
     }
@@ -86,6 +91,7 @@ function AbonnementBody({ token, onBack }: Props) {
   const [licence, setLicence] = useState('');
   const [msisdn, setMsisdn] = useState('');
   const [payeur, setPayeur] = useState<Payeur | null>(null);
+  const [savingPhone, setSavingPhone] = useState(false);
   useEffect(() => {
     let cancelled = false;
     getPayeur(token)
@@ -99,6 +105,25 @@ function AbonnementBody({ token, onBack }: Props) {
       cancelled = true;
     };
   }, [token]);
+
+  const phoneDirty = msisdn.trim() !== (payeur?.telephone ?? '').trim();
+
+  async function savePhone() {
+    setSavingPhone(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const me = await updateMonTelephone(token, msisdn.trim());
+      const p = await getPayeur(token);
+      setPayeur(p);
+      setMsisdn(me.telephone ?? p.telephone ?? '');
+      setMessage('Numéro enregistré. Les paiements partiront de ce téléphone.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Numéro non enregistré');
+    } finally {
+      setSavingPhone(false);
+    }
+  }
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -174,130 +199,158 @@ function AbonnementBody({ token, onBack }: Props) {
     }
   }
 
+  const selectedOffer = offres.find((o) => o.code === code);
+
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Pressable onPress={onBack} hitSlop={12}>
-        <Text style={styles.back}>Retour</Text>
-      </Pressable>
-      <Text style={styles.kicker}>Licence d'usage</Text>
-      <Text style={styles.title}>Abonnement</Text>
-      <Text style={styles.lead}>
-        {live
-          ? '3000 FCFA / mois ou 30000 FCFA / an via Airtel Money (Gabon). Validez le PIN sur votre telephone.'
-          : '3000 FCFA / mois ou 30000 FCFA / an. Mode demo : confirmation instantanee.'}
-      </Text>
+    <View style={styles.root}>
+      <ScreenHeader
+        kicker="Licence d'usage"
+        title="Abonnement"
+        onBack={onBack}
+        right={<IconBadge icon="wallet-outline" size={44} />}
+      />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <SectionTitle icon="pricetags-outline" text="Formule" />
+        {offres.length === 0 && !error ? <ActivityIndicator color={colors.tide} /> : null}
+        <View style={styles.offers}>
+          {offres.map((o) => {
+            const on = code === o.code;
+            return (
+              <Pressable
+                key={o.code}
+                onPress={() => setCode(o.code)}
+                style={[styles.offer, on && styles.offerOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <IconBadge icon={offerIcon(o)} size={36} tone={on ? 'info' : 'muted'} solid={on} />
+                <Text style={[styles.offerTitle, on && styles.offerTitleOn]} numberOfLines={2}>
+                  {offerLabel(o)}
+                </Text>
+                <Text style={styles.offerPrice}>{formatFcfa(o.montant_fcfa)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      <GlassPanel style={styles.card} contentStyle={styles.cardInner}>
-        <Text style={styles.label}>Formule</Text>
-        {offres.length === 0 && !error ? (
-          <ActivityIndicator color={colors.tide} />
-        ) : null}
-        {offres.map((o) => {
-          const on = code === o.code;
-          return (
-            <Pressable
-              key={o.code}
-              onPress={() => setCode(o.code)}
-              style={[styles.offer, on && styles.offerOn]}
-            >
-              <Text style={[styles.offerTitle, on && styles.offerTitleOn]}>{o.libelle}</Text>
-              <Text style={styles.offerPrice}>{formatFcfa(o.montant_fcfa)}</Text>
-            </Pressable>
-          );
-        })}
+        <GlassPanel style={styles.card} contentStyle={styles.cardInner}>
+          <SectionTitle icon="card-outline" text="Paiement" style={{ marginTop: 0 }} />
+          <GlassField
+            label="Téléphone Mobile Money"
+            icon="phone-portrait-outline"
+            value={msisdn}
+            onChangeText={setMsisdn}
+            placeholder="Ex. 077 12 34 56"
+            keyboardType="phone-pad"
+            autoComplete="tel"
+          />
+          {phoneDirty ? (
+            <GlowButton
+              label={savingPhone ? 'Enregistrement…' : 'Enregistrer ce numéro'}
+              icon="checkmark-circle-outline"
+              variant="ghost"
+              onPress={() => void savePhone()}
+              disabled={savingPhone || msisdn.trim().length < 8}
+              style={{ marginBottom: 12 }}
+            />
+          ) : payeur && !payeur.valide ? (
+            <Notice
+              tone="warn"
+              icon="call-outline"
+              text="Aucun numéro valide : saisissez votre téléphone Mobile Money ci-dessus."
+              style={{ marginTop: 0, marginBottom: 12 }}
+            />
+          ) : null}
+          <GlassField
+            label="N° de licence (optionnel)"
+            icon="ribbon-outline"
+            value={licence}
+            onChangeText={setLicence}
+            placeholder="LIC-DEMO-01"
+            autoCapitalize="characters"
+          />
 
-        <Text style={styles.label}>N de licence (optionnel si vous etes pecheur)</Text>
-        <TextInput
-          style={styles.input}
-          value={licence}
-          onChangeText={setLicence}
-          placeholder="LIC-DEMO-01"
-          autoCapitalize="characters"
-          placeholderTextColor={colors.inkSoft}
-        />
+          <View style={styles.summary}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>Total</Text>
+              <Text style={styles.summaryValue}>
+                {selectedOffer ? formatFcfa(selectedOffer.montant_fcfa) : '—'}
+              </Text>
+            </View>
+            <View style={styles.modePill}>
+              <IconBadge icon={live ? 'shield-checkmark-outline' : 'flask-outline'} size={24} tone={live ? 'ok' : 'muted'} />
+              <Text style={styles.modeText}>{live ? 'Airtel Money' : 'Démonstration'}</Text>
+            </View>
+          </View>
 
-        <Text style={styles.label}>Telephone Mobile Money (numero enregistre)</Text>
-        <TextInput
-          style={[styles.input, { color: colors.inkMuted }]}
-          value={msisdn}
-          editable={false}
-          placeholder={payeur && !payeur.valide ? 'Aucun telephone enregistre' : 'Chargement…'}
-          keyboardType="phone-pad"
-          placeholderTextColor={colors.inkSoft}
-        />
-        <Text style={styles.hint}>
-          {payeur?.valide
-            ? 'Le paiement est demande sur ce telephone : validez le code secret Mobile Money quand il apparait.'
-            : payeur
-              ? `${payeur.motif}. Demandez a un agent de mettre a jour votre telephone.`
-              : 'Le paiement part du telephone enregistre sur votre compte.'}
-        </Text>
+          {loading ? <ActivityIndicator color={colors.tide} /> : null}
+          {error ? <Notice tone="error" text={error} style={{ marginTop: 0 }} /> : null}
+          {message ? <Notice tone="ok" text={message} style={{ marginTop: 0 }} /> : null}
 
-        {loading ? <ActivityIndicator color={colors.tide} /> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        {message ? <Text style={styles.ok}>{message}</Text> : null}
-
-        <GlowButton
-          label={live ? 'Payer via Airtel Money' : 'Payer et activer (demo)'}
-          icon="wallet-outline"
-          onPress={() => void pay()}
-          disabled={loading || !code || (live && !(payeur?.valide ?? false))}
-          style={styles.cta}
-        />
-      </GlassPanel>
-    </ScrollView>
+          <GlowButton
+            label={live ? 'Payer via Airtel Money' : 'Payer et activer (démo)'}
+            icon="wallet-outline"
+            onPress={() => void pay()}
+            disabled={loading || !code || phoneDirty || (live && !(payeur?.valide ?? false))}
+          />
+          <Text style={styles.hint}>
+            {live
+              ? 'Validez le code secret Mobile Money quand il apparaît sur votre téléphone.'
+              : 'Mode démonstration : confirmation instantanée, sans débit.'}
+          </Text>
+        </GlassPanel>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  container: { paddingHorizontal: space.lg, paddingBottom: 120, paddingTop: 4 },
+  offers: { flexDirection: 'row', gap: 10, marginBottom: space.md },
+  offer: {
+    flex: 1,
+    gap: 8,
+    padding: 14,
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.card,
+  },
+  offerOn: { borderColor: colors.tide, backgroundColor: 'rgba(37, 99, 168, 0.08)' },
+  offerTitle: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 14, lineHeight: 19 },
+  offerTitleOn: { color: colors.tide, fontFamily: fonts.bodyBold },
+  offerPrice: { fontFamily: fonts.display, color: colors.abyss, fontSize: 18 },
+  card: {},
+  cardInner: { padding: 16, gap: 4 },
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.glassBorder,
+  },
+  summaryLabel: { fontFamily: fonts.bodyMedium, color: colors.inkMuted, fontSize: 13 },
+  summaryValue: { fontFamily: fonts.display, color: colors.abyss, fontSize: 24 },
+  modePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingRight: 10,
+    paddingLeft: 4,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+  },
+  modeText: { fontFamily: fonts.bodyMedium, color: colors.inkMuted, fontSize: 12 },
   hint: {
     fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 18,
     color: colors.inkMuted,
-    marginTop: 4,
-    marginBottom: 6,
+    textAlign: 'center',
+    marginTop: 10,
   },
-  container: { padding: space.lg, paddingBottom: 120, gap: space.sm },
-  back: { fontFamily: fonts.bodyMedium, color: colors.tide, marginBottom: space.sm },
-  kicker: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    color: colors.inkSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  title: { fontFamily: fonts.display, fontSize: 28, color: colors.ink },
-  lead: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSoft, lineHeight: 22 },
-  card: { marginTop: space.md },
-  cardInner: { gap: space.sm },
-  label: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.inkSoft, marginTop: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: radii.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: fonts.body,
-    fontSize: 16,
-    color: colors.ink,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
-  offer: {
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: radii.md,
-    padding: 12,
-    marginBottom: 6,
-  },
-  offerOn: {
-    borderColor: colors.tide,
-    backgroundColor: 'rgba(37, 99, 168, 0.08)',
-  },
-  offerTitle: { fontFamily: fonts.bodyMedium, color: colors.ink },
-  offerTitleOn: { color: colors.tide },
-  offerPrice: { fontFamily: fonts.bodyBold, color: colors.ink, marginTop: 2 },
-  error: { fontFamily: fonts.body, color: '#B91C1C' },
-  ok: { fontFamily: fonts.bodyMedium, color: '#047857' },
-  cta: { marginTop: space.sm },
 });

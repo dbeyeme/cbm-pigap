@@ -11,10 +11,10 @@
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-10-01 |
+| **Dernière mise à jour** | 2026-10-02 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
+| **Note récente** | Mobile allégé (2026-10-02) : APK Android, écran de bienvenue, numéro Mobile Money modifiable par le pêcheur, parcours captures par étapes, tuiles chiffrées, icônes, composants `ui/` · Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

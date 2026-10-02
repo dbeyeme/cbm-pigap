@@ -1,6 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   confirmerQuittanceDemo,
@@ -16,6 +15,18 @@ import {
 } from '../api';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
+import {
+  AppIcon,
+  IconBadge,
+  ListRow,
+  Notice,
+  ScreenHeader,
+  SectionTitle,
+  StatRow,
+  StatTile,
+  type IconName,
+} from '../components/ui';
+import { GROUPES_ICON, GROUPES_LABEL, type GroupeEspece } from '../offline/catalog';
 import { friendlyApiError } from '../lib/apiErrors';
 import { colors, fonts, radii, space } from '../theme';
 
@@ -24,15 +35,8 @@ type Props = {
   onBack: () => void;
 };
 
-const GROUPES: Record<string, string> = {
-  pelagique: 'Pélagiques',
-  demersal: 'Démersaux',
-  crustace: 'Crustacés',
-  autre: 'Autres',
-};
-
 const STATUT: Record<string, string> = {
-  en_attente: 'En attente de paiement',
+  en_attente: 'En attente',
   payee: 'Payée',
   annulee: 'Annulée',
 };
@@ -44,6 +48,10 @@ function fcfa(n: number | null | undefined): string {
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('fr-FR');
+}
+
+function groupeIcon(g: string): IconName {
+  return (GROUPES_ICON[g as GroupeEspece] ?? 'fish-outline') as IconName;
 }
 
 /** Redevances du pêcheur : taxe à la production due, quittance, paiement Mobile Money. */
@@ -101,178 +109,189 @@ export function RedevancesScreen({ token, onBack }: Props) {
   }
 
   const enAttente = quittances.find((q) => q.statut === 'en_attente');
+  const aJour = encours && encours.nb_captures === 0 && !enAttente;
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Pressable onPress={onBack} style={styles.backRow} accessibilityRole="button">
-        <Ionicons name="chevron-back" size={24} color={colors.tide} />
-        <Text style={styles.backText}>Retour</Text>
-      </Pressable>
-      <Text style={styles.kicker}>Redevances</Text>
-      <Text style={styles.title}>Taxe sur mes captures</Text>
-      <Text style={styles.lead}>
-        Chaque capture déclarée est taxée au poids selon son espèce. Vous réglez vos redevances
-        par Mobile Money depuis votre numéro enregistré et recevez une quittance.
-      </Text>
-
-      <GlassPanel style={styles.panel}>
-        <Text style={styles.panelTitle}>Montant dû</Text>
-        <Text style={styles.amount}>{encours ? fcfa(encours.montant_fcfa) : '…'}</Text>
-        {encours ? (
-          <Text style={styles.meta}>
-            {encours.nb_captures} capture(s) · {Math.round(encours.quantite_kg)} kg
-            {encours.depuis ? ` · du ${fmtDate(encours.depuis)} au ${fmtDate(encours.jusqu_a)}` : ''}
-          </Text>
-        ) : null}
-        {encours?.par_groupe.map((g) => (
-          <View key={g.groupe} style={styles.groupeRow}>
-            <Text style={styles.groupeLabel}>{GROUPES[g.groupe] ?? g.groupe}</Text>
-            <Text style={styles.groupeKg}>{Math.round(g.quantite_kg)} kg</Text>
-            <Text style={styles.groupeMontant}>{fcfa(g.montant_fcfa)}</Text>
+    <View style={styles.root}>
+      <ScreenHeader
+        kicker="Taxe sur mes captures"
+        title="Redevances"
+        onBack={onBack}
+        right={<IconBadge icon="mci:receipt-text-outline" size={44} />}
+      />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <GlassPanel style={styles.panel} contentStyle={styles.panelInner}>
+          <View style={styles.amountRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.amountLabel}>Montant dû</Text>
+              <Text style={styles.amount}>{encours ? fcfa(encours.montant_fcfa) : '…'}</Text>
+              {encours?.depuis ? (
+                <Text style={styles.period}>
+                  du {fmtDate(encours.depuis)} au {fmtDate(encours.jusqu_a)}
+                </Text>
+              ) : null}
+            </View>
+            <IconBadge
+              icon={aJour ? 'checkmark-circle' : 'mci:cash-clock'}
+              tone={aJour ? 'ok' : 'warn'}
+              size={48}
+            />
           </View>
-        ))}
-        {encours && encours.nb_captures > 0 && !enAttente ? (
-          <GlowButton
-            label={busy ? 'Génération…' : 'Générer ma quittance'}
-            icon="receipt-outline"
-            onPress={() =>
-              void run(async () => {
-                const q = await createQuittance(token);
-                return `Quittance ${q.numero} générée (${fcfa(q.montant_fcfa)})`;
-              })
-            }
-            disabled={busy}
-          />
-        ) : null}
-        {encours && encours.nb_captures === 0 && !enAttente ? (
-          <Text style={styles.ok}>Vous êtes à jour de vos redevances.</Text>
-        ) : null}
-      </GlassPanel>
 
-      {enAttente ? (
-        <GlassPanel style={styles.panel}>
-          <Text style={styles.panelTitle}>Quittance {enAttente.numero}</Text>
-          <Text style={styles.amount}>{fcfa(enAttente.montant_fcfa)}</Text>
-          <Text style={styles.meta}>
-            {enAttente.nb_captures} capture(s) · émise le {fmtDate(enAttente.date_creation)}
-          </Text>
-          {enAttente.paiement && enAttente.paiement.statut === 'en_attente' ? (
-            <>
-              <Text style={styles.meta}>
-                Paiement en attente · {enAttente.paiement.msisdn ?? 'numéro enregistré'}
-              </Text>
-              {!live ? (
-                <GlowButton
-                  label="Confirmer le paiement (démonstration)"
-                  icon="checkmark-circle-outline"
-                  variant="accent"
-                  onPress={() =>
-                    void run(async () => {
-                      await confirmerQuittanceDemo(token, enAttente.paiement!.id);
-                      return 'Quittance payée (démonstration).';
-                    })
-                  }
-                  disabled={busy}
-                />
-              ) : (
-                <GlowButton
-                  label="Vérifier le paiement"
-                  icon="refresh-outline"
-                  variant="ghost"
-                  onPress={() => void run(() => waitLivePayment(enAttente.paiement!.id))}
-                  disabled={busy}
-                />
-              )}
-            </>
-          ) : (
+          {encours ? (
+            <StatRow>
+              <StatTile icon="fish-outline" value={encours.nb_captures} label="captures" />
+              <StatTile icon="scale-outline" value={`${Math.round(encours.quantite_kg)} kg`} label="déclarés" />
+            </StatRow>
+          ) : null}
+
+          {encours?.par_groupe.length ? (
+            <View style={styles.groupes}>
+              {encours.par_groupe.map((g) => (
+                <View key={g.groupe} style={styles.groupeRow}>
+                  <AppIcon name={groupeIcon(g.groupe)} size={16} color={colors.tide} />
+                  <Text style={styles.groupeLabel}>{GROUPES_LABEL[g.groupe as GroupeEspece] ?? g.groupe}</Text>
+                  <Text style={styles.groupeKg}>{Math.round(g.quantite_kg)} kg</Text>
+                  <Text style={styles.groupeMontant}>{fcfa(g.montant_fcfa)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {encours && encours.nb_captures > 0 && !enAttente ? (
             <GlowButton
-              label={live ? 'Payer par Airtel Money' : 'Payer (démonstration)'}
-              icon="card-outline"
-              variant="accent"
+              label={busy ? 'Génération…' : 'Générer ma quittance'}
+              icon="receipt-outline"
               onPress={() =>
                 void run(async () => {
-                  const r = await payerQuittance(token, enAttente.id, {
-                    operateur: live ? 'airtel_money' : 'demo',
-                  });
-                  if (live) return waitLivePayment(r.paiement.id);
-                  return `Paiement démonstration initié depuis ${r.paiement.msisdn ?? 'votre numéro'}.`;
+                  const q = await createQuittance(token);
+                  return `Quittance ${q.numero} générée (${fcfa(q.montant_fcfa)})`;
                 })
               }
               disabled={busy}
             />
-          )}
+          ) : null}
+          {aJour ? <Notice tone="ok" text="Vous êtes à jour de vos redevances." style={{ marginTop: 0 }} /> : null}
         </GlassPanel>
-      ) : null}
 
-      {message ? (
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.tide} />
-          <Text style={styles.info}>{message}</Text>
-        </View>
-      ) : null}
-      {error ? (
-        <View style={styles.errorBox}>
-          <Ionicons name="alert-circle" size={18} color={colors.danger} />
-          <Text style={styles.error}>{error}</Text>
-        </View>
-      ) : null}
-
-      <Text style={styles.section}>Mes quittances</Text>
-      {quittances.length === 0 ? (
-        <Text style={styles.empty}>Aucune quittance pour l'instant.</Text>
-      ) : (
-        quittances.map((q) => (
-          <GlassPanel key={q.id} style={{ marginBottom: 8 }} contentStyle={styles.row}>
-            <View style={[styles.badge, q.statut === 'payee' ? styles.badgeOk : q.statut === 'annulee' ? styles.badgeMuted : styles.badgeWait]}>
-              <Ionicons
-                name={q.statut === 'payee' ? 'checkmark' : q.statut === 'annulee' ? 'close' : 'time-outline'}
-                size={16}
-                color="#F8FAFC"
+        {enAttente ? (
+          <GlassPanel style={styles.panel} contentStyle={styles.panelInner}>
+            <View style={styles.amountRow}>
+              <IconBadge icon="receipt-outline" tone="warn" size={44} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.amountLabel}>Quittance {enAttente.numero}</Text>
+                <Text style={styles.amountSmall}>{fcfa(enAttente.montant_fcfa)}</Text>
+                <Text style={styles.period}>
+                  {enAttente.nb_captures} capture(s) · émise le {fmtDate(enAttente.date_creation)}
+                </Text>
+              </View>
+            </View>
+            {enAttente.paiement && enAttente.paiement.statut === 'en_attente' ? (
+              <>
+                <Notice
+                  tone="warn"
+                  icon="phone-portrait-outline"
+                  text={`Paiement en attente · ${enAttente.paiement.msisdn ?? 'numéro enregistré'}`}
+                  style={{ marginTop: 0 }}
+                />
+                {!live ? (
+                  <GlowButton
+                    label="Confirmer le paiement (démo)"
+                    icon="checkmark-circle-outline"
+                    variant="accent"
+                    onPress={() =>
+                      void run(async () => {
+                        await confirmerQuittanceDemo(token, enAttente.paiement!.id);
+                        return 'Quittance payée (démonstration).';
+                      })
+                    }
+                    disabled={busy}
+                  />
+                ) : (
+                  <GlowButton
+                    label="Vérifier le paiement"
+                    icon="refresh-outline"
+                    variant="ghost"
+                    onPress={() => void run(() => waitLivePayment(enAttente.paiement!.id))}
+                    disabled={busy}
+                  />
+                )}
+              </>
+            ) : (
+              <GlowButton
+                label={live ? 'Payer par Airtel Money' : 'Payer (démo)'}
+                icon="card-outline"
+                variant="accent"
+                onPress={() =>
+                  void run(async () => {
+                    const r = await payerQuittance(token, enAttente.id, {
+                      operateur: live ? 'airtel_money' : 'demo',
+                    });
+                    if (live) return waitLivePayment(r.paiement.id);
+                    return `Paiement démonstration initié depuis ${r.paiement.msisdn ?? 'votre numéro'}.`;
+                  })
+                }
+                disabled={busy}
               />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>
-                {q.numero} · {fcfa(q.montant_fcfa)}
-              </Text>
-              <Text style={styles.rowMeta}>
-                {STATUT[q.statut] ?? q.statut} · {q.nb_captures} capture(s) · {fmtDate(q.date_creation)}
-                {q.date_paiement ? ` · payée le ${fmtDate(q.date_paiement)}` : ''}
-              </Text>
-            </View>
+            )}
           </GlassPanel>
-        ))
-      )}
-    </ScrollView>
+        ) : null}
+
+        {message ? <Notice tone="info" text={message} style={{ marginTop: 0, marginBottom: 12 }} /> : null}
+        {error ? <Notice tone="error" text={error} style={{ marginTop: 0, marginBottom: 12 }} /> : null}
+
+        <SectionTitle icon="mci:receipt-text-outline" text="Mes quittances" />
+        {quittances.length === 0 ? (
+          <Notice tone="muted" icon="receipt-outline" text="Aucune quittance pour l’instant." style={{ marginTop: 0 }} />
+        ) : (
+          quittances.map((q) => {
+            const tone = q.statut === 'payee' ? 'ok' : q.statut === 'annulee' ? 'muted' : 'warn';
+            return (
+              <ListRow
+                key={q.id}
+                icon={q.statut === 'payee' ? 'checkmark' : q.statut === 'annulee' ? 'close' : 'time-outline'}
+                tone={tone}
+                solid
+                title={fcfa(q.montant_fcfa)}
+                meta={`${q.numero} · ${q.nb_captures} capture(s) · ${fmtDate(q.date_paiement ?? q.date_creation)}`}
+                right={
+                  <View style={[styles.statusPill, { backgroundColor: tone === 'ok' ? 'rgba(4,120,87,0.12)' : tone === 'warn' ? 'rgba(180,83,9,0.14)' : colors.surface }]}>
+                    <Text style={[styles.statusText, { color: tone === 'ok' ? colors.success : tone === 'warn' ? colors.warn : colors.inkSoft }]}>
+                      {STATUT[q.statut] ?? q.statut}
+                    </Text>
+                  </View>
+                }
+              />
+            );
+          })
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: 48 },
-  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: space.md, alignSelf: 'flex-start', minHeight: 44 },
-  backText: { fontFamily: fonts.bodyMedium, color: colors.tide, marginLeft: 2, fontSize: 16 },
-  kicker: { fontFamily: fonts.bodyMedium, color: colors.tide, fontSize: 14 },
-  title: { fontFamily: fonts.display, fontSize: 28, color: colors.abyss },
-  lead: { fontFamily: fonts.body, color: colors.inkMuted, marginBottom: space.md, marginTop: 6, lineHeight: 24, fontSize: 16 },
+  root: { flex: 1 },
+  container: { paddingHorizontal: space.lg, paddingBottom: 48, paddingTop: 4 },
   panel: { marginBottom: space.md },
-  panelTitle: { fontFamily: fonts.bodyBold, color: colors.abyss, fontSize: 17, marginBottom: 4 },
-  amount: { fontFamily: fonts.display, fontSize: 30, color: colors.abyss, marginBottom: 4 },
-  meta: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13, lineHeight: 19, marginBottom: 8 },
-  ok: { fontFamily: fonts.bodyMedium, color: colors.success, fontSize: 14, marginTop: 4 },
-  groupeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.glassBorder },
+  panelInner: { padding: 16, gap: 12 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  amountLabel: { fontFamily: fonts.bodyMedium, color: colors.inkMuted, fontSize: 13 },
+  amount: { fontFamily: fonts.display, fontSize: 32, color: colors.abyss, letterSpacing: -0.4 },
+  amountSmall: { fontFamily: fonts.display, fontSize: 22, color: colors.abyss },
+  period: { fontFamily: fonts.body, color: colors.inkSoft, fontSize: 12, marginTop: 2 },
+  groupes: { borderTopWidth: 1, borderTopColor: colors.glassBorder },
+  groupeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.glassBorder,
+  },
   groupeLabel: { flex: 1, fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 14 },
   groupeKg: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13 },
-  groupeMontant: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 14 },
-  infoBox: { flexDirection: 'row', gap: 8, marginBottom: 12, padding: 12, borderRadius: radii.sm, backgroundColor: 'rgba(37, 99, 168, 0.08)' },
-  info: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },
-  errorBox: { flexDirection: 'row', gap: 8, marginBottom: 12, padding: 12, borderRadius: radii.sm, backgroundColor: 'rgba(185, 28, 28, 0.08)' },
-  error: { flex: 1, color: colors.danger, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
-  section: { fontFamily: fonts.bodyBold, color: colors.abyss, marginBottom: 10, fontSize: 15 },
-  empty: { color: colors.inkMuted, fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  badge: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  badgeOk: { backgroundColor: colors.success },
-  badgeWait: { backgroundColor: colors.warn },
-  badgeMuted: { backgroundColor: '#94A3B8' },
-  rowTitle: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
-  rowMeta: { fontFamily: fonts.body, color: colors.inkMuted, marginTop: 2, fontSize: 13, lineHeight: 18 },
+  groupeMontant: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 14, minWidth: 90, textAlign: 'right' },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.pill },
+  statusText: { fontFamily: fonts.bodyBold, fontSize: 12 },
 });

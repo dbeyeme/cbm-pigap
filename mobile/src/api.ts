@@ -394,6 +394,15 @@ export function getPayeur(token: string) {
   return request<Payeur>('/api/v1/abonnements/payeur', { token });
 }
 
+/** Le pêcheur met à jour lui-même son numéro Mobile Money. */
+export function updateMonTelephone(token: string, telephone: string) {
+  return request<UtilisateurMe>('/api/v1/auth/me/telephone', {
+    token,
+    method: 'PATCH',
+    body: JSON.stringify({ telephone }),
+  });
+}
+
 
 /* ——— Redevances : taxe à la production, quittances ——— */
 

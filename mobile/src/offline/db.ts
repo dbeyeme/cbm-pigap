@@ -29,6 +29,10 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       const db = await SQLite.openDatabaseAsync('pigap_captures.db');
       await db.execAsync(`
         PRAGMA journal_mode = WAL;
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY NOT NULL,
+          value TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS captures_local (
           id TEXT PRIMARY KEY NOT NULL,
           pecheur_id TEXT NOT NULL,
@@ -299,5 +303,27 @@ export async function markPositionsRejected(ids: string[], message: string): Pro
   await db.runAsync(
     `UPDATE positions_local SET sync_status = 'rejected', last_error = ? WHERE id IN (${placeholders})`,
     [message.slice(0, 500), ...ids],
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Réglages locaux de l'application (ex. écran de bienvenue déjà vu)
+// ---------------------------------------------------------------------------
+
+export async function getSetting(key: string): Promise<string | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ value: string }>(
+    'SELECT value FROM app_settings WHERE key = ?',
+    [key],
+  );
+  return row?.value ?? null;
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    [key, value],
   );
 }

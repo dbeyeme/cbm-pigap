@@ -70,3 +70,26 @@ export type EspeceMVP = string;
 export type MethodeMVP = string;
 
 export type SyncStatus = 'pending' | 'synced';
+
+/** Icônes d'interface (repères visuels, sans valeur métier). */
+export const GROUPES_ICON: Record<GroupeEspece, string> = {
+  pelagique: 'fa6:fish-fins',
+  demersal: 'mci:anchor',
+  crustace: 'fa6:shrimp',
+  autre: 'mci:turtle',
+};
+
+export function engineIcon(code: string): string {
+  if (code.startsWith('filet') || code.startsWith('senne')) return 'mci:waves';
+  if (code.startsWith('ligne') || code === 'palangre') return 'mci:hook';
+  if (code === 'nasse') return 'mci:basket-outline';
+  return 'ellipsis-horizontal-circle-outline';
+}
+
+export function especeNom(code: string): string {
+  return ESPECES_REF.find((e) => e.code === code)?.nom ?? code;
+}
+
+export function enginNom(code: string): string {
+  return ENGINS_REF.find((e) => e.code === code)?.nom ?? code;
+}

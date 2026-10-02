@@ -29,6 +29,12 @@ class UtilisateurRead(OrmModel):
     date_creation: datetime
 
 
+class TelephoneUpdate(BaseModel):
+    """Nouveau numéro Mobile Money du compte connecté (format gabonais)."""
+
+    telephone: str = Field(..., min_length=8, max_length=32)
+
+
 class LoginRequest(BaseModel):
     email: EmailStr | None = None
     telephone: str | None = None
