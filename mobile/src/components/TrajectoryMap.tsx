@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
@@ -8,16 +9,13 @@ type Props = {
   points: PositionPoint[];
 };
 
-/** Carte schématique de trajectoire (sans tuiles) — lisible en démo terrain. */
+/** Tracé schématique de la sortie (sans fond de carte) : aucun service externe requis. */
 export function TrajectoryMap({ points }: Props) {
   if (points.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>Pas encore de trajectoire</Text>
-        <Text style={styles.emptyBody}>
-          Simule un trajet sur le littoral gabonais (Estuaire, Port-Gentil ou Mayumba),
-          ou envoie ta position réelle en mer.
-        </Text>
+        <Ionicons name="navigate-outline" size={28} color={colors.tide} />
+        <Text style={styles.emptyTitle}>Aucun parcours enregistré</Text>
       </View>
     );
   }
@@ -47,14 +45,15 @@ export function TrajectoryMap({ points }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.caption}>
-        Trajectoire · {points.length} point{points.length > 1 ? 's' : ''} (ordre chrono)
-      </Text>
-      <Svg width="100%" height={200} viewBox={`0 0 ${vbW} ${vbH}`}>
+      <View style={styles.captionRow}>
+        <Ionicons name="git-branch-outline" size={14} color={colors.tide} />
+        <Text style={styles.caption}>Tracé schématique de la sortie</Text>
+      </View>
+      <Svg width="100%" height={220} viewBox={`0 0 ${vbW} ${vbH}`}>
         <Polyline
           points={poly}
           fill="none"
-          stroke={colors.foam}
+          stroke={colors.tide}
           strokeWidth={3}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -64,10 +63,10 @@ export function TrajectoryMap({ points }: Props) {
             key={`c-${i}`}
             cx={p.x}
             cy={p.y}
-            r={i === 0 || i === xy.length - 1 ? 7 : 5}
-            fill={i === 0 ? colors.foam : i === xy.length - 1 ? colors.accent : colors.tide}
-            stroke={colors.abyss}
-            strokeWidth={1.5}
+            r={i === 0 || i === xy.length - 1 ? 8 : 5}
+            fill={i === 0 ? colors.success : i === xy.length - 1 ? colors.warn : colors.tide}
+            stroke="#FFFFFF"
+            strokeWidth={2}
           />
         ))}
         {xy.length >= 2 ? (
@@ -76,16 +75,16 @@ export function TrajectoryMap({ points }: Props) {
             y1={xy[xy.length - 2].y}
             x2={xy[xy.length - 1].x}
             y2={xy[xy.length - 1].y}
-            stroke={colors.accent}
+            stroke={colors.warn}
             strokeWidth={2}
             strokeDasharray="4 3"
           />
         ) : null}
       </Svg>
       <View style={styles.legend}>
-        <LegendDot color={colors.foam} label="Départ" />
+        <LegendDot color={colors.success} label="Départ" />
         <LegendDot color={colors.tide} label="Étapes" />
-        <LegendDot color={colors.accent} label="Dernier" />
+        <LegendDot color={colors.warn} label="Dernière position" />
       </View>
     </View>
   );
@@ -104,19 +103,24 @@ const styles = StyleSheet.create({
   wrap: {
     borderRadius: radii.md,
     overflow: 'hidden',
-    backgroundColor: 'rgba(2, 26, 34, 0.45)',
+    backgroundColor: '#E6EEF6',
     borderWidth: 1,
     borderColor: colors.glassBorder,
     paddingBottom: 10,
     marginBottom: 12,
   },
-  caption: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.foam,
-    fontSize: 12,
+  captionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingTop: 10,
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  caption: {
+    fontFamily: fonts.bodyMedium,
+    color: colors.tide,
+    fontSize: 12,
   },
   legend: {
     flexDirection: 'row',
@@ -132,19 +136,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     borderStyle: 'dashed',
-    padding: 16,
+    padding: 20,
     marginBottom: 12,
-    backgroundColor: 'rgba(2, 26, 34, 0.25)',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#E6EEF6',
   },
   emptyTitle: {
-    fontFamily: fonts.bodyBold,
-    color: colors.ink,
-    marginBottom: 6,
-  },
-  emptyBody: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bodyMedium,
     color: colors.inkMuted,
-    lineHeight: 20,
-    fontSize: 13,
+    fontSize: 14,
   },
 });

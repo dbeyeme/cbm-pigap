@@ -71,8 +71,12 @@ cd android && ./gradlew assembleRelease
 
 Identifiant d’application : `com.kimbaconnect.cbmpigap` (`app.json`). La version release est signée
 avec la clé de débogage par défaut : suffisant pour une installation directe, à remplacer par une
-clé propre avant toute publication sur un magasin. La carte Android (Google Maps) nécessite une clé
-d’API dans `app.json` ; sans clé, le fond de carte reste vide sur Android.
+clé propre avant toute publication sur un magasin.
+
+Carte Android : Google Maps exige une clé d’API. Déclarez `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY`
+dans `mobile/.env` avant `expo prebuild` ; `app.config.js` l’injecte dans le manifeste et l’écran
+GPS affiche le fond de carte. Sans clé, l’écran GPS affiche un tracé schématique de la sortie
+(aucun plantage, aucun service externe).
 
 ## Écran de bienvenue et numéro Mobile Money
 

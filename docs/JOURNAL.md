@@ -1271,3 +1271,30 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - APK signé avec la clé de débogage : prévoir une clé de signature propre avant publication
 - Carte Android sans clé Google Maps : fond vide ; clé à fournir par le client dans `app.json`
 - Test M6 `alertes_actives` : purger la base de test ou filtrer les alertes par période pour rendre le test indépendant des données accumulées
+
+---
+
+## [2026-10-04] — Correctif Android : plantage de l'écran GPS sans clé Google Maps
+
+**Ce qui a été construit :**
+- Diagnostic sur émulateur Android (journal système) : `IllegalStateException: API key not found` à la création de la vue carte ; Google Maps exige une clé d'API dans le manifeste, et l'application se fermait à l'ouverture de l'onglet GPS
+- `TrajectoryNativeMap` : sur Android sans clé (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` absente au build), affichage du tracé schématique `TrajectoryMap` (SVG, sans fond de carte, aucun service externe) ; iOS inchangé (Apple Plans)
+- `TrajectoryMap` repris dans le thème clair : départ, étapes et dernière position différenciés
+- `app.config.js` : injecte la clé Google Maps dans le manifeste Android quand la variable est définie ; le fond de carte s'active alors sans autre changement
+- APK 0.1.1 (`versionCode` 2) recompilé
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.2 : le suivi GPS doit rester utilisable sur le terrain ; un plantage bloquant est inacceptable, le tracé schématique conserve l'information de parcours
+- Aucune clé Google Maps n'est disponible côté client à ce jour ; l'application ne doit pas en dépendre
+
+**Technologies / principes utilisés :**
+- Variable publique Expo lue au build, même source pour le manifeste (`app.config.js`) et pour le garde-fou JavaScript
+- Vérification par `adb logcat -b crash` et `pidof` après ouverture de l'écran GPS
+
+**Tests réalisés :**
+- Émulateur Android 16 (API 36.1) : APK initial, plantage reproduit ; APK corrigé, bienvenue, connexion et GPS sans exception, processus vivant
+- `tsc --noEmit` (mobile) : OK
+
+**Points ouverts / dette technique :**
+- Fond de carte Android : fournir une clé Google Maps (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` dans `mobile/.env`) puis relancer `expo prebuild` et la compilation
+- L'émulateur de développement était presque plein (93 %) : désinstaller l'ancienne version avant d'installer un nouvel APK
