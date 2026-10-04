@@ -5,7 +5,7 @@ import { PositionPoint } from '../api';
 import { isOnWater } from '../geo/gabonMaritimeRoutes';
 import { colors, fonts, radii } from '../theme';
 import { ShipRadarMarker } from './ShipRadarMarker';
-import { TrajectoryMap } from './TrajectoryMap';
+import { TileTrajectoryMap } from './TileTrajectoryMap';
 
 type Props = {
   points: PositionPoint[];
@@ -15,15 +15,16 @@ type Props = {
  * Sur Android, Google Maps exige une clé d'API déclarée dans le manifeste ;
  * sans elle, la création de la vue carte lève une exception et l'application
  * se ferme. La clé est injectée au build par `app.config.js` depuis
- * EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ; en son absence, on affiche le tracé
- * schématique (sans fond de carte), qui ne dépend d'aucun service.
+ * EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ; en son absence, on assemble un fond
+ * OpenStreetMap par tuiles (aucune clé, aucun SDK natif), avec repli sur le
+ * tracé schématique hors réseau.
  */
 const ANDROID_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ?? '';
 export const NATIVE_MAP_AVAILABLE = Platform.OS === 'ios' || ANDROID_MAPS_KEY.length > 0;
 
 export function TrajectoryNativeMap({ points }: Props) {
   if (!NATIVE_MAP_AVAILABLE) {
-    return <TrajectoryMap points={points.filter((p) => isOnWater(...p.position.coordinates))} />;
+    return <TileTrajectoryMap points={points.filter((p) => isOnWater(...p.position.coordinates))} />;
   }
   return <GoogleOrAppleMap points={points} />;
 }

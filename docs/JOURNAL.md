@@ -1298,3 +1298,32 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Points ouverts / dette technique :**
 - Fond de carte Android : fournir une clé Google Maps (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` dans `mobile/.env`) puis relancer `expo prebuild` et la compilation
 - L'émulateur de développement était presque plein (93 %) : désinstaller l'ancienne version avant d'installer un nouvel APK
+
+
+---
+
+## [2026-10-04] — Android : fond de carte par tuiles raster sur l'écran GPS
+
+**Ce qui a été construit :**
+- `TileTrajectoryMap` : fond de carte assemblé à partir de tuiles raster (images positionnées en projection Web Mercator), parcours superposé en SVG, marqueur navire sur la dernière position, zoom choisi pour contenir toute la sortie, attribution affichée
+- Fournisseur par défaut : fond routier Esri (ArcGIS Online, sans clé). Constaté sur émulateur : openstreetmap.org renvoie 403 aux applications (politique d'usage) et CARTO sert un filigrane « API key required » ; URL et attribution configurables par variables de build
+- Repli schématique seulement si toutes les tuiles échouent (une tuile manquante n'efface pas la carte)
+- Hors réseau (échec de chargement d'une tuile) : repli sur le tracé schématique
+- Utilisé sur Android sans clé Google Maps ; iOS conserve la carte native ; une clé Google réactive la carte native sur Android
+- APK 0.1.2 (`versionCode` 3)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Retour porteur du 2026-10-04 : le tracé schématique seul ne permet pas de situer la sortie ; §5.2 exige une lecture géographique réelle
+- Aucune clé Google disponible ; OpenStreetMap ne demande ni clé ni SDK natif
+
+**Technologies / principes utilisés :**
+- Image RN par tuile, projection calculée dans l'application, aucun module natif supplémentaire
+- Image RN par tuile, gabarit d'URL avec `{s}`, `{z}`, `{x}`, `{y}` ; conditions d'usage Esri à confirmer et fournisseur contractualisé à prévoir avant déploiement large
+
+**Tests réalisés :**
+- `tsc --noEmit` (mobile) : OK
+- Émulateur Android 16, APK 0.1.2 : écran GPS avec fond Esri, parcours de démonstration situé au large de Port-Gentil, processus vivant, aucune exception
+
+**Points ouverts / dette technique :**
+- Pas de déplacement ni de zoom tactile sur ce fond de carte (vue cadrée automatiquement sur la sortie)
+- Fournisseur de tuiles à contractualiser pour la Phase 3 élargie

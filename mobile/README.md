@@ -73,10 +73,15 @@ Identifiant d’application : `com.kimbaconnect.cbmpigap` (`app.json`). La versi
 avec la clé de débogage par défaut : suffisant pour une installation directe, à remplacer par une
 clé propre avant toute publication sur un magasin.
 
-Carte Android : Google Maps exige une clé d’API. Déclarez `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY`
-dans `mobile/.env` avant `expo prebuild` ; `app.config.js` l’injecte dans le manifeste et l’écran
-GPS affiche le fond de carte. Sans clé, l’écran GPS affiche un tracé schématique de la sortie
-(aucun plantage, aucun service externe).
+Carte Android : sans clé Google, l’écran GPS assemble un fond de carte par tuiles raster
+(`TileTrajectoryMap`) avec le parcours superposé en projection Web Mercator ; hors réseau, repli
+sur le tracé schématique (uniquement si toutes les tuiles échouent). Fournisseur par défaut : fond
+routier Esri (ArcGIS Online, sans clé, attribution affichée). Les serveurs publics
+d’openstreetmap.org (403) et de CARTO (filigrane « API key required ») refusent les applications.
+Variables de build facultatives : `EXPO_PUBLIC_TILE_URL_TEMPLATE` (`{s}`, `{z}`, `{x}`, `{y}`) et
+`EXPO_PUBLIC_TILE_ATTRIBUTION`. Prévoir un fournisseur contractualisé avant un déploiement large. Pour Google Maps, déclarez
+`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` dans `mobile/.env` avant `expo prebuild` ; `app.config.js`
+l’injecte dans le manifeste et la carte native prend le relais.
 
 ## Écran de bienvenue et numéro Mobile Money
 
