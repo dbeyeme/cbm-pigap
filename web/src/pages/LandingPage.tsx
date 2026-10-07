@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState, type ComponentType } from 'react';
 
 import DemandeLicenceWizard from '../components/DemandeLicenceWizard';
-import { IconAlert, IconClose, IconDashboard, IconFileText, IconFish, IconLogin, IconMenu, IconShield, IconShip, IconUsers } from '../components/Icons';
+import { IconAlert, IconClose, IconDashboard, IconDownload, IconFileText, IconFish, IconLogin, IconMenu, IconShield, IconShip, IconUsers } from '../components/Icons';
 import Modal from '../components/Modal';
 import { ILLUSTRATIONS } from '../media';
 
@@ -67,6 +67,16 @@ const SERVICES: Service[] = [
     Icon: IconShield,
   },
 ];
+
+/** Application mobile Android : APK publié en pièce jointe de la dernière version du dépôt. */
+const APK = {
+  url:
+    import.meta.env.VITE_APK_URL ??
+    'https://github.com/dbeyeme/cbm-pigap/releases/latest/download/CBM-PIGAP.apk',
+  version: '0.1.2',
+  taille: '95 Mo',
+  android: 'Android 7.0 ou plus récent',
+};
 
 /** Landing publique — hero épuré, CTAs clairs, nav mobile. */
 export default function LandingPage({
@@ -137,6 +147,7 @@ export default function LandingPage({
         <nav className="ds-fo-nav" aria-label="Sections">
           <a href="#accueil">Accueil</a>
           <a href="#services">Services</a>
+          <a href="#application">Application</a>
           <a href="#apropos">À propos</a>
         </nav>
         <div className="ds-fo-actions">
@@ -175,6 +186,9 @@ export default function LandingPage({
           <a href="#services" onClick={() => setNavOpen(false)}>
             Services
           </a>
+          <a href="#application" onClick={() => setNavOpen(false)}>
+            Application mobile
+          </a>
           <a href="#apropos" onClick={() => setNavOpen(false)}>
             À propos
           </a>
@@ -202,6 +216,7 @@ export default function LandingPage({
           <div className="ds-fo-cta-row">
             <button type="button" className="btn-primary ds-fo-cta-main" onClick={openDemande}><IconFileText size={16} /> Demande de licence</button>
             <button type="button" className="ds-fo-cta-ghost" onClick={openLogin}><IconLogin size={16} /> Connexion autorités</button>
+            <a className="ds-fo-cta-ghost" href="#application"><IconDownload size={16} /> Application Android</a>
           </div>
         </div>
       </section>
@@ -225,6 +240,47 @@ export default function LandingPage({
             </article>
           ))}
         </div>
+      </section>
+
+      <section id="application" className="ds-fo-app" aria-labelledby="fo-app-title">
+        <div className="ds-fo-app-copy">
+          <p className="ds-fo-app-kicker">Application mobile</p>
+          <h2 id="fo-app-title">CBM-PIGAP sur votre téléphone Android</h2>
+          <p>
+            Pour les pêcheurs et les agents de terrain : suivi GPS des sorties, déclaration des
+            captures, abonnement et redevances, vérification des licences. Les positions GPS et les captures enregistrées sans
+            réseau sont transmises dès le retour de la connexion.
+          </p>
+          <div className="ds-fo-app-actions">
+            <a className="ds-fo-app-download" href={APK.url} download="CBM-PIGAP.apk" rel="noopener">
+              <IconDownload size={18} /> Télécharger l’application
+            </a>
+            <span className="ds-fo-app-meta">
+              Version {APK.version} · {APK.taille} · {APK.android}
+            </span>
+          </div>
+          <p className="ds-fo-app-hint">
+            Depuis un ordinateur, ouvrez cette page sur le téléphone à équiper pour y installer
+            l’application directement.
+          </p>
+        </div>
+        <ol className="ds-fo-app-steps">
+          <li>
+            <strong>Téléchargez le fichier</strong>
+            <span>Touchez « Télécharger l’application » et confirmez l’enregistrement du fichier CBM-PIGAP.apk.</span>
+          </li>
+          <li>
+            <strong>Autorisez l’installation</strong>
+            <span>
+              À l’ouverture du fichier, Android demande d’autoriser le navigateur à installer des
+              applications : ouvrez les paramètres proposés et activez l’autorisation.
+            </span>
+          </li>
+          <li>
+            <strong>Installez et connectez-vous</strong>
+            <span>Touchez « Installer », puis ouvrez CBM-PIGAP et connectez-vous avec votre e-mail et votre mot de passe.</span>
+          </li>
+        </ol>
       </section>
 
       <section id="apropos" className="ds-fo-mission">
@@ -261,6 +317,7 @@ export default function LandingPage({
         <nav aria-label="Pied de page">
           <a href="#accueil">Accueil</a>
           <a href="#services">Services</a>
+          <a href="#application">Application</a>
           <a href="#apropos">À propos</a>
           <button type="button" className="linkish" onClick={openLogin}><IconLogin size={16} /> Connexion</button>
         </nav>

@@ -73,6 +73,17 @@ Identifiant d’application : `com.kimbaconnect.cbmpigap` (`app.json`). La versi
 avec la clé de débogage par défaut : suffisant pour une installation directe, à remplacer par une
 clé propre avant toute publication sur un magasin.
 
+Diffusion : l’accueil du portail web (section « Application mobile ») pointe vers
+`https://github.com/dbeyeme/cbm-pigap/releases/latest/download/CBM-PIGAP.apk` (adresse modifiable
+par `VITE_APK_URL` côté web). Pour diffuser une nouvelle version, publier l’APK sous le nom exact
+`CBM-PIGAP.apk` dans une nouvelle version GitHub marquée « latest », puis mettre à jour la version
+et la taille affichées dans `web/src/pages/LandingPage.tsx` (constante `APK`) :
+
+```bash
+cp dist/CBM-PIGAP-<version>.apk /tmp/CBM-PIGAP.apk
+gh release create v<version>-mobile /tmp/CBM-PIGAP.apk --latest --title "Application Android <version>"
+```
+
 Carte Android : sans clé Google, l’écran GPS assemble un fond de carte par tuiles raster
 (`TileTrajectoryMap`) avec le parcours superposé en projection Web Mercator ; hors réseau, repli
 sur le tracé schématique (uniquement si toutes les tuiles échouent). Fournisseur par défaut : fond

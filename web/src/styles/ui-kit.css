@@ -2987,3 +2987,121 @@ input.is-locked {
 
 .ds-kpi-warn .ds-kpi-value { color: #b45309; }
 .ds-kpi-warn .ds-kpi-icon { background: rgba(217, 119, 6, 0.12); color: #b45309; }
+
+/* --------------------------------------------------------------------------
+   Accueil public : téléchargement de l'application Android
+   -------------------------------------------------------------------------- */
+.ds-fo-app {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: clamp(20px, 4vw, 48px);
+  align-items: center;
+  margin: 0 clamp(16px, 4vw, 40px);
+  padding: clamp(28px, 5vw, 48px) clamp(20px, 4vw, 44px);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, var(--deep) 0%, var(--abyss) 100%);
+  color: #f1f5f9;
+  box-shadow: var(--shadow-soft);
+  scroll-margin-top: 96px;
+}
+.ds-fo-app-kicker {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9fd0f0;
+}
+.ds-fo-app-copy h2 {
+  font-family: var(--font-display);
+  color: #fff;
+  margin: 0 0 12px;
+}
+.ds-fo-app-copy > p {
+  color: rgba(241, 245, 249, 0.85);
+  max-width: 52ch;
+  margin: 0;
+}
+.ds-fo-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 22px 0 14px;
+}
+.ds-fo-app-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--abyss);
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur) ease;
+}
+.ds-fo-app-download:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  color: var(--abyss);
+}
+.ds-fo-app-download:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(159, 208, 240, 0.55);
+}
+.ds-fo-app-meta {
+  font-size: 0.82rem;
+  color: rgba(241, 245, 249, 0.7);
+}
+.ds-fo-app .ds-fo-app-hint {
+  font-size: 0.82rem;
+  color: rgba(241, 245, 249, 0.65);
+}
+.ds-fo-app-steps {
+  list-style: none;
+  counter-reset: fo-app-step;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.ds-fo-app-steps li {
+  counter-increment: fo-app-step;
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px 14px 58px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ds-fo-app-steps li::before {
+  content: counter(fo-app-step);
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  background: rgba(159, 208, 240, 0.18);
+  color: #cfe8f8;
+}
+.ds-fo-app-steps strong {
+  color: #fff;
+}
+.ds-fo-app-steps span {
+  font-size: 0.86rem;
+  color: rgba(241, 245, 249, 0.75);
+}
+@media (max-width: 860px) {
+  .ds-fo-app {
+    grid-template-columns: 1fr;
+  }
+}

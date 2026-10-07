@@ -1327,3 +1327,30 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Points ouverts / dette technique :**
 - Pas de déplacement ni de zoom tactile sur ce fond de carte (vue cadrée automatiquement sur la sortie)
 - Fournisseur de tuiles à contractualiser pour la Phase 3 élargie
+
+---
+
+## [2026-10-08] — Portail web : téléchargement de l'application Android depuis l'accueil
+
+**Ce qui a été construit :**
+- Section « Application mobile » sur la page d'accueil publique (`#application`) : présentation de l'application, bouton « Télécharger l'application », version, taille et version Android minimale, trois étapes d'installation (téléchargement, autorisation d'installation par le navigateur, installation et connexion)
+- Accès depuis le menu d'en-tête, le menu mobile, le pied de page et un bouton secondaire dans le bandeau d'accueil
+- APK 0.1.2 publié en pièce jointe de la version GitHub `v0.1.2-mobile` (dépôt public) sous le nom `CBM-PIGAP.apk` ; le bouton vise l'adresse « dernière version », qui suivra les publications futures sans modifier le portail ; adresse surchargeable par `VITE_APK_URL`
+- Styles dans `web/src/styles/ui-kit.css` ; procédure de diffusion dans `mobile/README.md`
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Demande porteur du 2026-10-08 : permettre aux utilisateurs d'installer l'application directement sur leur téléphone Android depuis la plateforme
+- Hébergement hors du site et hors de git : l'APK (95 Mo) approche la limite de 100 Mo par fichier de GitHub et alourdirait chaque déploiement du portail
+
+**Technologies / principes utilisés :**
+- Lien de téléchargement direct (attribut `download`), aucun service tiers ajouté
+- Android 7.0 minimum : `minSdk` 24 de React Native (`mobile/node_modules/react-native/gradle/libs.versions.toml`)
+
+**Tests réalisés :**
+- `npm run build` (web) : OK
+- Rendu vérifié en largeur bureau et mobile (375 px), sans défilement horizontal
+- `https://github.com/dbeyeme/cbm-pigap/releases/latest/download/CBM-PIGAP.apk` : HTTP 200, type `application/vnd.android.package-archive`, 95 145 940 octets (identique à `mobile/dist/CBM-PIGAP-0.1.2.apk`, SHA-256 `57a6c700…3ded3`)
+
+**Points ouverts / dette technique :**
+- APK toujours signé avec la clé de débogage : une clé de signature propre reste à prévoir avant diffusion large (une mise à jour signée avec une autre clé imposera de désinstaller l'ancienne version)
+- Version et taille affichées sur l'accueil à mettre à jour à chaque nouvel APK
