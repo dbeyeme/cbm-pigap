@@ -1,15 +1,16 @@
+import type { ReactNode } from 'react';
+
 import { NotificationSummary } from '../api';
 import { PAGE_TITLES, roleLabelFr, type Page } from '../nav';
-import { IconMenu, IconSearch } from './Icons';
+import { IconMenu } from './Icons';
 import NotificationBell from './NotificationBell';
 
 type Props = {
   page: Page;
   meRole: string | null;
   meNom: string | null;
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
-  onSearchSubmit: () => void;
+  /** Recherche globale (suggestions et critères avancés). */
+  search?: ReactNode;
   notifSummary: NotificationSummary;
   notifConnected: boolean;
   notifOpen: boolean;
@@ -34,9 +35,7 @@ export default function AppTopbar({
   page,
   meRole,
   meNom,
-  searchQuery,
-  onSearchChange,
-  onSearchSubmit,
+  search,
   notifSummary,
   notifConnected,
   notifOpen,
@@ -68,24 +67,7 @@ export default function AppTopbar({
         </div>
       </div>
 
-      <form
-        className="ds-topbar-search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearchSubmit();
-        }}
-      >
-        <span className="ds-topbar-search-icon" aria-hidden>
-          <IconSearch size={18} />
-        </span>
-        <input
-          type="search"
-          placeholder="Rechercher un navire, un acteur, une zone…"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          aria-label="Recherche"
-        />
-      </form>
+      {search}
 
       <div className="ds-topbar-meta">
         <span

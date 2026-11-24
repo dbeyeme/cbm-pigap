@@ -19,6 +19,8 @@ type Props = {
   onOpenTrajectory: (s: TrajectorySegment) => void;
   initialTab?: Tab;
   isSuperAdmin?: boolean;
+  /** Recherche à poser dans l'onglet des pêcheurs (recherche globale). */
+  initialQuery?: string;
 };
 
 export default function ActeursHub({
@@ -29,12 +31,22 @@ export default function ActeursHub({
   onOpenTrajectory,
   initialTab = 'demandes',
   isSuperAdmin = false,
+  initialQuery,
 }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
 
   return (
     <section className="stage stage-wide ds-hub">
-      <PageBanner photo="peche" eyebrow="Registre" title="Acteurs">
+      <PageBanner
+        photo="peche"
+        eyebrow="Registre"
+        title="Acteurs"
+        aide={{
+          titre: 'Le registre',
+          texte:
+            'Instruisez d’abord les demandes de licence. Une demande approuvée crée le pêcheur ; le numéro de licence et, si besoin, l’immatriculation de l’embarcation sont attribués automatiquement.',
+        }}
+      >
         <p>Demandes de licence, pêcheurs, organisations et abonnements.</p>
       </PageBanner>
       <HubTabs
@@ -55,6 +67,7 @@ export default function ActeursHub({
             onError={onError}
             colorFor={colorFor}
             onOpenTrajectory={onOpenTrajectory}
+            initialQuery={initialQuery}
           />
         ) : null}
         {tab === 'organisations' ? <OrganisationsPage token={token} onError={onError} /> : null}

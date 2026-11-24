@@ -33,6 +33,7 @@ import PirogueDetailDrawer from './components/PirogueDetailDrawer';
 import SeaStatePanel from './components/SeaStatePanel';
 import HelpTip from './components/HelpTip';
 import AppTopbar from './components/AppTopbar';
+import GlobalSearch from './components/GlobalSearch';
 import CompactList from './components/CompactList';
 import {
   IconAnchor,
@@ -42,6 +43,7 @@ import {
   IconShip,
   IconWaves,
 } from './components/Icons';
+import MapLegend from './components/MapLegend';
 import MapToolbar, { MapPanel } from './components/MapToolbar';
 import { useToast } from './components/ToastProvider';
 import { syncGabonBoundariesOnMap } from './geo/gabonBoundary';
@@ -104,6 +106,31 @@ function isMapPage(page: Page): boolean {
   return page === 'navires' || page === 'map' || page === 'surveillance';
 }
 
+/**
+ * Session conservée le temps de l'onglet : un rechargement de la page ne déconnecte plus.
+ * `sessionStorage` et non `localStorage` : le jeton disparaît à la fermeture de l'onglet
+ * (standards, section 9, à défaut de jeton de renouvellement côté serveur).
+ */
+const CLE_JETON = 'pigap.jeton';
+const CLE_PAGE = 'pigap.page';
+
+function lireSession(cle: string): string | null {
+  try {
+    return window.sessionStorage.getItem(cle);
+  } catch {
+    return null;
+  }
+}
+
+function ecrireSession(cle: string, valeur: string | null): void {
+  try {
+    if (valeur == null) window.sessionStorage.removeItem(cle);
+    else window.sessionStorage.setItem(cle, valeur);
+  } catch {
+    /* stockage indisponible (navigation privée) : la session reste en mémoire */
+  }
+}
+
 /** Panneaux de la carte ; un seul ouvert à la fois, aucun par défaut (carte dégagée). */
 type MapPanelId = 'couches' | 'navires' | 'mer' | 'ports';
 
@@ -141,6 +168,8 @@ export default function App() {
   const shipMarkers = useRef<maplibregl.Marker[]>([]);
   const aisMarkers = useRef<maplibregl.Marker[]>([]);
   const alertMarkers = useRef<maplibregl.Marker[]>([]);
+  /** Dernier contexte pour lequel la carte a été recadrée (page, mode, sélection). */
+  const lastFit = useRef('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [token, setToken] = useState<string | null>(null);
@@ -179,7 +208,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  /** Recherche globale : terme à poser dans le registre, zone à ouvrir dans la cartographie. */
+  const [rechercheRegistre, setRechercheRegistre] = useState('');
+  const [zoneAOuvrir, setZoneAOuvrir] = useState<string | null>(null);
   const [acteursTab, setActeursTab] = useState<
     'demandes' | 'licences' | 'organisations' | 'abonnements'
   >('demandes');
@@ -219,9 +250,31 @@ export default function App() {
   const fullBleed = onMap || page === 'cartographie' || page === 'zones';
 
   /** Sur petit écran, la fiche ouverte prend la place du panneau. */
-  function closePanelOnSmallScreen() {
-    if (window.matchMedia('(max-width: 768px)').matches) setMapPanel(null);
+  function sceneEtroite(): boolean {
+    return (mapStage.stageRef.current?.clientWidth ?? window.innerWidth) <= 760;
   }
+
+  function closePanelOnSmallScreen() {
+    if (sceneEtroite()) setMapPanel(null);
+  }
+
+  // La fiche et le panneau recouvrent une partie de la carte : le centre utile se décale
+  // d'autant, pour qu'un navire sélectionné ne se retrouve jamais dessous.
+  useEffect(() => {
+    const map = mapObj.current;
+    if (!map || !onMap) return;
+    const fiche = Boolean(selectedMmsi || selectedEmbarcation);
+    const etroit = sceneEtroite();
+    const padding = etroit
+      ? {
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: fiche || mapPanel ? Math.round(map.getContainer().clientHeight * 0.5) : 0,
+        }
+      : { top: 0, bottom: 0, left: mapPanel ? 384 : 0, right: fiche ? 404 : 0 };
+    map.easeTo({ padding, duration: 280 });
+  }, [onMap, mapPanel, selectedMmsi, selectedEmbarcation]);
 
   useEffect(() => {
     if (!token || !meRole) return;
@@ -280,6 +333,7 @@ export default function App() {
       clearMarkers(alertMarkers.current);
       map.remove();
       mapObj.current = null;
+      lastFit.current = '';
     };
   }, [onMap]);
 
@@ -383,6 +437,7 @@ export default function App() {
               name: v.nom,
               kind: silhouetteForType(v.type_label, v.ship_type),
               headingDeg: v.heading_deg ?? v.cog_deg ?? null,
+              speedKn: v.sog_kn ?? null,
               lengthM: v.longueur_m ?? null,
               flagCode: v.pavillon_code ?? null,
               label: `entrée prévue ${v.entree_prevue_h != null ? `dans ${Math.round(v.entree_prevue_h)} h` : ''}`,
@@ -446,6 +501,7 @@ export default function App() {
               kind: silhouetteForType(v.type_label, v.ship_type),
               statut: v.statut_nav,
               headingDeg: v.heading_deg ?? v.cog_deg ?? null,
+              speedKn: v.sog_kn ?? null,
               lengthM: v.longueur_m ?? null,
               flagCode: v.pavillon_code ?? null,
               label: v.demo
@@ -460,6 +516,7 @@ export default function App() {
               name: v.nom,
               kind: silhouetteForType(v.type_label, v.ship_type),
               headingDeg: v.heading_deg ?? v.cog_deg ?? null,
+              speedKn: v.sog_kn ?? null,
               lengthM: v.longueur_m ?? null,
               flagCode: v.pavillon_code ?? null,
               label: `entrée prévue ${v.entree_prevue_h != null ? `dans ${Math.round(v.entree_prevue_h)} h` : ''}`,
@@ -470,8 +527,14 @@ export default function App() {
         );
       };
 
+      // Recadrage seulement quand le contexte change : un rafraîchissement des positions
+      // (toutes les vingt secondes) ne doit jamais défaire le zoom de l'utilisateur.
+      const fitKey = `${page}|${liveMode ? 'direct' : 'trajets'}|${selectedId ?? ''}|${visible.length === 0 ? 'vide' : 'trajets'}`;
+      const doitRecadrer = lastFit.current !== fitKey;
+      lastFit.current = fitKey;
+
       if (visible.length === 0) {
-        clearMarkers(shipMarkers.current);
+        if (!(liveMode && liveVisible.length)) clearMarkers(shipMarkers.current);
         if (liveMode && liveVisible.length) {
           placeShipMarkers(
             map,
@@ -498,13 +561,15 @@ export default function App() {
         } else {
           clearMarkers(aisMarkers.current);
         }
-        map.fitBounds(
-          [
-            [GABON_COAST_BOUNDS.west, GABON_COAST_BOUNDS.south],
-            [GABON_COAST_BOUNDS.east, GABON_COAST_BOUNDS.north],
-          ],
-          { padding: 32, maxZoom: 7 },
-        );
+        if (doitRecadrer) {
+          map.fitBounds(
+            [
+              [GABON_COAST_BOUNDS.west, GABON_COAST_BOUNDS.south],
+              [GABON_COAST_BOUNDS.east, GABON_COAST_BOUNDS.north],
+            ],
+            { padding: 32, maxZoom: 7 },
+          );
+        }
       } else {
         const features: Array<{
           type: 'Feature';
@@ -629,7 +694,7 @@ export default function App() {
 
         flowAnim.current = startLineFlowAnimation(map, lineId);
 
-        if (!liveMode && allCoords.length) {
+        if (doitRecadrer && !liveMode && allCoords.length) {
           const bounds = allCoords.reduce(
             (b, c) => b.extend(c),
             new maplibregl.LngLatBounds(allCoords[0], allCoords[0]),
@@ -911,25 +976,69 @@ export default function App() {
     }
   }
 
-  async function goMap(as: 'navires' | 'surveillance' = 'navires') {
-    if (!token) return;
+  /** Charge les données de la carte ; `jeton` est passé explicitement pour servir aussi à la restauration. */
+  async function chargerCarte(jeton: string, as: 'navires' | 'surveillance') {
     setPage(as);
     setError(null);
     if (as === 'surveillance') setShowZonesOverlay(true);
     setLoading(true);
     try {
-      await loadTrajectories(token);
-      await loadLive(token);
-      await loadAis(token, true);
-      await ensureZones(token);
-      void loadPresence(token);
-      void loadMeteo(token);
+      await loadTrajectories(jeton);
+      await loadLive(jeton);
+      await loadAis(jeton, true);
+      await ensureZones(jeton);
+      void loadPresence(jeton);
+      void loadMeteo(jeton);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Chargement impossible');
     } finally {
       setLoading(false);
     }
   }
+
+  async function goMap(as: 'navires' | 'surveillance' = 'navires') {
+    if (!token) return;
+    await chargerCarte(token, as);
+  }
+
+  // Restauration de la session après un rechargement de la page.
+  useEffect(() => {
+    const jeton = lireSession(CLE_JETON);
+    if (!jeton) return;
+    let annule = false;
+    fetchMe(jeton)
+      .then((me) => {
+        if (annule || me.role === 'pecheur') return;
+        setToken(jeton);
+        setMeId(me.id);
+        setMeNom(me.nom);
+        setMeRole(me.role);
+        if (me.role === 'organisation') {
+          setPage('org');
+          return;
+        }
+        const memo = lireSession(CLE_PAGE) as Page | null;
+        if (memo === 'navires' || memo === 'surveillance') {
+          void chargerCarte(jeton, memo);
+        } else {
+          if (memo && canAccessPage(me.role, memo)) setPage(memo);
+          void loadTrajectories(jeton);
+        }
+      })
+      .catch(() => {
+        // Jeton expiré ou refusé : retour à la connexion, sans message d'erreur.
+        if (!annule) ecrireSession(CLE_JETON, null);
+      });
+    return () => {
+      annule = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // La page courante est mémorisée pour être retrouvée après un rechargement.
+  useEffect(() => {
+    if (token) ecrireSession(CLE_PAGE, page);
+  }, [token, page]);
 
   useEffect(() => {
     if (!token || !onMap || !liveMode) return;
@@ -1053,6 +1162,7 @@ export default function App() {
         );
       }
       setToken(res.access_token);
+      ecrireSession(CLE_JETON, res.access_token);
       setMeId(me.id);
       setMeNom(me.nom);
       setMeRole(me.role);
@@ -1092,6 +1202,8 @@ export default function App() {
   }
 
   function logout() {
+    ecrireSession(CLE_JETON, null);
+    ecrireSession(CLE_PAGE, null);
     setToken(null);
     setMeId(null);
     setMeNom(null);
@@ -1161,16 +1273,44 @@ export default function App() {
           page={page}
           meRole={meRole}
           meNom={meNom}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onSearchSubmit={() => {
-            if (!canAccessPage(meRole, 'acteurs')) {
-              setError('Recherche acteurs réservée aux agents / admins.');
-              return;
-            }
-            setActeursTab('licences');
-            setPage('acteurs');
-          }}
+          search={
+            <GlobalSearch
+              token={token}
+              peutVoirRegistre={canAccessPage(meRole, 'acteurs')}
+              onOuvrirEmbarcation={(v) => {
+                setSelectedMmsi(null);
+                setBoatFilter('');
+                setSelectedEmbarcation(v.embarcation_id);
+                void goMap('navires').then(() =>
+                  window.setTimeout(
+                    () => mapObj.current?.flyTo({ center: v.position.coordinates, zoom: 11 }),
+                    450,
+                  ),
+                );
+              }}
+              onOuvrirNavire={(v) => {
+                setSelectedEmbarcation(null);
+                setSelectedMmsi(v.mmsi);
+                void goMap('navires').then(() =>
+                  window.setTimeout(
+                    () => mapObj.current?.flyTo({ center: v.position.coordinates, zoom: 9 }),
+                    450,
+                  ),
+                );
+              }}
+              onOuvrirPecheur={(p) => {
+                setError(null);
+                setRechercheRegistre(p.numero_licence);
+                setActeursTab('licences');
+                setPage('acteurs');
+              }}
+              onOuvrirZone={(z) => {
+                setError(null);
+                setZoneAOuvrir(z.id);
+                setPage('cartographie');
+              }}
+            />
+          }
           notifSummary={notifSummary}
           notifConnected={notifConnected}
           notifOpen={notifOpen}
@@ -1224,7 +1364,8 @@ export default function App() {
                 </p>
               ) : null}
               <ActeursHub
-                key={acteursTab}
+                key={`${acteursTab}:${rechercheRegistre}`}
+                initialQuery={rechercheRegistre}
                 token={token}
                 demandesBadge={notifSummary.demandes_en_attente}
                 onError={setError}
@@ -1264,35 +1405,36 @@ export default function App() {
             <section ref={mapStage.stageRef} className="map-stage">
               <div className="map-wrap">
                 <div ref={mapRef} className="map" />
-                {token ? (
-                  <VesselDetailDrawer
-                    token={token}
-                    mmsi={selectedMmsi}
-                    onClose={() => {
-                      setSelectedMmsi(null);
-                      setSelectedTrack([]);
-                    }}
-                    onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 9 })}
-                    onDetail={(d) => setSelectedTrack(d?.track ?? [])}
-                  />
-                ) : null}
-                {token ? (
-                  <PirogueDetailDrawer
-                    token={token}
-                    embarcationId={selectedEmbarcation}
-                    onClose={() => {
-                      setSelectedEmbarcation(null);
-                      setSelectedTrack([]);
-                    }}
-                    onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 11 })}
-                    onDetail={(f) =>
-                      setSelectedTrack(
-                        f ? f.trajectoire.map((t) => ({ horodatage: t.horodatage, position: t.position })) : [],
-                      )
-                    }
-                  />
-                ) : null}
               </div>
+
+              {token ? (
+                <VesselDetailDrawer
+                  token={token}
+                  mmsi={selectedMmsi}
+                  onClose={() => {
+                    setSelectedMmsi(null);
+                    setSelectedTrack([]);
+                  }}
+                  onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 9 })}
+                  onDetail={(d) => setSelectedTrack(d?.track ?? [])}
+                />
+              ) : null}
+              {token ? (
+                <PirogueDetailDrawer
+                  token={token}
+                  embarcationId={selectedEmbarcation}
+                  onClose={() => {
+                    setSelectedEmbarcation(null);
+                    setSelectedTrack([]);
+                  }}
+                  onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 11 })}
+                  onDetail={(f) =>
+                    setSelectedTrack(
+                      f ? f.trajectoire.map((t) => ({ horodatage: t.horodatage, position: t.position })) : [],
+                    )
+                  }
+                />
+              ) : null}
 
               <MapToolbar
                 items={[
@@ -1418,6 +1560,7 @@ export default function App() {
                       </span>
                     </div>
                   ) : null}
+                  <MapLegend />
                 </MapPanel>
               ) : null}
 
@@ -1645,7 +1788,7 @@ export default function App() {
                   {error}
                 </p>
               ) : null}
-              <ZonesPage token={token} onStatus={setStatus} onError={setError} />
+              <ZonesPage token={token} onStatus={setStatus} onError={setError} initialZoneId={zoneAOuvrir} />
             </>
           ) : null}
 

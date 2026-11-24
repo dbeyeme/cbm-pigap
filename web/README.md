@@ -40,3 +40,11 @@ Pour une démo carte : créer une embarcation (mobile/API) puis `POST /api/v1/po
 - **Photographies** : fichiers dans `public/photos/` (une version large et une version de 800 px), déclarés dans `PHOTOS` (`src/media.ts`). `PageBanner` pose une bannière de page ; la classe `photo-bg` avec `photoVars('nom')` pose un arrière-plan.
 - **Vérifier** : `npm test`, `npm run build`, puis contrôle visuel à 375, 768 et 1280 px. Le portail n'a pas encore de tests d'interface rejouables.
 
+## Marqueurs, fiches et recherche (lot 1)
+
+- **Marqueurs** : dessins dans `src/geo/vesselMarkers.ts`, placement et regroupement dans `src/geo/mapEffects.ts`. Aucune animation en boucle sur un marqueur. La légende (`src/components/MapLegend.tsx`) réutilise les mêmes dessins.
+- **Fiches** : pièces communes dans `src/components/Fiche.tsx` (chiffres clés, onglets, tableaux, détails repliés), utilisées par la fiche d'embarcation et la fiche de navire AIS.
+- **Recherche globale** : `src/components/GlobalSearch.tsx`, placée dans l'en-tête par `App.tsx`.
+- **Empilement** : une seule échelle, en tête de `src/styles/ui-kit.css` (variables `--z-map-*`).
+- **Largeur** : les surcouches de la carte suivent la largeur de la scène (`@container scene`), pas celle de la fenêtre.
+

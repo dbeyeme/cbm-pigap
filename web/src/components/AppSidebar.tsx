@@ -128,6 +128,9 @@ export default function AppSidebar({
         <span className="ds-nav-glyph" aria-hidden>
           <Icon size={18} />
         </span>
+        <span className="ds-nav-court" aria-hidden>
+          {item.court}
+        </span>
         <span className="ds-nav-text">
           <span className="ds-nav-label">{item.label}</span>
           <span className="ds-nav-hint">{item.hint}</span>
@@ -230,6 +233,9 @@ export default function AppSidebar({
           >
             <span className="ds-nav-glyph" aria-hidden>
               <IconLogout size={18} />
+            </span>
+            <span className="ds-nav-court" aria-hidden>
+              Quitter
             </span>
             <span className="ds-nav-text">
               <span className="ds-nav-label">Déconnexion</span>

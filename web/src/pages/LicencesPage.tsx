@@ -34,6 +34,8 @@ type Props = {
   onError: (msg: string | null) => void;
   onOpenTrajectory: (segment: TrajectorySegment) => void;
   colorFor: (id: string) => string;
+  /** Recherche posée à l'arrivée (sélection dans la recherche globale). */
+  initialQuery?: string;
 };
 
 export default function LicencesPage({
@@ -41,9 +43,10 @@ export default function LicencesPage({
   onError,
   onOpenTrajectory,
   colorFor,
+  initialQuery = '',
 }: Props) {
   const toast = useToast();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQuery);
   const [pecheurs, setPecheurs] = useState<Pecheur[]>([]);
   const [selected, setSelected] = useState<Pecheur | null>(null);
   const [docBusy, setDocBusy] = useState<string | null>(null);
@@ -79,10 +82,10 @@ export default function LicencesPage({
   useEffect(() => {
     setLoading(true);
     onError(null);
-    void refreshList()
+    void refreshList(initialQuery || undefined)
       .catch((err) => onError(err instanceof Error ? err.message : 'Chargement impossible'))
       .finally(() => setLoading(false));
-  }, [token, refreshList, onError]);
+  }, [token, refreshList, onError, initialQuery]);
 
   async function selectPecheur(p: Pecheur) {
     setSelected(p);
@@ -459,14 +462,20 @@ export default function LicencesPage({
               Prénom
               <input value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
             </label>
-            <label>
-              N° de licence
-              <input
-                value={numeroLicence}
-                onChange={(e) => setNumeroLicence(e.target.value)}
-                placeholder="Laisser vide : attribution automatique"
-              />
-            </label>
+            <p className="form-hint form-hint--auto">
+              Le numéro de licence est attribué automatiquement à l’enregistrement.
+            </p>
+            <details className="form-advanced">
+              <summary>Reprendre un numéro déjà délivré (support papier)</summary>
+              <label>
+                N° de licence existant
+                <input
+                  value={numeroLicence}
+                  onChange={(e) => setNumeroLicence(e.target.value)}
+                  placeholder="Laisser vide pour une attribution automatique"
+                />
+              </label>
+            </details>
             <label>
               E-mail
               <input

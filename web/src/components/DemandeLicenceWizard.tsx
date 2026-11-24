@@ -1,10 +1,10 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState, type CSSProperties } from 'react';
 
 import { createDemandeLicenceWithFiles } from '../api';
 import { friendlyApiError } from '../lib/apiErrors';
 import Modal from './Modal';
 import { useToast } from './ToastProvider';
-import { IconArrowLeft, IconArrowRight, IconBuilding, IconClose, IconUsers } from './Icons';
+import { IconArrowLeft, IconArrowRight, IconBuilding, IconCheck, IconClose, IconUsers } from './Icons';
 import { NATIONALITES } from '../api';
 import EquipementsFields, {
   emptyEquipements,
@@ -182,6 +182,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
       open={open}
       onClose={handleClose}
       wide
+      banner="filiere"
       title="Demande de licence"
       footer={
         ok ? (
@@ -216,10 +217,18 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
         )
       }
     >
-      <ol className="wizard-steps" aria-label="Étapes">
+      <ol
+        className="wizard-steps"
+        aria-label={`Étape ${step + 1} sur ${STEPS.length}`}
+        style={{ '--etapes': STEPS.length, '--avancement': step / (STEPS.length - 1) } as CSSProperties}
+      >
         {STEPS.map((s, i) => (
-          <li key={s.id} className={i === step ? 'on' : i < step ? 'done' : ''}>
-            <span className="wizard-step-num">{i + 1}</span>
+          <li
+            key={s.id}
+            className={i === step ? 'on' : i < step ? 'done' : ''}
+            aria-current={i === step ? 'step' : undefined}
+          >
+            <span className="wizard-step-num">{i < step ? <IconCheck size={13} /> : i + 1}</span>
             <span className="wizard-step-label">{s.label}</span>
           </li>
         ))}
@@ -235,21 +244,40 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
       ) : (
         <form className="wizard-pane" onSubmit={(e) => void onSubmit(e)}>
           {step === 0 ? (
-            <div className="fo-type-switch wizard-type" role="group" aria-label="Type de demande">
+            <div className="wizard-type" role="radiogroup" aria-label="Type de demande">
               <button
                 type="button"
-                className={demandeType === 'personne_physique' ? 'on' : 'ghost'}
-                onClick={() =>
-              setDemandeType('personne_physique')}
-              ><IconUsers size={16} /> Pêcheur (personne)</button>
+                role="radio"
+                aria-checked={demandeType === 'personne_physique'}
+                className={`wizard-choix${demandeType === 'personne_physique' ? ' is-on' : ''}`}
+                onClick={() => setDemandeType('personne_physique')}
+              >
+                <span className="wizard-choix-icone" aria-hidden>
+                  <IconUsers size={22} />
+                </span>
+                <span className="wizard-choix-texte">
+                  <strong>Pêcheur</strong>
+                  <span>Personne physique</span>
+                </span>
+              </button>
               <button
                 type="button"
-                className={demandeType === 'personne_morale' ? 'on' : 'ghost'}
+                role="radio"
+                aria-checked={demandeType === 'personne_morale'}
+                className={`wizard-choix${demandeType === 'personne_morale' ? ' is-on' : ''}`}
                 onClick={() => setDemandeType('personne_morale')}
-              ><IconBuilding size={16} /> Organisation (personne morale)</button>
+              >
+                <span className="wizard-choix-icone" aria-hidden>
+                  <IconBuilding size={22} />
+                </span>
+                <span className="wizard-choix-texte">
+                  <strong>Organisation</strong>
+                  <span>Coopérative, société ou association</span>
+                </span>
+              </button>
               <p className="wizard-hint">
-                Choisissez qui demande la licence. Les organisations (coopératives, sociétés) passent
-                ensuite par le même contrôle.
+                Choisissez qui demande la licence. Les organisations passent ensuite par le même
+                contrôle.
               </p>
             </div>
           ) : null}

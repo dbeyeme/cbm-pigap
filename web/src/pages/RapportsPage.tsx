@@ -194,7 +194,16 @@ export default function RapportsPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide">
-      <PageBanner photo="logistique" eyebrow="Pilotage · Rapports" title="Rapports et documents">
+      <PageBanner
+        photo="logistique"
+        eyebrow="Pilotage · Rapports"
+        title="Rapports et documents"
+        aide={{
+          titre: 'Produire un document',
+          texte:
+            'Choisissez la période, puis téléchargez le document voulu. Les prévisions sont consultatives : elles éclairent la décision, elles ne la remplacent pas.',
+        }}
+      >
         <p>
           Tendances saisonnières, prévisions consultatives et pièces officielles : licence, fiche,
           bilan, rapport.

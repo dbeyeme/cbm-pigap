@@ -14,3 +14,16 @@ Une leçon par erreur significative : ce qui s'est passé, la cause racine, la r
 - **Constat :** la carte de la Cartographie s'arrêtait 8 px au-dessus du bas de l'écran.
 - **Cause racine :** la position du bloc était lue à l'écran (`getBoundingClientRect`) pendant l'animation d'entrée de la page, qui le translate de 8 px.
 - **Règle :** mesurer une position de mise en page par `offsetTop`, qui ignore les transformations.
+
+## 2026-11-24 : une liste de périmètre tronquée en silence
+
+- **Constat :** le suivi en direct, la présence au port et la fiche ignoraient 299 embarcations, dont trois pirogues de démonstration, sans aucun message.
+- **Cause racine :** `list_embarcations_for_user` limitait la flotte des rôles de pilotage aux 2 000 premières embarcations par ordre alphabétique ; la base de développement venait de dépasser ce nombre, gonflée par des tests qui y écrivaient sans purge.
+- **Règles :** un plafond sur une liste de périmètre ne tronque jamais en silence : il pagine ou il refuse. Des tests qui écrivent dans la base de développement finissent par changer le comportement de l'outil de travail (base dédiée, ADR-013). Règle anti-régression : `test_regression_flotte_complete.py`.
+
+## 2026-11-24 : APK de diffusion construite avec l'adresse du serveur d'essai
+
+- **Constat :** après des constructions d'essai, l'APK de diffusion contenait encore l'adresse du serveur d'essai ; sur un téléphone, elle n'aurait joint aucun serveur. Elle a été écartée avant toute diffusion.
+- **Cause racine :** le cache de transformation de Metro, partagé entre projets, a resservi le code compilé avec l'ancienne valeur des variables `EXPO_PUBLIC_*` ; ni la régénération d'`android/`, ni la garde https, ni l'export de contrôle ne l'ont signalé.
+- **Règle :** construire toute APK de diffusion avec un cache neuf (`TMPDIR="$(mktemp -d)"`) et lire l'adresse inscrite dans l'APK avant de la déclarer conforme (`mobile/README.md`).
+

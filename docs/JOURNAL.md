@@ -1433,3 +1433,209 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - Règles de style de l'ancien panneau latéral et anciennes illustrations de 0,9 à 2,6 Mo restées dans le dépôt
 - Les quatre images sont des captures de 1 384 px de large : un fichier d'origine plus grand donnerait un rendu plus net sur très grand écran
 
+---
+
+## [2026-11-25] Lot 1, première tranche : marqueurs, fiches, interaction avec la carte, recherche
+
+**Ce qui a été construit :**
+- Décisions du porteur consignées (commandes sans paiement en ligne, page de profil visible des comptes connectés et ouvrable au public par l'acteur, Global Fishing Watch à l'essai hors service, bannières conservées) ; lots sans conflit de fichiers lancés en parallèle : portail ici, mobile et serveur dans deux sessions déléguées
+- `web/src/geo/vesselMarkers.ts` : nouveaux dessins des embarcations. Médaillon posé sur la position pour les pirogues et les navires de pêche suivis (pictogramme de profil, anneau d'état lisible sans la couleur) ; silhouette orientée pour les navires AIS (vecteur de vitesse, sillage, cercle en tirets à quai) ; médaillon chiffré pour les embarcations qui se chevauchent
+- `web/src/geo/mapEffects.ts` : regroupement à l'écran recalculé à chaque fin de zoom ; liste des embarcations d'un même endroit ; aucune reconstruction des marqueurs quand les données n'ont pas changé
+- `web/src/App.tsx` : la carte n'est plus recadrée à chaque rafraîchissement des positions ; centre utile décalé quand un panneau ou une fiche est ouvert ; session conservée le temps de l'onglet
+- `web/src/components/Fiche.tsx`, `PirogueDetailDrawer.tsx`, `VesselDetailDrawer.tsx` : fiche synthétique (quatre chiffres clés, constats regroupés avec compteur, onglets, listes repliées, tableaux)
+- `web/src/components/GlobalSearch.tsx` : recherche globale avec suggestions par catégorie (embarcations, navires AIS, pêcheurs, zones) et critères avancés ; une sélection ouvre la fiche, le registre ou la zone
+- `web/src/components/MapLegend.tsx` : légende des marqueurs dans le panneau Couches
+- `web/src/styles/ui-kit.css` : échelle d'empilement documentée ; mise en page de la carte selon la largeur réelle de la zone de carte (requêtes de conteneur)
+- Numéro de licence annoncé comme automatique dans le formulaire de création (`LicencesPage.tsx`)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.2 et §5.3 : la carte est l'outil de suivi ; elle doit rester lisible et stable pendant le travail de l'agent
+- Demandes du porteur des 2026-11-24 et 25 : illustrations des embarcations, fiches synthétiques, interaction et empilement, tableaux préférés aux blocs, recherche avec suggestions, numéros de licence automatiques, aides contextuelles
+- Standards du porteur, sections 9 et 11 : pas d'animation en boucle ni de transformation animée sur un marqueur, aucun long défilement, icône et libellé, échelle d'empilement documentée
+
+**Technologies / principes utilisés :**
+- SVG produits par le code, marqueurs HTML de MapLibre, regroupement glouton en coordonnées d'écran
+- Requêtes de conteneur CSS : les surcouches de la carte réagissent à la largeur de la scène, pas à celle de la fenêtre
+- `sessionStorage` pour le jeton, à défaut de jeton de renouvellement côté serveur ; jamais `localStorage`
+- Recherche : listes chargées à l'ouverture et gardées une minute, registre interrogé côté serveur après une pause de saisie
+
+**Tests réalisés :**
+- `tsc --noEmit` : OK ; `npm test` (garde-fou des fonds de carte) : OK ; `npm run build` : OK
+- Navigateur, instance locale : 51 embarcations d'essai regroupées en trois médaillons (28, 16, 7) ; liste d'un groupe ouverte au-dessus des marqueurs ; fiche ouverte depuis la liste et depuis la recherche ; scène étroite (673 px) et large (1202 px) ; session retrouvée après rechargement
+- Recherche : « pir » renvoie 6 embarcations sur 51 ; critères affichés et alignés ; sélection menant à la fiche
+- Non vérifiés à l'écran : médaillon isolé sur la carte (les données d'essai sont toutes regroupées ; dessin contrôlé dans la légende), sélection d'un pêcheur et d'une zone depuis la recherche, clavier dans la liste de suggestions, largeur de 375 px pour la fiche et la recherche
+- Tests backend : non exécutés ici (lots serveur menés dans une session séparée)
+
+**Points ouverts / dette technique :**
+- Reste du lot 1 : aides contextuelles sur les pages, menu, formulaires, tableaux à la place des blocs, tests d'interface rejouables, passe complète à 375, 768 et 1280 px
+- Anciennes règles de style des marqueurs (`.ship-marker`, `.ais-marker`, `.vessel-marker`) devenues inutiles, à retirer
+- La liste de suggestions est rendue dans l'en-tête et non dans un portail sur `document.body` (écart à la section 9 des standards, sans effet constaté)
+- L'expiration du jeton en cours de session ne ramène pas encore à la connexion
+- Données d'essai : horodatages postérieurs à l'heure actuelle (affichés « date à venir »), embarcations toutes au même endroit
+- Nouvelles demandes inscrites au plan sans être traitées : périmètre de suivi activable (lot 8), traitement des alertes avec journal de traçabilité (lot 9)
+- Rien n'est commité ; trois chantiers écrivent dans le même arbre de travail
+
+---
+
+## [2026-11-25] Lot 1, deuxième tranche : aides contextuelles, page Alertes en tableau, menu replié
+
+**Ce qui a été construit :**
+- Aides contextuelles : encarts repliés à l'arrivée (`HelpTip`), aide à côté du titre des pages Acteurs, Pêches et ressources, Alertes et Rapports (`PageBanner`), aide sur l'état d'une fiche, légende des marqueurs
+- `web/src/pages/AlertesPage.tsx` : tableau filtrable par état, type, gravité et texte ; pagination par dix ; détail déplié sous la ligne, en clair, sans identifiant technique ; lignes empilées sous 640 px
+- Menu replié : un mot sous chaque icône (`court` dans `web/src/nav.ts`)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Demandes du porteur : aides pour guider au besoin, tableaux et listes préférés aux blocs, alertes mieux décrites
+- Standards, section 11.2 : aide discrète, icône toujours accompagnée d'un libellé, listes longues paginées et filtrées
+
+**Technologies / principes utilisés :**
+- Filtrage par état et par type côté serveur (paramètres existants), gravité et texte côté navigateur
+- Tableau adaptatif en CSS : les colonnes secondaires disparaissent sous 900 px, les lignes s'empilent sous 640 px
+
+**Tests réalisés :**
+- `tsc --noEmit` : OK ; `npm test` : OK ; `npm run build` : OK
+- Navigateur, instance locale : page Alertes à 1280 px et à 375 px (aucun débordement, détail lisible) ; menu replié complet sans défilement à 800 px de haut
+- Non vérifiés à l'écran : actions « Traiter » et « Ignorer » depuis le tableau (non déclenchées pour ne pas modifier les données), filtres autres que l'état par défaut, pages Acteurs, Pêches et Rapports avec leur aide
+
+**Points ouverts / dette technique :**
+- Le serveur renvoie au plus 100 alertes : la page l'annonce, la pagination porte sur ces 100 ; pagination côté serveur à prévoir
+- Le traitement en plusieurs états avec commentaire, auteur et journal de traçabilité relève du lot 9 (modèle serveur)
+
+---
+
+## [2026-11-25] Lot 10, cadrage : un appareil, un seul compte pêcheur (ADR-012)
+
+**Ce qui a été construit :**
+- `docs/adr/ADR-012-un-appareil-un-pecheur.md` : règle demandée par le porteur, constats dans le code, règles R1 à R6, contrat entre l'application et le serveur, limites
+- Consignes transmises aux deux sessions déléguées : partie serveur (lot 10, après le lot 5 et avant le lot 2), partie mobile (ajoutée au lot 3)
+- Aucun code écrit dans la session principale pour ce lot
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.2 et §7 : une position doit être attribuable sans ambiguïté ; demande du porteur du 2026-11-25 contre les tricheries entre pêcheurs
+- Constat : le serveur vérifiait l'appartenance de l'embarcation, pas l'appareil ; un même téléphone pouvait servir successivement plusieurs comptes pêcheurs
+
+**Technologies / principes utilisés :**
+- Contrôle côté serveur (l'application ne protège jamais seule), identifiant conservé sous forme d'empreinte, paramètres dans un fichier de règles versionné, échec fermé
+
+**Tests réalisés :**
+- Aucun : lot au stade du cadrage. Lecture de `geolocalisation/service.py`, des modèles `Utilisateur` et `Position`, de `mobile/src/offline/db.ts`
+
+**Points ouverts / dette technique :**
+- Règles R2 à R6 à valider par le porteur ; fenêtre d'exclusivité de 30 minutes proposée
+- La règle n'empêche ni de laisser le téléphone à terre ni de le confier à un tiers (balises, AIS et contrôle restent nécessaires)
+- L'identifiant Android dépend de la clé de signature : fixer la clé définitive avant la mise en service
+- Consignes mises en file dans les deux sessions, prise en compte à vérifier à leur retour
+
+---
+
+## [2026-11-25] Lot 1, troisième tranche : assistant de demande de licence
+
+**Ce qui a été construit :**
+- `web/src/components/DemandeLicenceWizard.tsx` et `ui-kit.css` : bande photographique en tête de fenêtre, étapes reliées par une barre de progression (étape faite cochée, étape courante pleine), choix du type en deux grandes cases dont la retenue porte une coche
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.1 : la demande de licence est la porte d'entrée publique du registre ; demande du porteur sur des formulaires plus marquants, professionnels et institutionnels
+- Standards, section 11.3 : la progression ne s'anime que par transformation ; l'état ne repose jamais sur la seule couleur
+
+**Technologies / principes utilisés :**
+- Variables CSS posées par le composant (`--etapes`, `--avancement`), aucune bibliothèque ajoutée
+
+**Tests réalisés :**
+- `tsc --noEmit` : OK ; `npm test` : OK ; `npm run build` : OK
+- Navigateur, instance locale : étapes 1 et 2 à 1280 px, étape 1 à 375 px (une colonne, aucun débordement)
+- Non vérifiés à l'écran : étapes 3 à 5, parcours de l'organisation, envoi d'une demande
+
+**Points ouverts / dette technique :**
+- Fenêtres de création du portail (pêcheur, embarcation, zone, compte) non reprises
+
+---
+
+## [2026-11-24] Lot 5, partie serveur : activité par zone et essai Global Fishing Watch
+
+**Ce qui a été construit :**
+- Heures d'activité par maille en GeoJSON (`GET /api/v1/activite/mailles`), calculées depuis les positions de la plateforme, filtrables par période, emprise, secteur, zone, embarcation et source
+- Captures par zone ou par secteur (`GET /api/v1/activite/captures-par-zone`) : volumes par espèce, captures sans lieu de pêche comptées à part
+- Rapport de zone à la demande, en JSON et en PDF (`/activite/rapport-zone`, `/documents/rapport-zone`) : activité, embarcations présentes, captures, alertes ; consultation inscrite au journal des accès
+- Module `gfw` (ADR-011) à l'arrêt par défaut : pêche apparente par mois et par pavillon, navires observés, détections radar, fiche d'identité ; cache, verrou d'un rapport à la fois, budget de requêtes
+- Paramétrages versionnés `backend/app/data/regles/` : règle « heures d'activité » au statut Proposé, paramètres de l'essai
+
+**Pourquoi :** compléments 12 et 13 du porteur (chantier de novembre 2026) ; les données de la plateforme sont les seules à couvrir les pirogues, celles de l'éditeur complètent le tableau pour les navires industriels.
+
+**Principes :** règle hors du code et hors de l'environnement ; périmètre par rôle, 404 hors périmètre, échec fermé ; rien n'est attribué à une zone par supposition ; les données de l'éditeur ne déclenchent aucune alerte.
+
+**Tests réalisés :** 39 tests nommés (acceptation, périmètre par rôle, règle paramétrée, éditeur simulé sans réseau) ; essai réel lancé à la main sur la ZEE du Gabon (4 157,61 h, 10 navires, 1 110 détections, quatre requêtes).
+
+**Points ouverts :** validation de la règle par le porteur et l'expert halieutique ; accord écrit de l'éditeur avant toute mise en service ; partie portail après le lot 1.
+
+---
+
+## [2026-11-24] Lot 10, partie serveur : un appareil, un seul compte pêcheur (ADR-012)
+
+**Ce qui a été construit :**
+- Table `appareils` (empreinte seule, compte rattaché, première et dernière utilisation, état actif ou libéré, auteur, date et motif de la libération), `positions.appareil_id`, `pecheurs.appareils_autorises` ; migration additive `f8b2d3e4a516`
+- Connexion : l'en-tête `X-Appareil-Id` rattache l'appareil au compte pêcheur ou fait refuser la connexion (409 `APPAREIL_DEJA_RATTACHE`, 409 `COMPTE_RATTACHE_AUTRE_APPAREIL`)
+- Envoi de positions, unitaire et par lot : 403 `APPAREIL_NON_RATTACHE`, 409 `SUIVI_DEJA_ASSURE` avec alerte `suivi_double_appareil`, référence de l'appareil sur chaque position
+- Points d'accès des agents et des administrateurs : liste des appareils d'un pêcheur, libération motivée, autorisation d'un appareil supplémentaire
+- Paramétrage versionné `backend/app/data/regles/appareils.json` : fenêtre de 30 minutes, un appareil par défaut, obligation de l'en-tête désactivée
+
+**Pourquoi :** demande du porteur du 2026-11-24, pour éviter les conflits de suivi GPS et les tricheries entre pêcheurs.
+
+**Principes :** seule une empreinte calculée avec un secret du serveur est conservée ; les messages ne disent jamais à qui un appareil est rattaché ; les autres rôles et l'ingestion des balises ne sont pas concernés ; le modèle des alertes n'est pas modifié.
+
+**Tests réalisés :** 19 tests nommés, un par ligne du tableau de l'ADR, périmètre par rôle, absence de valeur brute, fenêtre paramétrée.
+
+**Points ouverts :** règles R2 à R6 à valider ; secret d'empreinte et clé de signature à fixer avant la mise en service ; accès du pêcheur au portail une fois l'en-tête obligatoire.
+
+---
+
+## [2026-11-24] Lot 2, partie serveur : fiche d'identité et page de profil
+
+**Ce qui a été construit :**
+- Informations d'inscription complémentaires de l'embarcation, toutes facultatives : MMSI, numéro OMI, indicatif radio, jauge, année de construction, propriétaire, exploitant ; saisies au registre comme à la demande de licence ; migration additive `a9c3e4f5b627`
+- Page de profil d'un acteur (`/api/v1/profils`) : présentation courte, espèces tirées des captures déclarées, tarifs facultatifs au kilo ou à l'unité, ouverture au public par lien et QR code, désactivée au départ
+- Fiche d'identité à deux volets (`/api/v1/identite`) : registre (identité, licence, organisation, embarcations) et suivi (source et âge du dernier relevé, période observée, nombre de relevés)
+- Paramétrage versionné `backend/app/data/regles/profil_acteur.json`
+
+**Pourquoi :** compléments 10 et 11 du porteur (chantier de novembre 2026) et décisions du 2026-11-24 sur la visibilité de la page et les tarifs.
+
+**Principes :** aucun champ de coordonnée sur la page, dans aucune vue, et présentation contrôlée à la saisie ; espèce protégée ou non reconnue jamais affichée, échec fermé sans référentiel ; lien public tiré au hasard ; fiche d'identité cloisonnée par rôle, 404 hors périmètre, consultation par un tiers inscrite au journal des accès ; règles non décidées marquées « Proposé ».
+
+**Revue indépendante :** un bloquant (espèces protégées affichées si le référentiel manquait sur le serveur) et dix points secondaires, corrigés et protégés par des tests.
+
+**Tests réalisés :** 24 tests nommés (acceptation, périmètre par rôle, paramétrage, échec fermé, saisie) ; suite complète : 235 passés, 5 échecs anciens sans lien avec le lot.
+
+**Décisions du porteur (2026-11-24) :** contrôle des coordonnées dans la présentation et son seuil validés ; page d'un acteur suspendu, désactivé ou à la licence expirée fermée aux comptes connectés comme au public.
+
+**Points ouverts :** règles « Proposé » restantes à valider (espèces, vitrine publique, informations d'inscription, avec la DGPA) ; coordonnée affichable et modération à décider ; partie portail à suivre.
+
+---
+
+## [2026-11-24] Lot 3 : socle mobile fiable sur le terrain
+
+- Session conservée dans le stockage sécurisé, restaurée sans réseau, effacée à la déconnexion et au premier 401 avec message à l'écran de connexion ; pas de renouvellement silencieux (demande au serveur S1)
+- Déclaration de capture : étape « Lieu de pêche » (position à la saisie, corrigeable, retirable), envoyée dans `position_capture` ; envoi automatique des saisies en attente
+- Suivi GPS en arrière-plan : service de premier plan Android avec notification, démarrage et arrêt par le pêcheur après explication, autorisation « pendant l'utilisation » seulement ; relevés versés dans la file hors ligne, état d'envoi visible ; un suivi coupé par le téléphone ne reprend pas en silence
+- Carte professionnelle du pêcheur consultable hors ligne avec QR de vérification publique ; lecteur de QR par caméra pour l'agent, saisie du numéro en secours
+- Photographies du porteur en arrière-plan de la bienvenue et de la connexion et en bannière des écrans principaux ; libellés accentués, aucun tiret cadratin ; logo du portail en icône de l'application, à la place de celle du gabarit Expo
+- Compléments du porteur : numéro de licence attribué automatiquement à la création d'un dossier, aides contextuelles (composant unique), un téléphone pour un seul compte pêcheur (ADR-012, part application)
+- Défauts corrigés : file de positions perdue à l'expiration du jeton, positions réelles écartées par le masque d'eau de l'application, file de captures bloquée par une seule saisie refusée, heure de capture décalée d'une heure, saisies en attente visibles d'un autre compte, suivi relancé sans notification après un arrêt de l'application par le téléphone, relevé de départ enregistré deux fois
+- Vérifié : typage à zéro erreur, 77 tests, contrôle Expo (20 sur 21, l'échec tient à la version de Xcode du poste), export de production, garde https, APK construite avec le JDK 17, parcours complet sur émulateur Android 16 contre un serveur d'essai à données fictives ; relecture indépendante, aucun bloquant ouvert
+- Non vérifié : relevés périodiques à l'intervalle réel de 5 minutes (seul le relevé de départ arrive sur l'émulateur ; à vérifier en premier sur téléphone), lecture d'un QR par une vraie caméra, serveur réel, téléphone réel, essai croisé avec le lot 10, iOS (`docs/lot-3-mobile-socle.md`, section 2.4)
+- APK 0.2.0 en deux versions dans `mobile/dist/`, terrain (sans aides de démonstration) et démonstration (code 4, quatre architectures, même signature que la 0.1.2), non publiées ; une première construction reprenait l'adresse du serveur d'essai depuis le cache de Metro : écartée, reconstruite, contrôle ajouté au README
+- Non commité, non déployé
+
+---
+
+## [2026-11-24] Tests du serveur sur une base dédiée (ADR-013)
+
+**Ce qui a été construit :**
+- `backend/app/tests/base_de_test.py` et `conftest.py` : les tests visent une base `pigap_test` (ou `TEST_DATABASE_URL`), supprimée, recréée et migrée à chaque passage ; garde-fou en échec fermé si le nom de la base ne finit pas par `_test` ou désigne la base de développement
+- `test_base_de_test.py` (cinq tests du garde-fou) ; `test_predictions.py::test_penurie_serie_decroissante` rendu déterministe (série datée fixe)
+- `.github/workflows/ci.yml` : service PostGIS et variables de base pour la CI ; `.env.example` : nom de la variable
+- `docs/adr/ADR-013-base-de-test-dediee.md` (Proposé), `docs/tests-base-dediee.md`
+
+**Pourquoi :** les tests écrivaient dans la base de développement sans purge ; huit tests anciens échouaient ou vacillaient, et la flotte de l'outil de travail était faussée (standards, section 16.1 : base dédiée nommée `*_test`).
+
+**Tests réalisés :** deux passages complets consécutifs, 246 passés et 0 échoué à chaque fois ; base de développement identique avant et après ; garde-fou vérifié avec une adresse visant `pigap` (arrêt immédiat).
+
+**Points ouverts :** ADR-013 à valider ; CI présente en code, non exécutée ; `ruff` signale une variable inutilisée dans `test_m2_geoloc.py` (antérieure), la CI échouera sur ce point tant qu'il n'est pas corrigé.

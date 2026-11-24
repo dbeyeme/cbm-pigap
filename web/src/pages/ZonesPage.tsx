@@ -109,11 +109,13 @@ type Props = {
   token: string;
   onStatus: (msg: string) => void;
   onError: (msg: string | null) => void;
+  /** Zone à sélectionner et à cadrer à l'arrivée (recherche globale). */
+  initialZoneId?: string | null;
 };
 
 type DraftCorner = { lon: number; lat: number } | null;
 
-export default function ZonesPage({ token, onStatus, onError }: Props) {
+export default function ZonesPage({ token, onStatus, onError, initialZoneId = null }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<maplibregl.Map | null>(null);
   const detectMarker = useRef<maplibregl.Marker | null>(null);
@@ -344,6 +346,11 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
     const z = zones.find((x) => x.id === selectedId);
     if (z) fitMapToZone(map, z);
   }, [selectedId, zones]);
+
+  // Zone choisie dans la recherche globale : sélectionnée ici, cadrée par l'effet ci-dessus.
+  useEffect(() => {
+    if (initialZoneId) setSelectedId(initialZoneId);
+  }, [initialZoneId]);
 
   function placeDetectMarker(lon: number, lat: number) {
     const map = mapObj.current;

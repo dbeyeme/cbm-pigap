@@ -20,7 +20,16 @@ export default function PechesHub({ token, onError, initialTab = 'captures' }: P
 
   return (
     <section className="stage stage-wide ds-hub">
-      <PageBanner photo="quai" eyebrow="Ressources" title="Pêches et ressources">
+      <PageBanner
+        photo="quai"
+        eyebrow="Ressources"
+        title="Pêches et ressources"
+        aide={{
+          titre: 'Des captures aux quotas',
+          texte:
+            'Les captures déclarées alimentent le suivi des quotas : une alerte est émise à 90 % d’un quota. La taxe à la production et les quittances se trouvent dans l’onglet Redevances.',
+        }}
+      >
         <p>Déclarations de captures, suivi des quotas, taxe à la production et quittances.</p>
       </PageBanner>
       <HubTabs

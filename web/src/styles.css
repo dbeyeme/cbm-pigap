@@ -2424,7 +2424,7 @@ label {
 /* ——— Navire + radar + flux (calmes, carte seulement) ——— */
 
 .maplibregl-marker {
-  z-index: 2;
+  z-index: var(--z-map-marker, 2);
   overflow: visible !important;
 }
 

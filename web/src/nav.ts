@@ -43,6 +43,8 @@ export type NavItem = {
   label: string;
   /** Sous-titre court affiché dans la barre latérale */
   hint: string;
+  /** Libellé d'un mot, affiché sous l'icône quand le menu est replié. */
+  court: string;
   section: NavSection;
   glyph: string;
 };
@@ -55,16 +57,16 @@ export const NAV_SECTIONS: { id: NavSection; label: string }[] = [
 ];
 
 export const BO_NAV: NavItem[] = [
-  { id: 'dashboard', label: 'Tableau de bord', hint: 'Indicateurs et activité', section: 'pilotage', glyph: '▣' },
-  { id: 'rapports', label: 'Rapports', hint: 'Documents et exports', section: 'pilotage', glyph: '▤' },
-  { id: 'acteurs', label: 'Acteurs', hint: 'Pêcheurs, licences, organisations', section: 'registre', glyph: '◉' },
-  { id: 'navires', label: 'Navires', hint: 'Flotte et trajectoires', section: 'registre', glyph: '⬡' },
-  { id: 'peches', label: 'Pêches et ressources', hint: 'Captures, quotas, redevances', section: 'registre', glyph: '◈' },
-  { id: 'surveillance', label: 'Surveillance', hint: 'Temps réel, AIS et zones', section: 'operations', glyph: '◎' },
-  { id: 'alertes', label: 'Alertes', hint: 'Événements à traiter', section: 'operations', glyph: '!' },
-  { id: 'controles', label: 'Contrôles', hint: 'Missions, infractions, licences', section: 'operations', glyph: '✓' },
-  { id: 'cartographie', label: 'Cartographie', hint: 'Zones réglementées', section: 'operations', glyph: '+' },
-  { id: 'admin', label: 'Administration', hint: 'Équipe et paramètres', section: 'systeme', glyph: '*' },
+  { id: 'dashboard', label: 'Tableau de bord', court: 'Pilotage', hint: 'Indicateurs et activité', section: 'pilotage', glyph: '▣' },
+  { id: 'rapports', label: 'Rapports', court: 'Rapports', hint: 'Documents et exports', section: 'pilotage', glyph: '▤' },
+  { id: 'acteurs', label: 'Acteurs', court: 'Acteurs', hint: 'Pêcheurs, licences, organisations', section: 'registre', glyph: '◉' },
+  { id: 'navires', label: 'Navires', court: 'Navires', hint: 'Flotte et trajectoires', section: 'registre', glyph: '⬡' },
+  { id: 'peches', label: 'Pêches et ressources', court: 'Pêches', hint: 'Captures, quotas, redevances', section: 'registre', glyph: '◈' },
+  { id: 'surveillance', label: 'Surveillance', court: 'Veille', hint: 'Temps réel, AIS et zones', section: 'operations', glyph: '◎' },
+  { id: 'alertes', label: 'Alertes', court: 'Alertes', hint: 'Événements à traiter', section: 'operations', glyph: '!' },
+  { id: 'controles', label: 'Contrôles', court: 'Contrôles', hint: 'Missions, infractions, licences', section: 'operations', glyph: '✓' },
+  { id: 'cartographie', label: 'Cartographie', court: 'Zones', hint: 'Zones réglementées', section: 'operations', glyph: '+' },
+  { id: 'admin', label: 'Administration', court: 'Équipe', hint: 'Équipe et paramètres', section: 'systeme', glyph: '*' },
 ];
 
 /** Menus autorisés par rôle (portail web). */

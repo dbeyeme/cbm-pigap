@@ -3,7 +3,7 @@
 - **Statut :** document de cadrage interne, projet soumis à validation humaine
 - **Date :** 2026-11-24
 - **Auteur :** Christian BEYEME (+ agent)
-- **Liens :** [ADR-009](adr/ADR-009-suivi-temps-reel-sources-position.md), [ADR-010](adr/ADR-010-fonds-de-carte-sans-cle.md), [ADR-011](adr/ADR-011-global-fishing-watch-source-differee.md), [étude du 2026-10-30](etude-localisation-sans-capteur-et-zones-favorables.md), [cahier](../cdc-mvp-pigap.md)
+- **Liens :** [ADR-009](adr/ADR-009-suivi-temps-reel-sources-position.md), [ADR-010](adr/ADR-010-fonds-de-carte-sans-cle.md), [ADR-011](adr/ADR-011-global-fishing-watch-source-differee.md), [ADR-012](adr/ADR-012-un-appareil-un-pecheur.md), [étude du 2026-10-30](etude-localisation-sans-capteur-et-zones-favorables.md), [cahier](../cdc-mvp-pigap.md)
 
 ## 1. Compréhension stratégique
 
@@ -28,6 +28,18 @@ Compléments du porteur, le 2026-11-24 en cours de séance :
 14. Portail mieux adapté à toutes les largeurs d'écran ; menu, formulaires, icônes et application entière plus marquants, en restant professionnels et institutionnels ; illustrations des pirogues et des navires à reprendre avec finesse.
 15. Commandes payantes : formulation reçue à clarifier (section 3).
 16. Application des standards techniques du porteur quand ils s'y prêtent.
+
+Demandes reçues pendant l'exécution des lots, les 2026-11-24 et 25 :
+
+17. Numéros de licence toujours attribués automatiquement.
+18. Aides contextuelles discrètes (« synapses ») pour guider, dans l'application et sur le portail.
+19. Activation et désactivation, à choix multiples, des pays et des zones de suivi (ville, province, côtes, fleuves propices à la pêche), appliquées aux données ; par défaut : Gabon, Estuaire, Libreville, Owendo, Akanda, Cap Estérias.
+20. Fiches synthétiques, avec possibilité d'entrer dans le détail, et mieux présentées.
+21. Interaction avec la carte : moins de conflits de clic, d'affichage et de chevauchement ; niveaux d'empilement maîtrisés.
+22. Listes et tableaux préférés aux blocs et aux cartes quand ils conviennent mieux.
+23. Filtres de recherche avec suggestions et critères avancés.
+24. Alertes mieux décrites, traitées en plusieurs états avec commentaire, auteur et journal de traçabilité.
+25. Un appareil ne doit pas accueillir plusieurs sessions de pêcheurs, pour éviter les conflits de suivi GPS et les tricheries entre pêcheurs (règle appliquée si elle est cohérente).
 
 ### 1.2 Constats vérifiés le 2026-11-24
 
@@ -111,6 +123,8 @@ Réponses du porteur aux quatre questions du 2026-11-24 (soir) :
 | Informations d'inscription d'un navire à ajouter : MMSI, numéro OMI, indicatif radio, jauge, année de construction, propriétaire et exploitant distincts ; exigées selon la catégorie (pirogue, navire). Déjà collectés : nom, immatriculation, type, longueur, puissance, engins, site d'attache | Proposé | Christian, DGPA |
 | Heure de pêche d'une embarcation suivie par l'application : règle de calcul (vitesse, durée, distance au port) et taille de maille | Proposé | Christian, expert halieutique |
 | Données Global Fishing Watch | Essai de faisabilité hors service décidé le 2026-11-24 ; mise en service soumise à l'accord de l'éditeur, que le porteur traite de son côté | Christian |
+| Un appareil n'accepte qu'un seul compte pêcheur | Décidée le 2026-11-25 (ADR-012, règle R1) | Christian |
+| Un compte pêcheur rattaché à un seul appareil, appareil supplémentaire sur autorisation ; une embarcation suivie par un seul appareil à la fois (fenêtre de 30 minutes) ; libération par un agent ou un administrateur avec motif ; identifiant conservé en empreinte ; agents non concernés | Proposé (ADR-012, règles R2 à R6) | Christian, DGPA |
 
 Point de vigilance sur l'option de paiement : la plateforme encaisserait un acompte pour le compte du vendeur. Le cadre applicable aux services de paiement, les possibilités de l'agrégateur (versement au vendeur, remboursement) et les conditions générales sont à vérifier avant l'ADR ; rien n'est supposé ici.
 
@@ -120,15 +134,18 @@ Un lot à la fois, avec tests, journal et mise à jour du statut (`AGENTS.md`). 
 
 | Lot | Contenu | Prérequis | État |
 |-----|---------|-----------|------|
-| 0 | Fond de carte sans clé, polices, garde-fou ; rappel des comptes de démonstration retiré des constructions publiques | Aucun | Présent en code le 2026-11-24, branche `fix/lot-0-fonds-de-carte`, non commité, non déployé |
-| 0 bis | Carte plein cadre (Navires, Surveillance, Cartographie) avec panneaux refermables et plein écran ; cartes secondaires bornées ; images du porteur en arrière-plan de l'accueil et en bannières des pages principales ; correctifs d'affichage sur téléphone | Aucun | Présent en code le 2026-11-24, même arbre de travail, non commité, non déployé |
-| 1 | Reprise visuelle du portail : illustrations des pirogues et des navires, menu, formulaires, icônes, adaptation à toutes les largeurs, allègement des pages ; méthode des standards (spécification par écran, revue, vérification à 375, 768 et 1280 px, tests d'interface rejouables) | Aucun | En cours depuis le 2026-11-24 (session principale, dossier `web/`) |
-| 2 | Fiche d'identité et page de profil sur le portail : registre d'un côté, suivi de l'autre ; QR ; espèces ; tarifs facultatifs ; informations d'inscription complétées ; espace acteur ouvert au pêcheur et à l'organisation | Règles « Proposé » de la section 3 (champs d'inscription, espèces) | Partie serveur à la suite du lot 5 dans la session serveur ; partie portail après le lot 1 |
-| 3 (ancien 1) | Socle mobile fiable : session conservée, suivi GPS en arrière-plan, sortie et retour, lieu de pêche ; profil et QR sur mobile, lecteur par caméra pour l'agent ; images et reprise visuelle de l'application | Documentation de la version d'Expo du projet ; ADR pour la déclaration de sortie (écart §5.2) | En cours depuis le 2026-11-24 (session mobile, dossier `mobile/`) ; sortie et retour reportés, faute de modèle serveur |
+| 0 | Fond de carte sans clé, polices, garde-fou ; rappel des comptes de démonstration retiré des constructions publiques | Aucun | Fait ; commité le 2026-11-25 sur la branche `fix/lot-0-fonds-de-carte` |
+| 0 bis | Carte plein cadre (Navires, Surveillance, Cartographie) avec panneaux refermables et plein écran ; cartes secondaires bornées ; images du porteur en arrière-plan de l'accueil et en bannières des pages principales ; correctifs d'affichage sur téléphone | Aucun | Fait ; commité le 2026-11-25 |
+| 1 | Reprise visuelle du portail : illustrations des pirogues et des navires, menu, formulaires, icônes, adaptation à toutes les largeurs, allègement des pages ; méthode des standards (spécification par écran, revue, vérification à 375, 768 et 1280 px, tests d'interface rejouables) ; recherche avec suggestions ; aides contextuelles ; tableaux préférés aux blocs | Aucun | En cours ; trois tranches commitées le 2026-11-25 (avancement en 4.2) |
+| 2 | Fiche d'identité et page de profil sur le portail : registre d'un côté, suivi de l'autre ; QR ; espèces ; tarifs facultatifs ; informations d'inscription complétées ; espace acteur ouvert au pêcheur et à l'organisation | Règles « Proposé » de la section 3 (champs d'inscription, espèces) | Partie serveur faite, commitée le 2026-11-25 (`lot-2-profil-serveur.md`) ; parties portail et mobile à faire |
+| 3 (ancien 1) | Socle mobile fiable : session conservée, suivi GPS en arrière-plan, sortie et retour, lieu de pêche ; profil et QR sur mobile, lecteur par caméra pour l'agent ; images et reprise visuelle de l'application | Documentation de la version d'Expo du projet ; ADR pour la déclaration de sortie (écart §5.2) | Fait, commité le 2026-11-25 (`lot-3-mobile-socle.md`) ; APK 0.2.0 construite, non publiée ; sortie et retour reportés, faute de modèle serveur |
 | 4 (ancien 2) | Carte des infractions : statut de régularité sur chaque marqueur, filtre « à contrôler », alertes automatiques pour les navires AIS, âge de chaque position, notification | Seuils à valider | À faire |
-| 5 | Activité par zone : heures de pêche par maille à partir des positions de l'application et des balises, filtre temporel, captures par zone, rapport de zone à la demande ; en complément, navires industriels vus par Global Fishing Watch | Lieu de pêche (lot 3) pour les captures par zone ; Global Fishing Watch à l'essai, hors service (ADR-011) | Partie serveur en cours depuis le 2026-11-24 (session serveur, dossier `backend/`) ; partie portail après le lot 1 |
+| 5 | Activité par zone : heures de pêche par maille à partir des positions de l'application et des balises, filtre temporel, captures par zone, rapport de zone à la demande ; en complément, navires industriels vus par Global Fishing Watch | Lieu de pêche (lot 3) pour les captures par zone ; Global Fishing Watch à l'essai, hors service (ADR-011) | Partie serveur faite, commitée le 2026-11-25 (`lot-5-activite-zones-serveur.md`) ; partie portail à faire |
 | 6 (ancien 4) | Prix de vente, courbes, carnet de sortie, rendement et rentabilité | Règles de la section 3 | À faire |
 | 7 (ancien 5) | Commandes, clients et revendeurs : réservation gratuite indiquant le montant prévu, sans paiement en ligne | ADR, validation de Kimba Connect (hors périmètre du cahier) | À faire |
+| 8 | Périmètre de suivi : pays et zones (ville, province, côtes, fleuves) activables à choix multiples, appliqués aux données ; par défaut Gabon, Estuaire, Libreville, Owendo, Akanda, Cap Estérias | ADR (le cahier exclut le multi-zones) ; référentiel des zones et de leurs contours ; règle d'application aux données à préciser | À faire, après les lots serveur en cours |
+| 10 | Un appareil, un seul compte pêcheur (ADR-012) : rattachement et contrôles côté serveur, envoi de l'identifiant et messages côté application, liste et libération des appareils sur le portail | Clé de signature définitive de l'application avant la mise en service | Parties serveur (`lot-10-appareil-unique-serveur.md`) et mobile faites, commitées le 2026-11-25 ; partie portail à faire |
+| 9 | Traitement des alertes : description détaillée, états successifs avec commentaire et auteur, journal de traçabilité consultable | Liste des états à valider (« Proposé ») ; touche le modèle des alertes | À faire, après les lots serveur en cours ; à mener avec le lot 4 |
 
 L'ancien lot 3 (espace acteur commun, reprise visuelle, allègement) est réparti entre les lots 1, 2 et 3.
 
@@ -156,7 +173,31 @@ Vérification rejouable : `npm test` et `npm run build` dans `web/` (garde-fou d
 
 Non fait dans ce lot : images dans l'application mobile (lot 3), illustrations des embarcations, menu et formulaires (lot 1).
 
-Dettes relevées hors lots : scénario de bout en bout du cahier (§9), tests mobiles, tests d'interface du portail, base de test isolée, clé de signature de l'application, mots de passe des comptes de démonstration lisibles dans le dépôt public, imagerie satellitaire à régulariser, anciennes règles de style du panneau latéral et anciennes illustrations de 0,9 à 2,6 Mo restées dans le dépôt.
+### 4.2 Lot 1 : avancement au 2026-11-25
+
+Livré en code, vérifié à l'écran sur l'instance locale :
+
+| Sujet | Avant | Après |
+|-------|-------|-------|
+| Embarcations suivies sur la carte | Voilier de fantaisie et anneaux animés en boucle, noms toujours affichés, marqueurs empilés | Médaillon posé sur la position (pirogue ou navire de pêche de profil), anneau d'état lisible sans la couleur (plein, tirets, pointillé avec repère), nom au survol ou à fort zoom |
+| Embarcations qui se chevauchent | Tas de marqueurs illisible | Médaillon chiffré dont l'anneau donne la répartition des états ; un clic zoome, ou ouvre la liste quand elles sont au même endroit |
+| Navires AIS | Silhouette simple | Silhouette affinée orientée selon le cap, vecteur de vitesse, sillage en route, cercle en tirets à quai ou au mouillage |
+| Stabilité de la carte | Marqueurs reconstruits et carte recadrée toutes les vingt secondes : le zoom de l'utilisateur était annulé | Aucune reconstruction sans changement de données ; recadrage seulement au changement de page, de mode ou de sélection |
+| Fiche d'une embarcation ou d'un navire | Long défilement, vingt lignes identiques, zones énumérées à la suite | Quatre chiffres clés, constats regroupés avec compteur, onglets Synthèse, Registre, Suivi, Alertes ; listes repliées ; tableaux compacts |
+| Empilement | Niveaux improvisés ; un marqueur passait au-dessus d'une liste | Échelle unique documentée en tête de `ui-kit.css` |
+| Mise en page de la carte | Selon la largeur de la fenêtre | Selon la largeur réelle de la zone de carte (barre latérale dépliée, volet réduit) |
+| Fiche et carte | La fiche pouvait recouvrir le navire sélectionné | La carte décale son centre utile ; la barre d'outils et le zoom s'écartent |
+| Session du portail | Perdue à chaque rechargement de la page | Conservée le temps de l'onglet (`sessionStorage`, à défaut de jeton de renouvellement côté serveur) |
+| Numéro de licence | Champ de saisie dans le formulaire de création | Annoncé comme automatique ; reprise d'un numéro papier en option repliée |
+| Recherche | Champ sans effet, qui renvoyait seulement vers le registre | Suggestions par catégorie (embarcations, navires AIS, pêcheurs, zones), critères avancés, sélection menant à la fiche, au registre ou à la zone |
+| Aides contextuelles | Trois encarts ouverts en permanence | Encarts repliés à l'arrivée ; aide à côté du titre des pages Acteurs, Pêches et ressources, Alertes, Rapports ; aide sur l'état d'une fiche ; légende des marqueurs |
+| Page Alertes | Blocs empilés, alertes à traiter seulement | Tableau filtrable (état, type, gravité, texte), paginé par dix, détail déplié sous la ligne sans identifiant technique ; lignes empilées sur téléphone |
+| Menu replié | Icônes seules | Un mot sous chaque icône ; dix entrées visibles sans défilement sur 800 px de haut |
+| Assistant de demande de licence | Pastilles d'étapes, deux petits boutons pour le type | Bande photographique, étapes reliées par une barre de progression, choix du type en deux grandes cases cochées ; une colonne sur téléphone |
+
+Reste à faire dans le lot 1 : fenêtres de création (pêcheur, embarcation, zone, compte), tableaux à la place des blocs sur les autres pages (équipe, file des demandes, signaux du tableau de bord), menu déplié, tests d'interface rejouables, passe complète à 375, 768 et 1280 px, retrait des anciennes règles de style.
+
+Dettes relevées hors lots : scénario de bout en bout du cahier (§9), tests d'interface du portail, base de test isolée (faite le 2026-11-24, ADR-013, à valider), clé de signature de l'application, mots de passe des comptes de démonstration lisibles dans le dépôt public, imagerie satellitaire à régulariser, anciennes règles de style du panneau latéral et anciennes illustrations de 0,9 à 2,6 Mo restées dans le dépôt.
 
 ## 5. Géolocalisation : mesures et pistes
 

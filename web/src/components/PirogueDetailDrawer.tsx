@@ -2,7 +2,20 @@ import { useEffect, useState } from 'react';
 
 import { alertTypeLabel, getFicheEmbarcation, graviteLabel, type FicheEmbarcation } from '../api';
 import { equipementsResume } from './EquipementsFields';
-import { IconClose, IconPirogue, IconShip } from './Icons';
+import {
+  FicheConstats,
+  FicheOnglets,
+  FicheShell,
+  FicheTable,
+  FicheTuiles,
+  FicheZones,
+  fmtAge,
+  fmtCoord,
+  fmtTime,
+  pluriel,
+  type Ton,
+} from './Fiche';
+import { IconAlert, IconBadge, IconEye, IconPirogue, IconRadar, IconShip } from './Icons';
 
 type Props = {
   token: string;
@@ -12,11 +25,17 @@ type Props = {
   onDetail?: (fiche: FicheEmbarcation | null) => void;
 };
 
-const REGULARITE: Record<string, { label: string; tone: string }> = {
-  conforme: { label: 'Aucun constat', tone: 'ok' },
-  a_verifier: { label: 'À vérifier', tone: 'warn' },
-  alerte: { label: 'Alerte', tone: 'danger' },
+const REGULARITE: Record<string, { label: string; ton: Ton }> = {
+  conforme: { label: 'Aucun constat', ton: 'ok' },
+  a_verifier: { label: 'À vérifier', ton: 'warn' },
+  alerte: { label: 'Alerte', ton: 'danger' },
 };
+
+const TON_SIGNAL: Record<string, Ton> = { actif: 'ok', recent: 'warn', silence: 'danger', aucun: 'neutre' };
+
+const SOURCE: Record<string, string> = { mobile: 'Application mobile', balise: 'Balise satellitaire' };
+
+type OngletId = 'synthese' | 'registre' | 'suivi' | 'alertes';
 
 const PRESENCE: Record<string, string> = {
   a_quai: 'À quai',
@@ -38,26 +57,12 @@ const SECTEUR: Record<string, string> = {
   fleuve: 'fleuve',
 };
 
-function fmtTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtAge(s: number): string {
-  if (s < 60) return `${s} s`;
-  if (s < 3600) return `${Math.floor(s / 60)} min`;
-  return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`;
-}
-
-function fmtCoord(lon: number, lat: number): string {
-  return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'} · ${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'O'}`;
-}
-
 /** Fiche d'une embarcation PIGAP : identification, régularité, localisation. */
 export default function PirogueDetailDrawer({ token, embarcationId, onClose, onLocate, onDetail }: Props) {
   const [fiche, setFiche] = useState<FicheEmbarcation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [onglet, setOnglet] = useState<OngletId>('synthese');
 
   useEffect(() => {
     if (!embarcationId) {
@@ -65,6 +70,7 @@ export default function PirogueDetailDrawer({ token, embarcationId, onClose, onL
       onDetail?.(null);
       return;
     }
+    setOnglet('synthese');
     let cancelled = false;
     const load = () =>
       getFicheEmbarcation(token, embarcationId)
@@ -104,160 +110,186 @@ export default function PirogueDetailDrawer({ token, embarcationId, onClose, onL
   const reg = REGULARITE[fiche?.regularite ?? 'conforme'] ?? REGULARITE.conforme;
   const isNavire = (fiche?.type ?? '').toLowerCase().includes('navire');
   const pos = fiche?.derniere_position?.coordinates ?? null;
+  const dernier = fiche?.trajectoire.length ? fiche.trajectoire[fiche.trajectoire.length - 1] : null;
+  const alertesOuvertes = fiche?.alertes.filter((a) => a.statut === 'nouvelle' || a.statut === 'en_cours').length ?? 0;
 
   return (
-    <aside className="vessel-drawer ds-fade-slide" aria-label="Fiche embarcation" role="dialog">
-      <header className="vessel-drawer-head">
-        <span className="vessel-drawer-icon vessel-drawer-icon--pigap" aria-hidden>
-          {isNavire ? <IconShip size={18} /> : <IconPirogue size={18} />}
-        </span>
-        <div className="vessel-drawer-title">
-          <strong>{fiche?.nom ?? 'Embarcation'}</strong>
-          <span>
-            {fiche ? `${fiche.type ?? 'Embarcation'} · ${fiche.immatriculation}` : 'Flotte PIGAP'}
-          </span>
-        </div>
-        {fiche ? <span className={`vessel-reg vessel-reg--${reg.tone}`}>{reg.label}</span> : null}
-        <button type="button" className="ds-icon-btn" onClick={onClose} aria-label="Fermer la fiche">
-          <IconClose size={14} />
-        </button>
-      </header>
-
+    <FicheShell
+      label="Fiche embarcation"
+      icon={isNavire ? <IconShip size={20} /> : <IconPirogue size={20} />}
+      title={fiche?.nom ?? 'Embarcation'}
+      subtitle={fiche ? `${fiche.type ?? 'Embarcation'} · ${fiche.immatriculation}` : 'Flotte suivie'}
+      badge={fiche ? reg : null}
+      onClose={onClose}
+    >
       {loading && !fiche ? <p className="ais-empty">Chargement de la fiche…</p> : null}
       {error ? <p className="ais-empty">{error}</p> : null}
 
       {fiche ? (
-        <div className="vessel-drawer-body">
-          {fiche.motifs.length > 0 ? (
-            <ul className={`vessel-motifs vessel-motifs--${reg.tone}`}>
-              {fiche.motifs.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-          ) : null}
+        <>
+          <FicheTuiles
+            tuiles={[
+              {
+                label: 'Dernier relevé',
+                value: fiche.derniere_horodatage ? fmtAge(fiche.age_s) : 'Aucun',
+                hint: SIGNAL[fiche.statut_signal] ?? fiche.statut_signal,
+                ton: fiche.age_s != null && fiche.age_s < 0 ? 'warn' : (TON_SIGNAL[fiche.statut_signal] ?? 'neutre'),
+              },
+              {
+                label: 'Licence',
+                value: fiche.statut_pecheur,
+                hint: fiche.numero_licence,
+                ton: fiche.statut_pecheur === 'actif' ? 'ok' : 'warn',
+              },
+              {
+                label: 'Alertes',
+                value: fiche.alertes.length,
+                hint: alertesOuvertes ? `${alertesOuvertes} à traiter` : 'aucune à traiter',
+                ton: alertesOuvertes ? 'danger' : 'ok',
+              },
+              {
+                label: 'Zones touchées',
+                value: fiche.zones_reglementees.length,
+                hint: fiche.zones_reglementees.length ? 'détail dans la synthèse' : 'hors zone réglementée',
+                ton: fiche.zones_reglementees.length ? 'danger' : 'ok',
+              },
+            ]}
+          />
 
-          <section className="vessel-section">
-            <h4>Identification</h4>
-            <dl>
-              <div>
-                <dt>Titulaire</dt>
-                <dd>{fiche.pecheur_nom}{fiche.organisation ? ` · ${fiche.organisation}` : ''}</dd>
-              </div>
-              <div>
-                <dt>Licence</dt>
-                <dd>
-                  {fiche.numero_licence} · {fiche.statut_pecheur}
-                  {fiche.date_delivrance_licence
-                    ? ` · délivrée le ${new Date(fiche.date_delivrance_licence).toLocaleDateString('fr-FR')}`
-                    : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Immatriculation</dt>
-                <dd>{fiche.immatriculation}</dd>
-              </div>
-              <div>
-                <dt>Type</dt>
-                <dd>
-                  {fiche.type ?? '—'}
-                  {fiche.longueur_m ? ` · ${fiche.longueur_m} m` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Équipements</dt>
-                <dd>{equipementsResume(fiche.equipements) || 'Non renseignés'}</dd>
-              </div>
-            </dl>
-          </section>
+          <FicheOnglets<OngletId>
+            actif={onglet}
+            onChange={setOnglet}
+            onglets={[
+              { id: 'synthese', label: 'Synthèse', icon: IconEye },
+              { id: 'registre', label: 'Registre', icon: IconBadge },
+              { id: 'suivi', label: 'Suivi', icon: IconRadar },
+              { id: 'alertes', label: 'Alertes', icon: IconAlert, count: fiche.alertes.length },
+            ]}
+          />
 
-          <section className="vessel-section">
-            <h4>Régularité</h4>
-            <dl>
-              <div>
-                <dt>Abonnement</dt>
-                <dd>
-                  {fiche.couverture_ok ? 'Couverture en règle' : 'Non couvert'}
-                  {fiche.couverture_motif ? ` · ${fiche.couverture_motif}` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Zones réglementées</dt>
-                <dd>
-                  {fiche.zones_reglementees.length === 0
-                    ? 'Aucune zone touchée'
-                    : fiche.zones_reglementees.map((z) => `${z.nom} (${z.type})`).join(' · ')}
-                </dd>
-              </div>
-              <div>
-                <dt>Alertes récentes</dt>
-                <dd>
-                  {fiche.alertes.length === 0
-                    ? 'Aucune'
-                    : fiche.alertes
-                        .slice(0, 3)
-                        .map((a) => `${alertTypeLabel(a.type)} · ${graviteLabel(a.niveau_gravite)} · ${a.statut}`)
-                        .join(' ; ')}
-                </dd>
-              </div>
-              <div>
-                <dt>Captures 30 jours</dt>
-                <dd>
-                  {fiche.captures_30j} déclaration{fiche.captures_30j > 1 ? 's' : ''} ·{' '}
-                  {Math.round(fiche.captures_30j_kg)} kg
-                </dd>
-              </div>
-            </dl>
-          </section>
+          <div className="fiche-corps" role="tabpanel">
+            {onglet === 'synthese' ? (
+              <>
+                <FicheConstats motifs={fiche.motifs} ton={reg.ton} />
+                <FicheTable
+                  lignes={[
+                    { label: 'Zones réglementées', value: <FicheZones zones={fiche.zones_reglementees} /> },
+                    {
+                      label: 'Situation',
+                      value: `${PRESENCE[fiche.statut_presence] ?? fiche.statut_presence}${fiche.port_nom ? ` · ${fiche.port_nom}` : ''}`,
+                    },
+                    {
+                      label: 'Captures sur 30 jours',
+                      value: `${pluriel(fiche.captures_30j, 'déclaration')} · ${Math.round(fiche.captures_30j_kg)} kg`,
+                    },
+                  ]}
+                />
+                {pos ? (
+                  <button type="button" className="ghost compact" onClick={() => onLocate?.(pos[0], pos[1])}>
+                    <IconRadar size={15} /> Centrer la carte sur l’embarcation
+                  </button>
+                ) : null}
+              </>
+            ) : null}
 
-          <section className="vessel-section">
-            <h4>Localisation</h4>
-            <dl>
-              <div>
-                <dt>Position</dt>
-                <dd>
-                  {pos ? (
-                    <button type="button" className="linkish" onClick={() => onLocate?.(pos[0], pos[1])} title="Centrer la carte">
-                      {fmtCoord(pos[0], pos[1])}
-                    </button>
-                  ) : (
-                    'Aucune position enregistrée'
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Situation</dt>
-                <dd>
-                  {PRESENCE[fiche.statut_presence] ?? fiche.statut_presence}
-                  {fiche.port_nom ? ` · ${fiche.port_nom}` : ''}
-                  {fiche.depuis ? ` · depuis ${fmtTime(fiche.depuis)}` : ''}
-                  {fiche.statut_presence === 'en_mer' && fiche.dernier_port_nom
-                    ? ` · parti de ${fiche.dernier_port_nom}${fiche.dernier_depart ? ` à ${fmtTime(fiche.dernier_depart)}` : ''}`
-                    : ''}
-                  {fiche.secteur ? ` · ${SECTEUR[fiche.secteur] ?? fiche.secteur}` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Dernier relevé</dt>
-                <dd>
-                  {fiche.derniere_horodatage ? `${fmtTime(fiche.derniere_horodatage)} · il y a ${fmtAge(fiche.age_s ?? 0)}` : '—'}
-                  {` · ${SIGNAL[fiche.statut_signal] ?? fiche.statut_signal}`}
-                </dd>
-              </div>
-              <div>
-                <dt>Trajectoire 24 h</dt>
-                <dd>
-                  {fiche.trajectoire.length} position{fiche.trajectoire.length > 1 ? 's' : ''}
-                  {fiche.trajectoire.length > 1 ? ` · depuis ${fmtTime(fiche.trajectoire[0].horodatage)}` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Source</dt>
-                <dd>{fiche.trajectoire.length ? (fiche.trajectoire[fiche.trajectoire.length - 1].source === 'mobile' ? 'Application mobile' : fiche.trajectoire[fiche.trajectoire.length - 1].source === 'balise' ? 'Balise satellitaire' : fiche.trajectoire[fiche.trajectoire.length - 1].source) : '—'}</dd>
-              </div>
-            </dl>
-          </section>
-        </div>
+            {onglet === 'registre' ? (
+              <FicheTable
+                lignes={[
+                  {
+                    label: 'Titulaire',
+                    value: `${fiche.pecheur_nom}${fiche.organisation ? ` · ${fiche.organisation}` : ''}`,
+                  },
+                  {
+                    label: 'Licence',
+                    value: `${fiche.numero_licence} · ${fiche.statut_pecheur}${
+                      fiche.date_delivrance_licence
+                        ? ` · délivrée le ${new Date(fiche.date_delivrance_licence).toLocaleDateString('fr-FR')}`
+                        : ''
+                    }`,
+                  },
+                  { label: 'Immatriculation', value: fiche.immatriculation },
+                  {
+                    label: 'Type',
+                    value: `${fiche.type ?? 'Non renseigné'}${fiche.longueur_m ? ` · ${fiche.longueur_m} m` : ''}`,
+                  },
+                  { label: 'Équipements', value: equipementsResume(fiche.equipements) || 'Non renseignés' },
+                  {
+                    label: 'Abonnement',
+                    value: `${fiche.couverture_ok ? 'Couverture en règle' : 'Non couvert'}${
+                      fiche.couverture_motif ? ` · ${fiche.couverture_motif}` : ''
+                    }`,
+                  },
+                ]}
+              />
+            ) : null}
+
+            {onglet === 'suivi' ? (
+              <FicheTable
+                lignes={[
+                  {
+                    label: 'Position',
+                    value: pos ? (
+                      <button type="button" className="linkish" onClick={() => onLocate?.(pos[0], pos[1])}>
+                        {fmtCoord(pos[0], pos[1])}
+                      </button>
+                    ) : (
+                      'Aucune position enregistrée'
+                    ),
+                  },
+                  {
+                    label: 'Situation',
+                    value: `${PRESENCE[fiche.statut_presence] ?? fiche.statut_presence}${
+                      fiche.port_nom ? ` · ${fiche.port_nom}` : ''
+                    }${fiche.depuis ? ` · depuis le ${fmtTime(fiche.depuis)}` : ''}${
+                      fiche.statut_presence === 'en_mer' && fiche.dernier_port_nom
+                        ? ` · parti de ${fiche.dernier_port_nom}${fiche.dernier_depart ? ` le ${fmtTime(fiche.dernier_depart)}` : ''}`
+                        : ''
+                    }${fiche.secteur ? ` · ${SECTEUR[fiche.secteur] ?? fiche.secteur}` : ''}`,
+                  },
+                  {
+                    label: 'Dernier relevé',
+                    value: fiche.derniere_horodatage
+                      ? `${fmtTime(fiche.derniere_horodatage)} · ${fmtAge(fiche.age_s)} · ${SIGNAL[fiche.statut_signal] ?? fiche.statut_signal}`
+                      : 'Aucun relevé',
+                  },
+                  {
+                    label: 'Trajectoire sur 24 h',
+                    value: `${pluriel(fiche.trajectoire.length, 'position')}${
+                      fiche.trajectoire.length > 1 ? ` · depuis le ${fmtTime(fiche.trajectoire[0].horodatage)}` : ''
+                    }`,
+                  },
+                  { label: 'Source', value: dernier ? (SOURCE[dernier.source] ?? dernier.source) : 'Aucune' },
+                ]}
+              />
+            ) : null}
+
+            {onglet === 'alertes' ? (
+              fiche.alertes.length === 0 ? (
+                <p className="fiche-vide">Aucune alerte récente pour cette embarcation.</p>
+              ) : (
+                <table className="fiche-table fiche-table--liste">
+                  <thead>
+                    <tr>
+                      <th scope="col">Alerte</th>
+                      <th scope="col">Gravité</th>
+                      <th scope="col">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fiche.alertes.slice(0, 8).map((a) => (
+                      <tr key={a.id}>
+                        <td>{alertTypeLabel(a.type)}</td>
+                        <td>{graviteLabel(a.niveau_gravite)}</td>
+                        <td>{fmtTime(a.horodatage)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
+            ) : null}
+          </div>
+        </>
       ) : null}
-    </aside>
+    </FicheShell>
   );
 }

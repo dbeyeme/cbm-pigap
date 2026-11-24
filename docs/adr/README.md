@@ -17,6 +17,8 @@ Décisions techniques structurantes de CBM-PIGAP.
 | [ADR-009](ADR-009-suivi-temps-reel-sources-position.md) | Suivi temps réel : triangulation GSM/GPS écartée, balises NEMO de l'État | Proposé | 2026-10-01 |
 | [ADR-010](ADR-010-fonds-de-carte-sans-cle.md) | Fonds de carte du portail : service sans clé, cible auto-hébergée | Accepté | 2026-11-24 |
 | [ADR-011](ADR-011-global-fishing-watch-source-differee.md) | Global Fishing Watch : source différée pour les navires industriels | Accepté pour essai hors service | 2026-11-24 |
+| [ADR-012](ADR-012-un-appareil-un-pecheur.md) | Un appareil, un seul compte pêcheur : rattachement côté serveur | Accepté sur le principe, modalités « Proposé » | 2026-11-25 |
+| [ADR-013](ADR-013-base-de-test-dediee.md) | Base PostgreSQL et PostGIS dédiée aux tests du serveur | Proposé | 2026-11-24 |
 
 ## Convention
 

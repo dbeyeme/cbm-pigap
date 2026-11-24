@@ -24,7 +24,8 @@ const GAP = 8;
  */
 export default function HelpTip({ title, children, side = 'top', variant = 'icon', className }: Props) {
   const id = useId();
-  const [open, setOpen] = useState(variant === 'encart');
+  // Replié à l'arrivée, y compris l'encart : l'aide reste discrète (standards, section 11.2).
+  const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const bubbleRef = useRef<HTMLSpanElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number; place: string }>({ top: 0, left: 0, place: side });
