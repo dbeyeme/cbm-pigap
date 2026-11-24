@@ -2,8 +2,10 @@
 
 from app.api.v1 import auth
 from app.modules.abonnements.router import router as abonnements_router
+from app.modules.activite.router import router as activite_router
 from app.modules.ais_gabon.router import router as ais_router
 from app.modules.alertes.router import router as alertes_router
+from app.modules.appareils.router import router as appareils_router
 from app.modules.captures.router import router as captures_router
 from app.modules.controles.router import public_router as public_router
 from app.modules.controles.router import router as controles_router
@@ -12,10 +14,14 @@ from app.modules.demandes_licence.router import router as demandes_licence_route
 from app.modules.documents.router import router as documents_router
 from app.modules.geolocalisation.router import config_router as geoloc_config_router
 from app.modules.geolocalisation.router import router as positions_router
+from app.modules.gfw.router import router as gfw_router
+from app.modules.identite.router import router as identite_router
 from app.modules.meteo_marine.router import router as meteo_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.pecheurs.router import router as pecheurs_router
 from app.modules.predictions.router import router as predictions_router
+from app.modules.profils.router import public_router as profils_public_router
+from app.modules.profils.router import router as profils_router
 from app.modules.quotas.router import router as quotas_router
 from app.modules.redevances.router import router as redevances_router
 from app.modules.referentiels.router import router as referentiels_router
@@ -45,3 +51,9 @@ api_router.include_router(referentiels_router)
 api_router.include_router(redevances_router)
 api_router.include_router(controles_router)
 api_router.include_router(public_router)
+api_router.include_router(activite_router)
+api_router.include_router(gfw_router)
+api_router.include_router(appareils_router)
+api_router.include_router(profils_router)
+api_router.include_router(profils_public_router)
+api_router.include_router(identite_router)

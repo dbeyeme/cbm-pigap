@@ -65,3 +65,26 @@ def require_role(*roles: RoleUtilisateur) -> Callable[..., Utilisateur]:
         return user
 
     return _checker
+
+
+def require_role_puis_liberer(*roles: RoleUtilisateur) -> Callable[..., Utilisateur]:
+    """Comme `require_role`, puis rend la connexion de base avant le traitement.
+
+    Pour les routes qui attendent un service externe sans rien lire en base : sans
+    cela, chaque demande en attente garderait une connexion de la réserve, et
+    quelques demandes lentes suffiraient à figer toute l'API.
+    """
+    allowed = set(roles)
+
+    async def _checker(db: DbSession, user: CurrentUser) -> Utilisateur:
+        if user.role not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Droits insuffisants pour cette opération",
+            )
+        # Ferme la transaction de lecture du compte : la connexion retourne à la réserve
+        # et le compte, détaché, garde ses attributs déjà lus.
+        await db.close()
+        return user
+
+    return _checker

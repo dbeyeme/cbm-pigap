@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession, require_role
 from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
+from app.modules.appareils.service import ENTETE as ENTETE_APPAREIL
 from app.modules.geolocalisation import service
 from app.modules.geolocalisation.schemas import (
     BaliseIngestPayload,
@@ -56,6 +57,11 @@ TrajectoryAdmin = Annotated[
 ]
 
 
+# Identifiant de l'appareil qui envoie (ADR-012) : exigé d'un pêcheur dont l'appareil
+# est rattaché ; ignoré pour les autres rôles.
+AppareilId = Annotated[str | None, Header(alias=ENTETE_APPAREIL)]
+
+
 class GeolocConfig(BaseModel):
     gps_interval_minutes: int = Field(..., description="Intervalle d'envoi GPS (§5.2)")
 
@@ -70,8 +76,9 @@ async def post_position(
     payload: PositionCreate,
     db: DbSession,
     user: GeolocUser,
+    x_appareil_id: AppareilId = None,
 ) -> PositionRead:
-    return await service.create_position(db, user, payload)
+    return await service.create_position(db, user, payload, appareil_brut=x_appareil_id)
 
 
 @router.post("/batch", response_model=list[PositionRead], status_code=201)
@@ -79,8 +86,9 @@ async def post_positions_batch(
     payload: PositionBatchCreate,
     db: DbSession,
     user: GeolocUser,
+    x_appareil_id: AppareilId = None,
 ) -> list[PositionRead]:
-    return await service.create_positions_batch(db, user, payload)
+    return await service.create_positions_batch(db, user, payload, appareil_brut=x_appareil_id)
 
 
 @router.post("/balises/ingest", response_model=BaliseIngestResult)

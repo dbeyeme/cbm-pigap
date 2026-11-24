@@ -1,13 +1,25 @@
-"""Fixtures de test M1 — base PostGIS + agent JWT."""
+"""Fixtures de test : base PostGIS dédiée aux tests (ADR-013) + agent JWT."""
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncGenerator
 
+import pytest
 import pytest_asyncio
+
+from app.tests import base_de_test
+
+# Avant tout import applicatif : la configuration lira l'adresse de la base de test.
+try:
+    BASE_DE_DEV, BASE_DE_TEST = base_de_test.preparer()
+except base_de_test.BaseDeTestRefusee as refus:
+    pytest.exit(str(refus), returncode=4)
+
+# ruff: noqa: E402
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.db.models  # noqa: F401
@@ -18,6 +30,18 @@ from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
 from app.db.session import get_db
 from app.main import app
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Base de test remise à zéro puis migrée (`alembic upgrade head`) à chaque passage."""
+    # La configuration applicative doit bien viser la base de test, jamais celle de dev.
+    base_de_test.verifier(BASE_DE_DEV, make_url(settings.database_url))
+    base_de_test.recreer(BASE_DE_TEST)
+    base_de_test.migrer()
+
+
+def pytest_report_header(config: pytest.Config) -> str:
+    return f"base de test : {base_de_test.decrire(BASE_DE_TEST)}"
 
 
 @pytest_asyncio.fixture

@@ -115,12 +115,40 @@ def _assert_batch_no_land_crossing(positions: list[PositionCreate]) -> None:
                 )
 
 
+async def _appareil_emetteur(
+    db: AsyncSession,
+    user: Utilisateur,
+    appareil_brut: str | None,
+    releves: list[tuple[UUID, datetime]],
+):
+    """Appareil rattaché qui envoie ces relevés (ADR-012), ou rien s'il n'y en a pas.
+
+    Pour un pêcheur : 403 si l'appareil n'est pas rattaché à son compte, 409 et
+    alerte si un autre appareil suit déjà l'embarcation. Les autres rôles, les
+    balises et l'ancienne application sans en-tête ne sont pas concernés.
+    """
+    from app.modules.appareils import service as appareils_service
+
+    appareil = await appareils_service.appareil_pour_envoi(db, user, appareil_brut)
+    if appareil is not None:
+        await appareils_service.verifier_exclusivite(db, appareil, releves)
+        appareils_service.marquer_utilisation(appareil)
+    return appareil
+
+
 async def create_position(
-    db: AsyncSession, user: Utilisateur, data: PositionCreate
+    db: AsyncSession,
+    user: Utilisateur,
+    data: PositionCreate,
+    *,
+    appareil_brut: str | None = None,
 ) -> PositionRead:
     await _assert_can_access_embarcation(db, user, data.embarcation_id)
     await _assert_pecheur_abonnement_write(db, user, data.embarcation_id)
     _assert_on_water(data.position)
+    appareil = await _appareil_emetteur(
+        db, user, appareil_brut, [(data.embarcation_id, data.horodatage)]
+    )
     now = datetime.now(UTC)
     row = Position(
         embarcation_id=data.embarcation_id,
@@ -128,6 +156,7 @@ async def create_position(
         horodatage=data.horodatage,
         source=data.source or SourcePosition.mobile,
         synchronise_a=now,
+        appareil_id=appareil.id if appareil is not None else None,
     )
     db.add(row)
     await db.flush()
@@ -146,7 +175,11 @@ async def create_position(
 
 
 async def create_positions_batch(
-    db: AsyncSession, user: Utilisateur, data: PositionBatchCreate
+    db: AsyncSession,
+    user: Utilisateur,
+    data: PositionBatchCreate,
+    *,
+    appareil_brut: str | None = None,
 ) -> list[PositionRead]:
     if not data.positions:
         raise bad_request("Aucune position fournie", "EMPTY_BATCH")
@@ -158,6 +191,10 @@ async def create_positions_batch(
     for item in data.positions:
         _assert_on_water(item.position)
     _assert_batch_no_land_crossing(data.positions)
+    appareil = await _appareil_emetteur(
+        db, user, appareil_brut, [(p.embarcation_id, p.horodatage) for p in data.positions]
+    )
+    appareil_id = appareil.id if appareil is not None else None
 
     now = datetime.now(UTC)
     rows: list[Position] = []
@@ -169,6 +206,7 @@ async def create_positions_batch(
                 horodatage=item.horodatage,
                 source=item.source or SourcePosition.mobile,
                 synchronise_a=now,
+                appareil_id=appareil_id,
             )
         )
     db.add_all(rows)
@@ -234,7 +272,9 @@ async def list_embarcations_for_user(db: AsyncSession, user: Utilisateur) -> lis
             .order_by(Embarcation.nom)
         )
         return list(result.scalars().all())
-    result = await db.execute(select(Embarcation).order_by(Embarcation.nom).limit(2000))
+    # Toute la flotte pour les rôles de pilotage : un plafond tronquait la liste par
+    # ordre alphabétique et faisait disparaître des embarcations du suivi sans message.
+    result = await db.execute(select(Embarcation).order_by(Embarcation.nom))
     return list(result.scalars().all())
 
 

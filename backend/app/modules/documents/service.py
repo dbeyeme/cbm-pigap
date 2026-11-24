@@ -445,6 +445,185 @@ async def rapport_pdf(
     return content, _filename("rapport", stamp)
 
 
+# Nombre de lignes des tableaux du rapport de zone (lisibilité du document)
+_PDF_EMBARCATIONS_MAX = 40
+_PDF_ALERTES_MAX = 25
+
+
+def _nombre(value: float, unite: str = "") -> str:
+    texte = f"{value:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{texte} {unite}".strip()
+
+
+def _decimal(value: object) -> str:
+    """Nombre court à la française : 60 et non 60.0, 0,05 et non 0.05."""
+    try:
+        return f"{float(value):g}".replace(".", ",")  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _declarations(nombre: int) -> str:
+    return f"{nombre} déclaration" if nombre == 1 else f"{nombre} déclarations"
+
+
+async def rapport_zone_pdf(
+    db: AsyncSession,
+    user: Utilisateur,
+    *,
+    zone_id: UUID | None,
+    secteur: str | None,
+    debut: datetime | None,
+    fin: datetime | None,
+) -> tuple[bytes, str]:
+    """Rapport de zone à la demande : activité, embarcations présentes, captures, alertes.
+
+    Le contenu vient du même calcul que la version JSON (`/activite/rapport-zone`) ;
+    l'export est inscrit au journal des accès par ce calcul.
+    """
+    from app.modules.activite import service as activite_service
+
+    rapport = await activite_service.rapport_zone(
+        db, user, zone_id=zone_id, secteur=secteur, debut=debut, fin=fin, action="export_pdf"
+    )
+    zone = rapport.zone
+    regle = rapport.regle
+    params = regle.parametres
+    nature = "Zone réglementée" if zone.genre == "zone_reglementee" else "Secteur de mer"
+    vitesse = params.get("vitesse_max_noeuds")
+    exclusion = params.get("exclusion_ports") or {}
+    description_regle = "; ".join(
+        [
+            "intervalle maximal entre deux relevés : "
+            f"{_decimal(params.get('intervalle_max_minutes'))} min",
+            (
+                f"vitesse moyenne maximale : {_decimal(vitesse)} noeuds"
+                if vitesse is not None
+                else "aucun seuil de vitesse fixé"
+            ),
+            f"maille de {_decimal(params.get('taille_maille_deg'))} degré",
+            (
+                "abords des ports exclus"
+                if exclusion.get("actif")
+                else "abords des ports non exclus"
+            ),
+        ]
+    )
+    synthese = [
+        ("Zone", zone.nom),
+        ("Nature", f"{nature} ({_enum(zone.type)})" if zone.type else nature),
+        ("Début de période (inclus)", _fmt(rapport.periode.debut)),
+        ("Fin de période (exclue)", _fmt(rapport.periode.fin)),
+        ("Calculé le", _fmt(rapport.genere_a)),
+    ]
+    activite = [
+        ("Heures d'activité", _nombre(rapport.activite.heures_activite, "h")),
+        ("Embarcations actives", str(rapport.activite.nb_embarcations_actives)),
+        ("Embarcations présentes", str(rapport.nb_embarcations_presentes)),
+        ("Intervalles comptés", str(rapport.activite.nb_intervalles)),
+        (
+            "Règle de calcul",
+            (
+                f"{regle.statut}, en attente de validation ; version {regle.version}"
+                if regle.statut == "Proposé"
+                else f"{regle.statut} ; version {regle.version}"
+            ),
+        ),
+        ("Paramètres", description_regle),
+        (
+            "Source",
+            "Positions de la plateforme (application et balises). "
+            "Les navires qui n'émettent pas vers la plateforme n'y figurent pas.",
+        ),
+    ]
+    styles = pdf._styles()
+    embarcations = pdf.data_table(
+        ["Nom", "Immatriculation", "Relevés", "Heures d'activité", "Dernier relevé", "Sources"],
+        [
+            [
+                e.nom,
+                e.immatriculation,
+                str(e.nb_releves),
+                _nombre(e.heures_activite, "h"),
+                _fmt(e.dernier_releve),
+                ", ".join(e.sources) or "non renseignée",
+            ]
+            for e in rapport.embarcations[:_PDF_EMBARCATIONS_MAX]
+        ],
+        styles,
+        col_widths=[w * pdf.mm for w in (40, 36, 16, 24, 36, 18)],
+    )
+    captures = rapport.captures
+    especes = (
+        ["Espèce", "Volume", "Déclarations"],
+        [
+            [v.nom, _kg(v.quantite_kg), str(v.nb_declarations)]
+            for v in captures.dans_la_zone.par_espece
+        ],
+    )
+    non_rattachees = [
+        ("Volume rattaché à la zone", _kg(captures.dans_la_zone.quantite_kg)),
+        (
+            "Sans lieu de pêche (comptées à part)",
+            f"{_declarations(captures.sans_position.nb_declarations)}, "
+            f"{_kg(captures.sans_position.quantite_kg)}",
+        ),
+        (
+            "Lieu de pêche hors de la zone",
+            f"{_declarations(captures.positionnees_hors_zone.nb_declarations)}, "
+            f"{_kg(captures.positionnees_hors_zone.quantite_kg)}",
+        ),
+    ]
+    alertes = rapport.alertes
+    alertes_table = pdf.data_table(
+        ["Date", "Type", "Gravité", "Statut", "Règle"],
+        [
+            [
+                _fmt(a.horodatage),
+                _enum(a.type),
+                _enum(a.niveau_gravite),
+                _enum(a.statut),
+                _enum(a.regle) if a.regle else "non renseignée",
+            ]
+            for a in alertes.elements[:_PDF_ALERTES_MAX]
+        ],
+        styles,
+        col_widths=[w * pdf.mm for w in (36, 30, 22, 22, 60)],
+    )
+    alertes_synthese = [
+        ("Alertes rattachées à la zone", str(alertes.total)),
+        (
+            "Par gravité",
+            ", ".join(f"{_enum(k)} : {v}" for k, v in alertes.par_gravite.items()) or "Aucune",
+        ),
+        ("Alertes sans position (comptées à part)", str(alertes.sans_position)),
+    ]
+    # Listes bornées dans le document : le titre le dit quand une liste est coupée
+    titre_embarcations = f"Embarcations présentes ({rapport.nb_embarcations_presentes})"
+    if rapport.nb_embarcations_presentes > _PDF_EMBARCATIONS_MAX:
+        titre_embarcations += f" : les {_PDF_EMBARCATIONS_MAX} premières par nombre de relevés"
+    titre_alertes = "Alertes les plus récentes"
+    if alertes.total > _PDF_ALERTES_MAX:
+        titre_alertes += f" ({_PDF_ALERTES_MAX} sur {alertes.total})"
+    reference = f"RZ-{zone.id[:8].upper()}-{rapport.periode.debut.strftime('%Y%m%d')}"
+    content = pdf.build_pdf(
+        kind="Rapport de zone",
+        title=zone.nom,
+        reference=reference,
+        include_signatures=False,
+        sections=[
+            ("Zone et période", synthese),
+            ("Activité observée", activite),
+            (titre_embarcations, embarcations),
+            ("Captures déclarées dans la zone, par espèce", especes),
+            ("Rattachement des captures", non_rattachees),
+            ("Alertes", alertes_synthese),
+            (titre_alertes, alertes_table),
+        ],
+    )
+    return content, _filename("rapport-zone", reference)
+
+
 async def rapport_csv(
     db: AsyncSession,
     user: Utilisateur,

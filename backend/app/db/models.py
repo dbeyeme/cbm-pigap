@@ -9,11 +9,13 @@ from typing import Any
 from geoalchemy2 import Geometry
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -28,6 +30,7 @@ from app.db.base import Base
 from app.db.enums import (
     CanalAbonnement,
     CodeOffreAbonnement,
+    EtatAppareil,
     NiveauGravite,
     OperateurMobileMoney,
     PeriodeAbonnement,
@@ -150,6 +153,9 @@ class Pecheur(Base):
     organisation_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organisations.id", ondelete="SET NULL"), nullable=True
     )
+    # Nombre d'appareils que ce pêcheur peut rattacher (ADR-012, règle R2).
+    # Vide : valeur par défaut du paramétrage `appareils.json`.
+    appareils_autorises: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     utilisateur: Mapped[Utilisateur] = relationship(back_populates="pecheur")
     organisation: Mapped[Organisation | None] = relationship(back_populates="pecheurs")
@@ -184,6 +190,16 @@ class Embarcation(Base):
     # Identifiant de la balise satellitaire embarquée (ADR-009, source=balise) :
     # numéro de série du dispositif, rapproché à l'ingestion POST /positions/balises/ingest
     balise_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Informations d'inscription complémentaires, toutes facultatives.
+    # Statut : Proposé (valideurs : Christian, DGPA), lot 2 du chantier de novembre 2026.
+    mmsi: Mapped[str | None] = mapped_column(String(9), nullable=True, index=True)
+    numero_omi: Mapped[str | None] = mapped_column(String(7), nullable=True, index=True)
+    indicatif_radio: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    jauge_brute: Mapped[float | None] = mapped_column(Float, nullable=True)
+    annee_construction: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Propriétaire et exploitant, quand ils diffèrent du titulaire de la licence
+    proprietaire: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    exploitant: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     pecheur: Mapped[Pecheur] = relationship(back_populates="embarcations")
     positions: Mapped[list[Position]] = relationship(back_populates="embarcation")
@@ -211,8 +227,64 @@ class Position(Base):
         default=SourcePosition.mobile,
     )
     synchronise_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Appareil qui a envoyé le relevé (ADR-012) ; vide pour une balise, un agent
+    # ou l'ancienne application
+    appareil_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("appareils.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     embarcation: Mapped[Embarcation] = relationship(back_populates="positions")
+
+
+class Appareil(Base):
+    """Appareil rattaché à un compte pêcheur (ADR-012).
+
+    Seule l'empreinte de l'identifiant est conservée, calculée avec un secret du
+    serveur : la valeur envoyée par le téléphone n'est jamais stockée. Un appareil
+    n'a qu'un rattachement actif à la fois ; une libération garde son auteur, sa
+    date et son motif.
+    """
+
+    __tablename__ = "appareils"
+    __table_args__ = (
+        Index(
+            "uq_appareils_empreinte_actif",
+            "empreinte",
+            unique=True,
+            postgresql_where=text("etat = 'actif'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    empreinte: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Nature de l'identifiant reçu : `android` (appareil) ou `install` (installation)
+    origine: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    etat: Mapped[EtatAppareil] = mapped_column(
+        Enum(EtatAppareil, name="etat_appareil", native_enum=True),
+        nullable=False,
+        default=EtatAppareil.actif,
+        server_default="actif",
+    )
+    premiere_utilisation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    derniere_utilisation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    libere_par_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    libere_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motif_liberation: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ZoneReglementee(Base):
@@ -360,6 +432,9 @@ class DemandeLicence(Base):
     embarcation_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embarcation_longueur: Mapped[float | None] = mapped_column(Float, nullable=True)
     embarcation_equipements: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Informations d'inscription complémentaires de l'embarcation (MMSI, numéro OMI,
+    # indicatif, jauge, année, propriétaire, exploitant), reportées à l'approbation
+    embarcation_complements: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     nationalite: Mapped[str | None] = mapped_column(String(64), nullable=True)
     montant_autorisation_fcfa: Mapped[int | None] = mapped_column(Integer, nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -385,6 +460,60 @@ class DemandeLicence(Base):
     # Identifiants attribués automatiquement à l'approbation définitive
     numero_licence_attribue: Mapped[str | None] = mapped_column(String(64), nullable=True)
     immatriculation_attribuee: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class ProfilActeur(Base):
+    """Page de profil d'un acteur, pêcheur ou organisation (lot 2).
+
+    Visible des personnes connectées ; l'acteur peut en plus l'ouvrir au public
+    par un lien, option désactivée au départ. Les espèces affichées viennent des
+    captures déclarées ; seules celles que l'acteur masque sont conservées ici.
+    """
+
+    __tablename__ = "profils_acteur"
+    __table_args__ = (
+        CheckConstraint(
+            "(pecheur_id IS NOT NULL) <> (organisation_id IS NOT NULL)",
+            name="ck_profils_acteur_un_seul_acteur",
+        ),
+        UniqueConstraint("pecheur_id", name="uq_profils_acteur_pecheur"),
+        UniqueConstraint("organisation_id", name="uq_profils_acteur_organisation"),
+        UniqueConstraint("jeton_public", name="uq_profils_acteur_jeton_public"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pecheur_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pecheurs.id", ondelete="CASCADE"), nullable=True
+    )
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True
+    )
+    presentation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Codes d'espèces que l'acteur ne souhaite pas afficher
+    especes_masquees: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # Tarifs facultatifs : [{espece, unite, prix_fcfa}], en francs CFA entiers
+    tarifs: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    tarifs_visibles: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    ouvert_au_public: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    # Jeton du lien public, créé à la première ouverture ; jamais déduit d'un identifiant
+    jeton_public: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    date_mise_a_jour: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
 
 class Compteur(Base):

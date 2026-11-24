@@ -1,0 +1,42 @@
+{
+  "version": "2026-11-24",
+  "statut": "Proposé",
+  "valideurs": ["Christian"],
+  "note": "Paramètres de l'essai de faisabilité Global Fishing Watch (ADR-011), hors service. Les identifiants de zone et de jeux de données, les retards de publication et la mention d'attribution viennent de l'éditeur (essai et documentation lus le 2026-11-24). Les bornes de période, la durée du cache et le budget de requêtes sont des garde-fous proposés. L'interrupteur et le jeton restent dans l'environnement (GFW_ENABLED, GFW_API_TOKEN).",
+  "source": {
+    "zone": {
+      "identifiant": 8476,
+      "jeu": "public-eez-areas",
+      "nom": "ZEE du Gabon"
+    },
+    "jeux": {
+      "peche_apparente": "public-global-fishing-effort:latest",
+      "detections_radar": "public-global-sar-presence:latest",
+      "identite_navires": "public-global-vessel-identity:latest"
+    },
+    "retard_publication_heures": {
+      "peche_apparente": 96,
+      "detections_radar": 120
+    },
+    "attribution": {
+      "mention": "Powered by Global Fishing Watch.",
+      "lien": "https://globalfishingwatch.org"
+    },
+    "periode_defaut_jours": 90,
+    "periode_max_jours": 366,
+    "cache_heures": 24,
+    "budget_requetes_jour": 200,
+    "delai_reponse_secondes": 120
+  },
+  "explications": {
+    "zone": "Zone interrogée : identifiant de la ZEE du Gabon dans le jeu de zones de l'éditeur (vérifié le 2026-11-24).",
+    "jeux": "Jeux de données de l'éditeur : heures de pêche apparente, détections radar, identité des navires.",
+    "retard_publication_heures": "Retard annoncé par l'éditeur : 96 heures pour la pêche apparente, 5 jours pour le radar. Sert à calculer la date de fraîcheur renvoyée avec chaque réponse.",
+    "attribution": "Mention exigée par l'éditeur sur chaque écran qui affiche ces données, avec son lien.",
+    "periode_defaut_jours": "Période retenue quand la demande ne précise aucune date ; elle se termine à la date de fraîcheur.",
+    "periode_max_jours": "Durée maximale d'une demande (garde-fou proposé).",
+    "cache_heures": "Durée pendant laquelle une réponse de l'éditeur est resservie sans nouvel appel. Les données sont publiées une fois par jour.",
+    "budget_requetes_jour": "Nombre maximal d'appels à l'éditeur par jour et par serveur, très en dessous de son plafond de 50 000 requêtes par jour.",
+    "delai_reponse_secondes": "Attente maximale d'une réponse de l'éditeur, et d'un rapport déjà en cours (un seul rapport à la fois par jeton)."
+  }
+}

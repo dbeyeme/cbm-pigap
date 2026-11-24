@@ -6,9 +6,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 
 from app.core.deps import DbSession, require_role
-from app.core.errors import bad_request, not_found
+from app.core.errors import ApiError, bad_request, not_found
+from app.core.validation_messages import format_validation_errors
 from app.db.enums import RoleUtilisateur, StatutDemandeLicence, TypeDemandeLicence
 from app.db.models import Utilisateur
 from app.modules.demandes_licence import service
@@ -20,6 +22,7 @@ from app.modules.demandes_licence.schemas import (
     DemandeLicenceUpdate,
 )
 from app.modules.demandes_licence.storage import resolve_piece_path, save_pieces
+from app.modules.pecheurs.schemas import ComplementsEmbarcation
 
 router = APIRouter(prefix="/demandes-licence", tags=["demandes-licence"])
 
@@ -41,11 +44,37 @@ def _parse_equipements(raw: str | None) -> dict | None:
         return None
     try:
         value = json.loads(raw)
-    except ValueError as exc:
+    except (ValueError, RecursionError) as exc:
+        # RecursionError : texte fait de milliers de crochets imbriqués
         raise bad_request("Équipements : format JSON invalide", "EQUIPEMENTS_INVALIDES") from exc
     if not isinstance(value, dict):
         raise bad_request("Équipements : un objet est attendu", "EQUIPEMENTS_INVALIDES")
     return value
+
+
+def _parse_complements(raw: str | None) -> ComplementsEmbarcation | None:
+    """Décode les informations complémentaires de l'embarcation envoyées en multipart.
+
+    Même contrôle que par l'envoi JSON : un format invalide donne un message en clair.
+    """
+    if raw is None or not raw.strip():
+        return None
+    invalide = bad_request(
+        "Informations complémentaires de l'embarcation : format invalide",
+        "COMPLEMENTS_INVALIDES",
+    )
+    try:
+        value = json.loads(raw)
+    except (ValueError, RecursionError) as exc:
+        raise invalide from exc
+    if not isinstance(value, dict):
+        raise invalide
+    try:
+        return ComplementsEmbarcation.model_validate(value)
+    except ValidationError as exc:
+        raise ApiError(
+            422, format_validation_errors(list(exc.errors())), "VALIDATION_ERROR"
+        ) from exc
 
 
 def _empty_to_none(value: str | None) -> str | None:
@@ -95,6 +124,8 @@ async def soumettre_demande_avec_pieces(
     embarcation_longueur: Annotated[float | None, Form()] = None,
     # JSON sérialisé par le formulaire (multipart) : {"engins": [...], ...}
     embarcation_equipements: Annotated[str | None, Form()] = None,
+    # JSON sérialisé : {"mmsi": "...", "numero_omi": "...", ...}, tout est facultatif
+    embarcation_complements: Annotated[str | None, Form()] = None,
     nationalite: Annotated[str | None, Form()] = None,
     message: Annotated[str | None, Form()] = None,
     type_pieces: Annotated[list[str] | None, Form()] = None,
@@ -120,6 +151,7 @@ async def soumettre_demande_avec_pieces(
         embarcation_type=_empty_to_none(embarcation_type),
         embarcation_longueur=embarcation_longueur,
         embarcation_equipements=_parse_equipements(embarcation_equipements),
+        embarcation_complements=_parse_complements(embarcation_complements),
         nationalite=_empty_to_none(nationalite),
         message=_empty_to_none(message),
     )

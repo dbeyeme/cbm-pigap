@@ -88,6 +88,24 @@ async def get_bilan_pdf(
     return _file(content, filename, "application/pdf")
 
 
+@router.get("/rapport-zone")
+async def get_rapport_zone_pdf(
+    db: DbSession,
+    user: PilotageReader,
+    zone_id: Annotated[UUID | None, Query(description="Zone réglementée")] = None,
+    secteur: Annotated[
+        str | None, Query(max_length=64, description="Identifiant d'un secteur de mer")
+    ] = None,
+    debut: Annotated[datetime | None, Query()] = None,
+    fin: Annotated[datetime | None, Query()] = None,
+) -> Response:
+    """Rapport de zone en PDF : activité, embarcations présentes, captures, alertes."""
+    content, filename = await service.rapport_zone_pdf(
+        db, user, zone_id=zone_id, secteur=secteur, debut=debut, fin=fin
+    )
+    return _file(content, filename, "application/pdf")
+
+
 @router.get("/rapport")
 async def get_rapport(
     db: DbSession,

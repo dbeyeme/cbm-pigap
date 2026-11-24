@@ -12,6 +12,7 @@ Le rapport existe aussi en CSV (export annoncé Phase 3).
 | GET | `/fiche/demande/{demande_id}` | idem | PDF fiche (demande FO) |
 | GET | `/bilan/{pecheur_id}?debut=&fin=` | + chercheur | PDF bilan d’activité |
 | GET | `/rapport?debut=&fin=&format=pdf\|csv` | + chercheur | PDF ou CSV de pilotage |
+| GET | `/rapport-zone?zone_id=\|secteur=&debut=&fin=` | + chercheur | PDF du rapport de zone (activité, embarcations présentes, captures, alertes ; calcul du module `activite`) |
 
 Chaque export écrit une ligne `LogAcces` (§7).
 

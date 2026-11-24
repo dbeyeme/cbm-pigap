@@ -1,0 +1,27 @@
+{
+  "version": "2026-11-24",
+  "statut": "Proposé",
+  "valideurs": ["Christian", "expert halieutique"],
+  "note": "Règle de calcul des heures d'activité par maille à partir des positions de la plateforme (application et balises). Aucune valeur n'est validée : chaque paramètre est une proposition à confirmer. Modifier ce fichier change le résultat sans toucher au code.",
+  "activite": {
+    "intervalle_max_minutes": 65,
+    "vitesse_max_noeuds": null,
+    "taille_maille_deg": 0.05,
+    "exclusion_ports": {
+      "actif": true,
+      "rayon_km": null
+    },
+    "periode_defaut_jours": 30,
+    "periode_max_jours": 366,
+    "mailles_max": 10000
+  },
+  "explications": {
+    "intervalle_max_minutes": "Durée maximale entre deux relevés consécutifs d'une même embarcation pour que l'intervalle compte. Proposé à 65 minutes : deux périodes d'émission d'une balise de l'État (30 minutes, ADR-009) et cinq minutes de marge, pour qu'un message manqué reste toléré même si le suivant part avec un peu de retard.",
+    "vitesse_max_noeuds": "Vitesse moyenne maximale sur l'intervalle, calculée entre les deux relevés. Laissée vide : l'étude du 2026-10-30 (section 4.6) renvoie le choix d'un seuil aux traces du pilote. Tant qu'elle est vide, toute présence en mer hors des abords d'un port compte.",
+    "taille_maille_deg": "Côté d'une maille en degrés. Proposé à 0,05 degré, soit environ 5,6 km à l'équateur, du même ordre que les rayons des ports du référentiel (5 à 8 km).",
+    "exclusion_ports": "Un intervalle dont le relevé de départ se trouve aux abords d'un port ne compte pas. Rayon vide : celui de chaque port dans le référentiel des ports (le même que pour la présence au port).",
+    "periode_defaut_jours": "Période retenue quand la demande ne précise aucune date.",
+    "periode_max_jours": "Durée maximale d'une demande.",
+    "mailles_max": "Nombre maximal de mailles renvoyées ; au-delà, la demande doit réduire l'emprise ou la période."
+  }
+}

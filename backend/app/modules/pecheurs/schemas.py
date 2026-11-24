@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+import re
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.texte import texte_simple
 from app.db.enums import StatutPecheur
 from app.schemas.common import OrmModel
 
@@ -134,7 +136,86 @@ class PecheurRead(OrmModel):
     organisation_id: UUID | None
 
 
-class EmbarcationCreate(BaseModel):
+_SEPARATEURS = re.compile(r"[\s.\-]")
+_INDICATIF = re.compile(r"^[A-Z0-9]{3,10}$")
+
+
+def _texte_ou_rien(value: object) -> object:
+    """Une saisie vide vaut « non renseigné »."""
+    if isinstance(value, str):
+        return value.strip() or None
+    return value
+
+
+class ComplementsEmbarcation(BaseModel):
+    """Informations d'inscription complémentaires d'une embarcation, toutes facultatives.
+
+    Statut : Proposé (valideurs : Christian, DGPA). Seul le format des identifiants
+    est contrôlé (neuf chiffres pour le MMSI, sept pour le numéro OMI) ; aucune de
+    ces informations n'est exigée, quelle que soit la catégorie de l'embarcation.
+    """
+
+    mmsi: str | None = Field(None, description="Identité du service mobile maritime : 9 chiffres")
+    numero_omi: str | None = Field(None, description="Numéro OMI du navire : 7 chiffres")
+    indicatif_radio: str | None = Field(None, description="Indicatif d'appel radio")
+    jauge_brute: float | None = Field(None, gt=0, le=500_000, description="Jauge brute")
+    annee_construction: int | None = Field(None, ge=1900, le=2100)
+    proprietaire: str | None = Field(
+        None, max_length=255, description="Propriétaire, s'il diffère du titulaire de la licence"
+    )
+    exploitant: str | None = Field(
+        None, max_length=255, description="Exploitant, s'il diffère du propriétaire"
+    )
+
+    @field_validator("mmsi", mode="before")
+    @classmethod
+    def mmsi_neuf_chiffres(cls, value: object) -> object:
+        if value is None or value == "":
+            return None
+        chiffres = _SEPARATEURS.sub("", str(value))
+        if not (chiffres.isascii() and chiffres.isdigit() and len(chiffres) == 9):
+            raise ValueError("le MMSI compte 9 chiffres")
+        return chiffres
+
+    @field_validator("numero_omi", mode="before")
+    @classmethod
+    def omi_sept_chiffres(cls, value: object) -> object:
+        if value is None or value == "":
+            return None
+        brut = _SEPARATEURS.sub("", str(value)).upper()
+        for prefixe in ("IMO", "OMI"):
+            if brut.startswith(prefixe):
+                brut = brut[len(prefixe) :]
+        if not (brut.isascii() and brut.isdigit() and len(brut) == 7):
+            raise ValueError("le numéro OMI compte 7 chiffres")
+        return brut
+
+    @field_validator("indicatif_radio", mode="before")
+    @classmethod
+    def indicatif_lisible(cls, value: object) -> object:
+        if value is None or value == "":
+            return None
+        indicatif = _SEPARATEURS.sub("", str(value)).upper()
+        if not _INDICATIF.fullmatch(indicatif):
+            raise ValueError("l'indicatif radio compte 3 à 10 lettres ou chiffres")
+        return indicatif
+
+    @field_validator("annee_construction")
+    @classmethod
+    def annee_passee(cls, value: int | None) -> int | None:
+        if value is not None and value > datetime.now(UTC).year:
+            raise ValueError("l'année de construction ne peut pas dépasser l'année en cours")
+        return value
+
+    @field_validator("proprietaire", "exploitant", mode="before")
+    @classmethod
+    def nom_ou_rien(cls, value: object) -> object:
+        value = _texte_ou_rien(value)
+        # Texte libre affiché sur la fiche d'identité : une seule ligne, sans caractère invisible
+        return texte_simple(value) if isinstance(value, str) else value
+
+
+class EmbarcationCreate(ComplementsEmbarcation):
     pecheur_id: UUID
     nom: str = Field(..., min_length=1, max_length=255)
     immatriculation: str = Field(..., min_length=1, max_length=64)
@@ -153,7 +234,7 @@ class EmbarcationCreate(BaseModel):
     )
 
 
-class EmbarcationUpdate(BaseModel):
+class EmbarcationUpdate(ComplementsEmbarcation):
     nom: str | None = Field(None, min_length=1, max_length=255)
     immatriculation: str | None = Field(None, min_length=1, max_length=64)
     type: str | None = None
@@ -184,3 +265,11 @@ class EmbarcationRead(OrmModel):
     site_attache: str | None = None
     strate: str | None = None
     balise_id: str | None = None
+    # Informations d'inscription complémentaires (facultatives, statut Proposé)
+    mmsi: str | None = None
+    numero_omi: str | None = None
+    indicatif_radio: str | None = None
+    jauge_brute: float | None = None
+    annee_construction: int | None = None
+    proprietaire: str | None = None
+    exploitant: str | None = None

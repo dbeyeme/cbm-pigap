@@ -121,3 +121,10 @@ class StatutMission(enum.StrEnum):
     planifiee = "planifiee"
     en_cours = "en_cours"
     cloturee = "cloturee"
+
+
+class EtatAppareil(enum.StrEnum):
+    """Rattachement d'un appareil à un compte pêcheur (ADR-012)."""
+
+    actif = "actif"
+    libere = "libere"

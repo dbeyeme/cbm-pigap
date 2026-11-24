@@ -44,3 +44,8 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # ADR-012 : vrai quand le serveur a rattaché ou reconnu l'appareil de ce compte
+    # pêcheur à cette connexion ; l'application aligne alors sa garde locale (par
+    # exemple après une libération faite par un agent). Faux sans en-tête d'appareil
+    # et pour les autres rôles.
+    appareil_rattache: bool = False

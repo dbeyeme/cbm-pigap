@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.db.enums import StatutDemandeLicence, TypeDemandeLicence
+from app.modules.pecheurs.schemas import ComplementsEmbarcation
 from app.schemas.common import OrmModel
 
 
@@ -35,6 +36,9 @@ class DemandeLicenceCreate(BaseModel):
     embarcation_longueur: float | None = Field(None, gt=0, le=100)
     # Équipements utilisés (§5.1) : engins, moteur, sécurité, navigation
     embarcation_equipements: dict[str, Any] | None = None
+    # Informations d'inscription complémentaires de l'embarcation, toutes facultatives
+    # (MMSI, numéro OMI, indicatif radio, jauge, année, propriétaire, exploitant)
+    embarcation_complements: ComplementsEmbarcation | None = None
     # Nationalité du propriétaire : détermine le barème d'autorisation annuelle
     nationalite: str | None = Field(None, max_length=64)
     message: str | None = Field(None, max_length=2000)
@@ -74,6 +78,7 @@ class DemandeLicenceUpdate(BaseModel):
     embarcation_nom: str | None = None
     embarcation_immatriculation: str | None = None
     embarcation_type: str | None = None
+    embarcation_complements: ComplementsEmbarcation | None = None
     message: str | None = None
 
 
@@ -130,6 +135,7 @@ class DemandeLicenceRead(OrmModel):
     embarcation_type: str | None
     embarcation_longueur: float | None = None
     embarcation_equipements: dict[str, Any] | None = None
+    embarcation_complements: dict[str, Any] | None = None
     nationalite: str | None = None
     montant_autorisation_fcfa: int | None = None
     message: str | None

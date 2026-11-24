@@ -532,6 +532,46 @@ async def signaler_detresse(
     )
 
 
+async def signaler_suivi_double(
+    db: AsyncSession,
+    *,
+    embarcation_id: UUID,
+    appareil_refuse_id: UUID,
+    appareil_refuse: str,
+    appareil_en_place: str | None,
+    releve_refuse: datetime,
+    releve_en_place: datetime,
+    fenetre_minutes: float,
+) -> Alerte | None:
+    """Alerte « suivi par deux appareils » (ADR-012, règle R3).
+
+    Un second appareil a tenté d'émettre pour une embarcation déjà suivie par un
+    autre dans la fenêtre d'exclusivité. Les appareils ne figurent que par le
+    début de leur empreinte, jamais par leur identifiant. Une alerte par
+    embarcation et par appareil refusé sur 12 h (anti-doublon de `_create`).
+    """
+    return await _create(
+        db,
+        type_alerte=TypeAlerte.anomalie,
+        gravite=NiveauGravite.attention,
+        embarcation_id=embarcation_id,
+        declencheur={
+            "regle": "suivi_double_appareil",
+            "fingerprint": f"double_appareil:{embarcation_id}:{appareil_refuse_id}",
+            "embarcation_id": str(embarcation_id),
+            "appareil_refuse": appareil_refuse,
+            "appareil_en_place": appareil_en_place,
+            "fenetre_minutes": fenetre_minutes,
+            "releve_refuse": releve_refuse.isoformat(),
+            "releve_en_place": releve_en_place.isoformat(),
+            "message": (
+                "Un second appareil a tenté d'émettre des positions pour cette embarcation "
+                "alors qu'un autre appareil en assurait déjà le suivi."
+            ),
+        },
+    )
+
+
 async def evaluate_after_position(
     db: AsyncSession,
     *,

@@ -1,0 +1,78 @@
+{
+  "version": "2026-11-24",
+  "statut": "Proposé",
+  "valideurs": ["Christian", "DGPA"],
+  "note": "Page de profil d'un acteur (pêcheur ou organisation) et informations d'inscription d'une embarcation. La visibilité et les tarifs sont décidés par le porteur ; le reste est proposé. Modifier ce fichier change le comportement sans toucher au code.",
+  "profil": {
+    "especes_periode_jours": 365,
+    "especes_max": 12,
+    "presentation_max_caracteres": 600,
+    "presentation_sans_coordonnees": true,
+    "presentation_chiffres_max": 6,
+    "tarifs_max": 30,
+    "prix_max_fcfa": 10000000,
+    "unites_tarif": ["kg", "unite"]
+  },
+  "explications": {
+    "especes_periode_jours": "Les espèces affichées sont celles des captures déclarées sur cette durée, jusqu'à aujourd'hui.",
+    "especes_max": "Nombre maximal d'espèces affichées, des plus déclarées aux moins déclarées, en volume.",
+    "presentation_max_caracteres": "Longueur maximale du texte de présentation.",
+    "presentation_sans_coordonnees": "Si vrai, un texte de présentation qui contient une adresse électronique, une adresse de site ou une longue suite de chiffres est refusé à l'enregistrement.",
+    "presentation_chiffres_max": "Nombre maximal de chiffres à la suite admis dans la présentation, espaces, points et tirets ignorés (« 077 65 43 21 » en compte neuf, « 12/03/2015 » pas plus de quatre) ; au-delà, la suite est prise pour un numéro de téléphone et le texte est refusé.",
+    "tarifs_max": "Nombre maximal de lignes de tarif par profil.",
+    "prix_max_fcfa": "Garde-fou de saisie : prix maximal d'une ligne de tarif, en francs CFA.",
+    "unites_tarif": "Unités admises pour un tarif : au kilo (kg) ou à l'unité (unite). Décision du porteur du 2026-11-24."
+  },
+  "regles": {
+    "visibilite": {
+      "enonce": "La page est visible des personnes connectées ; l'acteur peut en plus l'ouvrir au public par un lien ou un QR code, option désactivée au départ.",
+      "statut": "Décidée le 2026-11-24",
+      "valideurs": ["Christian"]
+    },
+    "tarifs": {
+      "enonce": "Tarifs facultatifs, saisis par l'acteur, par espèce, au kilo ou à l'unité, en francs CFA, affichés seulement s'il le décide.",
+      "statut": "Décidée le 2026-11-24",
+      "valideurs": ["Christian"]
+    },
+    "especes": {
+      "enonce": "Les espèces pêchées sont tirées des captures déclarées ; l'acteur peut en masquer.",
+      "statut": "Proposé",
+      "valideurs": ["Christian", "DGPA"]
+    },
+    "especes_protegees": {
+      "enonce": "Une espèce protégée du référentiel ne peut ni recevoir un tarif ni figurer parmi les espèces affichées.",
+      "statut": "Proposé",
+      "valideurs": ["Christian", "DGPA"]
+    },
+    "vitrine_publique": {
+      "enonce": "La version publique ne contient aucune coordonnée personnelle : ni téléphone, ni e-mail, ni adresse, ni numéro de licence, ni immatriculation.",
+      "statut": "Proposé",
+      "valideurs": ["Christian"]
+    },
+    "presentation_sans_coordonnees": {
+      "enonce": "Le texte de présentation, libre, ne doit pas contenir de coordonnées : adresse électronique, adresse de site et numéro de téléphone sont refusés à la saisie. Ce contrôle réduit le risque sans le supprimer (un numéro écrit en toutes lettres passe).",
+      "statut": "Décidée le 2026-11-24",
+      "valideurs": ["Christian"]
+    },
+    "referentiel_indisponible": {
+      "enonce": "Sans le référentiel des espèces, ou sans sa liste des espèces protégées, la page n'affiche ni espèce ni tarif : la règle des espèces protégées ne peut pas s'appliquer.",
+      "statut": "Décidée le 2026-11-24",
+      "valideurs": ["Christian"]
+    },
+    "tarif_espece_masquee": {
+      "enonce": "Le tarif d'une espèce que l'acteur a masquée ne s'affiche pas ; il reste enregistré dans ses réglages.",
+      "statut": "Décidée le 2026-11-24",
+      "valideurs": ["Christian"]
+    },
+    "acteur_inactif": {
+      "enonce": "La page d'un pêcheur suspendu ou à la licence expirée, ou d'une organisation désactivée, n'est lisible ni des comptes connectés ni du public ; l'acteur garde l'accès à sa propre page. Une licence sans date de délivrance connue n'est pas tenue pour expirée.",
+      "statut": "Décidée le 2026-11-24",
+      "valideurs": ["Christian"]
+    },
+    "inscription_embarcation": {
+      "enonce": "MMSI, numéro OMI, indicatif radio, jauge, année de construction, propriétaire et exploitant : informations facultatives à l'inscription d'une embarcation.",
+      "statut": "Proposé",
+      "valideurs": ["Christian", "DGPA"]
+    }
+  }
+}

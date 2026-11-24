@@ -103,11 +103,16 @@ async def _zone(client: AsyncClient, headers: dict, nom: str, ring: list) -> str
 async def test_penurie_serie_decroissante(client: AsyncClient, agent_headers: dict) -> None:
     reset_cache()
     pid, emb = await _boat(client, agent_headers)
-    origin = date(2180, 6, 5) + timedelta(weeks=uuid.uuid4().int % 20)
+    # Quinze semaines du 3 juin au 9 septembre : toute la série reste en saison sèche,
+    # sinon la moyenne saisonnière ignore les semaines fortes (ADR-013).
+    origin = date(2180, 6, 3)
     high = [origin + timedelta(weeks=i) for i in range(7)]
     low = [origin + timedelta(weeks=7 + i) for i in range(8)]
+    # Les prédictions portent sur toutes les captures de la base : les sardines des
+    # autres tests du passage (quelques kg) entrent aussi dans la moyenne saisonnière.
+    # Un écart marqué (400 kg puis 8 kg) garde le test indépendant de ces données.
     for day in high:
-        await _capture(client, agent_headers, pid=pid, emb=emb, espece="sardine", kg=40.0, day=day)
+        await _capture(client, agent_headers, pid=pid, emb=emb, espece="sardine", kg=400.0, day=day)
         await _capture(
             client, agent_headers, pid=pid, emb=emb, espece="capitaine", kg=20.0, day=day
         )

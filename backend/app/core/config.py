@@ -1,6 +1,6 @@
 """Configuration applicative (pydantic-settings)."""
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -108,6 +108,22 @@ class Settings(BaseSettings):
     pawapay_base_url: str = "https://api.pawapay.io"
     # false = pilote Phase 3 (couverture toujours OK) ; true = exige abonnement actif
     abonnement_enforce: bool = False
+    # Global Fishing Watch (ADR-011) : essai de faisabilité, à l'arrêt par défaut.
+    # Le jeton reste côté serveur, jamais affiché ni journalisé. La ligne déjà posée
+    # dans le fichier d'environnement sous son premier nom est acceptée telle quelle.
+    # Zone, jeux de données, cache et budget : `app/data/regles/gfw_source.json`.
+    gfw_enabled: bool = False
+    gfw_api_token: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("gfw_api_token", "cbm-pigap-api-globafish"),
+    )
+    gfw_base_url: str = "https://gateway.api.globalfishingwatch.org"
+    # Un appareil, un seul compte pêcheur (ADR-012) : secret qui sert à calculer
+    # l'empreinte des identifiants d'appareil. À défaut, le secret de signature des
+    # sessions est utilisé ; fixer un secret propre avant la mise en service, car en
+    # changer oblige à refaire tous les rattachements. Fenêtre, nombre d'appareils et
+    # obligation de l'en-tête : `app/data/regles/appareils.json`.
+    appareil_secret: SecretStr | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod

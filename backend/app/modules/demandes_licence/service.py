@@ -22,7 +22,48 @@ from app.modules.demandes_licence.schemas import (
     DemandeLicenceUpdate,
 )
 from app.modules.pecheurs import service as pecheurs_service
-from app.modules.pecheurs.schemas import EmbarcationCreate, OrganisationCreate, PecheurCreate
+from app.modules.pecheurs.schemas import (
+    ComplementsEmbarcation,
+    EmbarcationCreate,
+    OrganisationCreate,
+    PecheurCreate,
+)
+
+
+def _complements(saisie: ComplementsEmbarcation | None) -> dict | None:
+    """Informations complémentaires renseignées, ou rien : les champs vides ne sont pas gardés."""
+    if saisie is None:
+        return None
+    return saisie.model_dump(exclude_none=True) or None
+
+
+def _complements_corriges(
+    stockes: dict | None, saisie: ComplementsEmbarcation | None
+) -> dict | None:
+    """Correction d'une demande : seules les informations envoyées changent.
+
+    Une information envoyée vide est retirée ; les autres restent telles qu'elles
+    étaient. Envoyer `null` à la place de l'objet les efface toutes.
+    """
+    if saisie is None:
+        return None
+    corriges = _complements_connus(stockes)
+    for cle, valeur in saisie.model_dump(exclude_unset=True).items():
+        if valeur is None:
+            corriges.pop(cle, None)
+        else:
+            corriges[cle] = valeur
+    return corriges or None
+
+
+def _complements_connus(stockes: dict | None) -> dict:
+    """Seuls les sept champs prévus sont reportés sur l'embarcation : une valeur stockée
+    ne peut jamais en remplacer un autre (titulaire, immatriculation, balise)."""
+    if not isinstance(stockes, dict):
+        return {}
+    return {
+        cle: valeur for cle, valeur in stockes.items() if cle in ComplementsEmbarcation.model_fields
+    }
 
 
 async def create_demande(
@@ -30,8 +71,10 @@ async def create_demande(
     data: DemandeLicenceCreate,
     pieces: list[dict] | None = None,
 ) -> DemandeLicence:
+    donnees = data.model_dump()
+    donnees["embarcation_complements"] = _complements(data.embarcation_complements)
     row = DemandeLicence(
-        **data.model_dump(),
+        **donnees,
         statut=StatutDemandeLicence.en_attente,
         pieces_jointes=pieces or [],
     )
@@ -91,7 +134,12 @@ async def update_demande(
     row = await get_demande(db, demande_id)
     if row.statut != StatutDemandeLicence.en_attente:
         raise bad_request("Seules les demandes en attente sont modifiables", "DEMANDE_LOCKED")
-    for key, value in data.model_dump(exclude_unset=True).items():
+    payload = data.model_dump(exclude_unset=True)
+    if "embarcation_complements" in payload:
+        payload["embarcation_complements"] = _complements_corriges(
+            row.embarcation_complements, data.embarcation_complements
+        )
+    for key, value in payload.items():
         setattr(row, key, value)
     await db.commit()
     await db.refresh(row)
@@ -214,6 +262,8 @@ async def approve_demande(
                 type=row.embarcation_type,
                 longueur=row.embarcation_longueur,
                 equipements=row.embarcation_equipements,
+                # Informations complémentaires saisies à la demande, reportées au registre
+                **_complements_connus(row.embarcation_complements),
             ),
         )
 

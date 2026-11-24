@@ -90,6 +90,8 @@ def _styles() -> dict[str, ParagraphStyle]:
             textColor=PRIMARY,
             spaceBefore=10,
             spaceAfter=6,
+            # Un titre de section ne reste jamais seul en bas de page
+            keepWithNext=1,
         ),
         "body": ParagraphStyle(
             "DocBody",

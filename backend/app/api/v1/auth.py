@@ -1,20 +1,29 @@
 """Authentification JWT — login."""
 
+from typing import Annotated
+
 from app.core.deps import CurrentUser, DbSession
 from app.core.errors import bad_request, conflict, forbidden
 from app.core.security import create_access_token, verify_password
 from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
 from app.modules.abonnements.pawapay import normalize_gabon_msisdn
+from app.modules.appareils import service as appareils_service
 from app.schemas.auth import LoginRequest, TelephoneUpdate, TokenResponse, UtilisateurRead
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from sqlalchemy import or_, select
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
+async def login(
+    payload: LoginRequest,
+    db: DbSession,
+    x_appareil_id: Annotated[str | None, Header(alias=appareils_service.ENTETE)] = None,
+) -> TokenResponse:
+    """Connexion. Pour un pêcheur, l'en-tête `X-Appareil-Id` rattache l'appareil au compte
+    ou fait refuser la connexion (ADR-012) ; les autres rôles ne sont pas concernés."""
     if not payload.email and not payload.telephone:
         raise bad_request("Fournir un e-mail ou un téléphone", "LOGIN_IDENTIFIER_REQUIRED")
 
@@ -29,8 +38,11 @@ async def login(payload: LoginRequest, db: DbSession) -> TokenResponse:
     if user is None or not verify_password(payload.mot_de_passe, user.mot_de_passe_hash):
         raise bad_request("Identifiants invalides", "INVALID_CREDENTIALS")
 
+    # Un appareil, un seul compte pêcheur : contrôlé une fois les identifiants vérifiés
+    appareil = await appareils_service.rattacher_a_la_connexion(db, user, x_appareil_id)
+
     token = create_access_token(subject=user.id, role=user.role.value)
-    return TokenResponse(access_token=token)
+    return TokenResponse(access_token=token, appareil_rattache=appareil is not None)
 
 
 @router.get("/me", response_model=UtilisateurRead)
