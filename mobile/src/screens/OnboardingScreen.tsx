@@ -11,12 +11,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlowButton } from '../components/GlowButton';
 import { ShipIcon } from '../components/ShipIcon';
 import { AppIcon, type IconName } from '../components/ui';
-import { colors, fonts, radii, space } from '../theme';
+import { fonts, radii, space } from '../theme';
 
 type Slide = {
   key: string;
@@ -32,8 +31,8 @@ const SLIDES: ReadonlyArray<Slide> = [
     key: 'captures',
     illustration: require('../../assets/illustrations/icon-captures.png'),
     eyebrow: 'Déclarer',
-    title: 'Vos captures, en quatre gestes',
-    body: 'Bateau, espèce, engin, poids. La déclaration se fait sans réseau et part dès que le téléphone en retrouve un.',
+    title: 'Vos captures, en quelques gestes',
+    body: 'Bateau, espèce, engin, lieu, poids. La déclaration se fait sans réseau et part dès que le téléphone en retrouve un.',
     facts: [
       { icon: 'cloud-offline-outline', text: 'Fonctionne hors ligne' },
       { icon: 'fish-outline', text: 'Espèces du Gabon' },
@@ -44,21 +43,21 @@ const SLIDES: ReadonlyArray<Slide> = [
     illustration: require('../../assets/illustrations/icon-trajectories.png'),
     eyebrow: 'Naviguer',
     title: 'Vos sorties, tracées en mer',
-    body: 'La position du bateau est relevée en mer et sur les fleuves. Le parcours s’affiche sur la carte, l’avis de mer vous prévient.',
+    body: 'Vous démarrez le suivi en quittant le quai : la position du bateau est relevée même écran éteint. L’avis de mer vous prévient.',
     facts: [
-      { icon: 'navigate-outline', text: 'Suivi automatique' },
+      { icon: 'navigate-outline', text: 'Suivi à votre demande' },
       { icon: 'mci:waves', text: 'Avis de mer du secteur' },
     ],
   },
   {
     key: 'licence',
     illustration: require('../../assets/illustrations/icon-licences.png'),
-    eyebrow: 'Régler',
-    title: 'Votre licence, depuis le téléphone',
-    body: 'Abonnement et redevances se règlent par Mobile Money depuis votre numéro. La quittance reste dans l’application.',
+    eyebrow: 'Présenter',
+    title: 'Votre licence, dans le téléphone',
+    body: 'Votre carte porte le QR de votre licence, même sans réseau. Abonnement et redevances se règlent par Mobile Money.',
     facts: [
+      { icon: 'qr-code-outline', text: 'Carte avec QR' },
       { icon: 'wallet-outline', text: 'Mobile Money' },
-      { icon: 'receipt-outline', text: 'Quittance conservée' },
     ],
   },
 ];
@@ -67,7 +66,6 @@ type Props = { onDone: () => void };
 
 /** Bienvenue à la première ouverture : trois volets, une promesse par volet. */
 export function OnboardingScreen({ onDone }: Props) {
-  const insets = useSafeAreaInsets();
   const width = Dimensions.get('window').width;
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
@@ -87,7 +85,7 @@ export function OnboardingScreen({ onDone }: Props) {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + space.md, paddingBottom: Math.max(insets.bottom, space.md) }]}>
+    <View style={styles.root}>
       <View style={styles.brandRow}>
         <View style={styles.brandBadge}>
           <ShipIcon size={22} />
@@ -95,7 +93,7 @@ export function OnboardingScreen({ onDone }: Props) {
         <Text style={styles.brand}>CBM-PIGAP</Text>
         <View style={{ flex: 1 }} />
         {!last ? (
-          <Pressable onPress={onDone} hitSlop={12} accessibilityRole="button">
+          <Pressable onPress={onDone} hitSlop={12} style={styles.skipBtn} accessibilityRole="button">
             <Text style={styles.skip}>Passer</Text>
           </Pressable>
         ) : null}
@@ -122,7 +120,7 @@ export function OnboardingScreen({ onDone }: Props) {
             <View style={styles.facts}>
               {item.facts.map((f) => (
                 <View key={f.text} style={styles.fact}>
-                  <AppIcon name={f.icon} size={15} color={colors.tide} />
+                  <AppIcon name={f.icon} size={16} color="#FFFFFF" />
                   <Text style={styles.factText}>{f.text}</Text>
                 </View>
               ))}
@@ -141,6 +139,7 @@ export function OnboardingScreen({ onDone }: Props) {
           label={last ? 'Commencer' : 'Continuer'}
           icon={last ? 'arrow-forward' : 'chevron-forward'}
           onPress={next}
+          variant="ghost"
         />
       </View>
     </View>
@@ -148,7 +147,7 @@ export function OnboardingScreen({ onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, paddingTop: space.md, paddingBottom: space.md },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -157,17 +156,16 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   brandBadge: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    backgroundColor: colors.glassStrong,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brand: { fontFamily: fonts.display, fontSize: 18, color: colors.abyss, letterSpacing: -0.2 },
-  skip: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.tide, paddingVertical: 8 },
+  brand: { fontFamily: fonts.display, fontSize: 20, color: '#FFFFFF', letterSpacing: -0.2 },
+  skipBtn: { minHeight: 48, minWidth: 48, alignItems: 'flex-end', justifyContent: 'center' },
+  skip: { fontFamily: fonts.bodyMedium, fontSize: 16, color: '#D6E6F5' },
   slide: { paddingHorizontal: space.lg, justifyContent: 'center' },
   artWrap: {
     alignSelf: 'flex-start',
@@ -184,39 +182,35 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displayItalic,
     fontSize: 140,
     lineHeight: 150,
-    color: 'rgba(30, 77, 123, 0.08)',
+    color: 'rgba(255, 255, 255, 0.12)',
     letterSpacing: -6,
   },
   art: {
     width: 120,
     height: 120,
     borderRadius: 32,
-    shadowColor: colors.abyss,
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
   },
   eyebrow: {
     fontFamily: fonts.bodyBold,
-    fontSize: 13,
+    fontSize: 14,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: colors.tide,
+    color: '#A9CFF2',
     marginBottom: 8,
   },
   title: {
     fontFamily: fonts.display,
     fontSize: 32,
     lineHeight: 38,
-    color: colors.abyss,
+    color: '#FFFFFF',
     letterSpacing: -0.5,
     marginBottom: 12,
   },
   body: {
     fontFamily: fonts.body,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.inkMuted,
+    fontSize: 17,
+    lineHeight: 25,
+    color: '#E6EEF7',
     marginBottom: space.md,
   },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -227,13 +221,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radii.pill,
-    backgroundColor: colors.glassStrong,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.34)',
   },
-  factText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink },
+  factText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: '#FFFFFF' },
   footer: { paddingHorizontal: space.lg, gap: space.md, marginTop: space.md },
   progress: { flexDirection: 'row', gap: 6 },
-  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(30, 77, 123, 0.14)' },
-  segmentOn: { backgroundColor: colors.tide },
+  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255, 255, 255, 0.26)' },
+  segmentOn: { backgroundColor: '#FFFFFF' },
 });

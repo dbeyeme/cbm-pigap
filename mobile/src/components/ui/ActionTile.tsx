@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.warn },
+  badgeText: { fontFamily: fonts.bodyBold, fontSize: 12, color: colors.warn },
   title: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink },
-  sub: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.inkMuted },
+  sub: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19, color: colors.inkMuted },
 });

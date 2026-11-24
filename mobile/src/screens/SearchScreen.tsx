@@ -11,21 +11,33 @@ import { GlassField } from "../components/GlassField";
 import { GlassPanel } from "../components/GlassPanel";
 import { GlowButton } from "../components/GlowButton";
 import {
+  HelpTip,
   IconBadge,
   ListRow,
   Notice,
-  ScreenHeader,
+  PhotoBanner,
   SectionTitle,
   StatRow,
   StatTile,
+  type InfoPoint,
 } from "../components/ui";
 import { friendlyApiError } from "../lib/apiErrors";
+import { formatDateHeure, pluriel } from "../lib/format";
+import { PHOTOS } from "../photos";
 import { colors, fonts, radii, space } from "../theme";
 
 type Props = {
   token: string;
   onBack: () => void;
+  /** Ouvre le lecteur de QR pour contrôler une licence. */
+  onControle?: () => void;
 };
+
+const HELP_POINTS: ReadonlyArray<InfoPoint> = [
+  { icon: "search-outline", text: "Tapez un nom, un prénom ou un numéro de licence, même incomplet." },
+  { icon: "qr-code-outline", text: "Le pêcheur est devant vous ? Lisez plutôt le QR de sa carte : la vérification est immédiate." },
+  { icon: "navigate-outline", text: "Le dossier montre les bateaux et les sorties enregistrées par le suivi GPS." },
+];
 
 function statutTone(statut: string): "ok" | "warn" | "muted" {
   const s = statut.toLowerCase();
@@ -34,7 +46,7 @@ function statutTone(statut: string): "ok" | "warn" | "muted" {
   return "muted";
 }
 
-export function SearchScreen({ token, onBack }: Props) {
+export function SearchScreen({ token, onBack, onControle }: Props) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Pecheur[]>([]);
   const [dossier, setDossier] = useState<LicenceDossier | null>(null);
@@ -91,11 +103,12 @@ export function SearchScreen({ token, onBack }: Props) {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
+      <PhotoBanner
+        photo={PHOTOS.port}
         kicker="Licences"
         title="Recherche"
         onBack={dossier && results.length > 0 ? () => setDossier(null) : onBack}
-        right={<IconBadge icon="id-card-outline" size={44} />}
+        right={<HelpTip title="Rechercher une licence" points={HELP_POINTS} icon="id-card-outline" onDark />}
       />
       <ScrollView
         contentContainerStyle={styles.container}
@@ -121,7 +134,7 @@ export function SearchScreen({ token, onBack }: Props) {
               icon="search-outline"
               value={q}
               onChangeText={setQ}
-              placeholder="Ex. Obiang ou LIC-…"
+              placeholder="Ex. Obiang ou GA-PA-2026-00012"
               returnKeyType="search"
               onSubmitEditing={onSearch}
             />
@@ -132,6 +145,14 @@ export function SearchScreen({ token, onBack }: Props) {
               loading={loading}
               variant="accent"
             />
+            {onControle ? (
+              <GlowButton
+                label="Lire le QR d’une licence"
+                icon="qr-code-outline"
+                onPress={onControle}
+                variant="ghost"
+              />
+            ) : null}
           </GlassPanel>
         )}
 
@@ -206,17 +227,17 @@ export function SearchScreen({ token, onBack }: Props) {
                 <StatTile
                   icon="boat-outline"
                   value={dossier.embarcations.length}
-                  label="bateaux"
+                  label={dossier.embarcations.length > 1 ? "bateaux" : "bateau"}
                 />
                 <StatTile
                   icon="navigate-outline"
                   value={dossier.trajectories.length}
-                  label="sorties"
+                  label={dossier.trajectories.length > 1 ? "sorties" : "sortie"}
                 />
                 <StatTile
                   icon="mci:map-marker-path"
                   value={totalPoints}
-                  label="points GPS"
+                  label={totalPoints > 1 ? "relevés GPS" : "relevé GPS"}
                 />
               </StatRow>
             </GlassPanel>
@@ -235,7 +256,7 @@ export function SearchScreen({ token, onBack }: Props) {
                   key={e.id}
                   icon="boat-outline"
                   title={e.nom}
-                  meta={`${e.immatriculation} · ${e.positions_count ?? 0} point(s) GPS`}
+                  meta={`${e.immatriculation} · ${pluriel(e.positions_count ?? 0, "relevé GPS", "relevés GPS")}`}
                 />
               ))
             )}
@@ -255,7 +276,7 @@ export function SearchScreen({ token, onBack }: Props) {
                   icon="mci:map-marker-path"
                   tone="muted"
                   title={`${t.embarcation_nom} · sortie ${t.index}`}
-                  meta={`${t.points_count} pts · ${new Date(t.debut).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`}
+                  meta={`${pluriel(t.points_count, "relevé", "relevés")} · ${formatDateHeure(t.debut)}`}
                 />
               ))
             )}
@@ -265,7 +286,7 @@ export function SearchScreen({ token, onBack }: Props) {
             {results.length > 0 ? (
               <SectionTitle
                 icon="people-outline"
-                text={`${results.length} pêcheur(s)`}
+                text={pluriel(results.length, "pêcheur", "pêcheurs")}
               />
             ) : null}
             {results.map((item) => (

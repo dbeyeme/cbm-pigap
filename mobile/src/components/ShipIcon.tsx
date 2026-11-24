@@ -6,7 +6,7 @@ type Props = {
   accent?: string;
 };
 
-/** Icône navire simplifiée — reconnaissance immédiate terrain. */
+/** Icône de navire simplifiée, reconnaissable d'un coup d'œil sur le terrain. */
 export function ShipIcon({
   size = 40,
   color = '#0B1F3A',

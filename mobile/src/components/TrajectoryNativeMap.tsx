@@ -2,7 +2,6 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 
 import { PositionPoint } from '../api';
-import { isOnWater } from '../geo/gabonMaritimeRoutes';
 import { colors, fonts, radii } from '../theme';
 import { ShipRadarMarker } from './ShipRadarMarker';
 import { TileTrajectoryMap } from './TileTrajectoryMap';
@@ -22,27 +21,26 @@ type Props = {
 const ANDROID_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ?? '';
 export const NATIVE_MAP_AVAILABLE = Platform.OS === 'ios' || ANDROID_MAPS_KEY.length > 0;
 
+/**
+ * Les points affichés sont ceux que le serveur a validés (il écarte lui-même
+ * les positions à terre) et les relevés du téléphone en attente d'envoi : ils
+ * ne sont plus filtrés ici par le masque d'eau approximatif de l'application,
+ * qui masquait des parcours réels loin des corridors d'exemple.
+ */
 export function TrajectoryNativeMap({ points }: Props) {
   if (!NATIVE_MAP_AVAILABLE) {
-    return <TileTrajectoryMap points={points.filter((p) => isOnWater(...p.position.coordinates))} />;
+    return <TileTrajectoryMap points={points} />;
   }
   return <GoogleOrAppleMap points={points} />;
 }
 
 function GoogleOrAppleMap({ points }: Props) {
-  const local = points.filter((p) => {
-    const [lon, lat] = p.position.coordinates;
-    return isOnWater(lon, lat);
-  });
-  const skipped = points.length - local.length;
+  const local = points;
 
   if (local.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>Aucun parcours en eau gabonaise</Text>
-        {skipped > 0 ? (
-          <Text style={styles.emptyBody}>{skipped} point(s) hors zone ignoré(s).</Text>
-        ) : null}
+        <Text style={styles.emptyTitle}>Aucun parcours enregistré</Text>
         <MapView
           style={styles.mapPreview}
           provider={PROVIDER_DEFAULT}
@@ -110,9 +108,6 @@ function GoogleOrAppleMap({ points }: Props) {
           <ShipRadarMarker size={48} />
         </Marker>
       </MapView>
-      {skipped > 0 ? (
-        <Text style={styles.hint}>{skipped} point(s) hors zone ignoré(s)</Text>
-      ) : null}
     </View>
   );
 }

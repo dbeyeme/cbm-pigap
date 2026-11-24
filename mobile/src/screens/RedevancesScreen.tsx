@@ -46,7 +46,7 @@ function fcfa(n: number | null | undefined): string {
 }
 
 function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return 'date inconnue';
   return new Date(iso).toLocaleDateString('fr-FR');
 }
 
@@ -100,9 +100,9 @@ export function RedevancesScreen({ token, onBack }: Props) {
       const done = await synchroniserPaiement(token, paiementId);
       if (done.paiement.statut === 'reussi') return 'Quittance payée. Merci.';
       if (done.paiement.statut === 'echoue' || done.paiement.statut === 'expire') {
-        throw new Error('Paiement refusé ou expiré, réessayez');
+        throw new Error('Paiement refusé ou expiré. Réessayez.');
       }
-      setMessage('Validez le code PIN Airtel Money sur votre téléphone…');
+      setMessage('Validez le code secret Airtel Money sur votre téléphone…');
       await new Promise((r) => setTimeout(r, 3000));
     }
     return 'Paiement en cours de confirmation.';
@@ -253,7 +253,7 @@ export function RedevancesScreen({ token, onBack }: Props) {
                 tone={tone}
                 solid
                 title={fcfa(q.montant_fcfa)}
-                meta={`${q.numero} · ${q.nb_captures} capture(s) · ${fmtDate(q.date_paiement ?? q.date_creation)}`}
+                meta={`${q.numero} · ${q.nb_captures} ${q.nb_captures > 1 ? 'captures' : 'capture'} · ${fmtDate(q.date_paiement ?? q.date_creation)}`}
                 right={
                   <View style={[styles.statusPill, { backgroundColor: tone === 'ok' ? 'rgba(4,120,87,0.12)' : tone === 'warn' ? 'rgba(180,83,9,0.14)' : colors.surface }]}>
                     <Text style={[styles.statusText, { color: tone === 'ok' ? colors.success : tone === 'warn' ? colors.warn : colors.inkSoft }]}>

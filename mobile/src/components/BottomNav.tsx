@@ -22,7 +22,7 @@ type Props = {
   onChange: (tab: MobileTab) => void;
 };
 
-/** Barre basse — onglets fournis selon le role (pecheur / agent). */
+/** Barre du bas : onglets fournis selon le rôle (pêcheur ou agent). */
 export function BottomNav({ active, tabs, onChange }: Props) {
   const insets = useSafeAreaInsets();
   return (
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.inkSoft,
   },
   labelOn: {

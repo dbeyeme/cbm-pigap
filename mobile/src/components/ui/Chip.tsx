@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
     paddingHorizontal: 14,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: radii.pill,
     backgroundColor: colors.card,
     borderWidth: 1.5,
@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   alert: { borderColor: 'rgba(185, 28, 28, 0.45)' },
   alertOn: { backgroundColor: colors.danger, borderColor: colors.danger },
   pressed: { opacity: 0.85 },
-  text: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 15 },
+  text: { fontFamily: fonts.bodyMedium, color: colors.ink, fontSize: 16 },
   textOn: { color: '#F8FAFC', fontFamily: fonts.bodyBold },
 });

@@ -1,4 +1,4 @@
-/** Identité CBM-PIGAP — maritime claire, public terrain peu digital. */
+/** Identité CBM-PIGAP : maritime et claire, pour un public de terrain peu familier du numérique. */
 export const colors = {
   abyss: '#0B1F3A',
   deep: '#14365C',
@@ -49,7 +49,7 @@ export const fonts = {
   bodyBold: 'DMSans_700Bold',
 } as const;
 
-/** Durées calmes — éviter le “gadget”. */
+/** Durées calmes : le mouvement sert la lecture, pas la décoration. */
 export const motion = {
   fast: 180,
   base: 320,

@@ -23,7 +23,7 @@ export function Notice({ tone = 'info', text, icon, style }: Props) {
   const t = tones[tone];
   return (
     <View style={[styles.box, { backgroundColor: t.bg }, style]} accessibilityLiveRegion="polite">
-      <AppIcon name={icon ?? DEFAULT_ICON[tone]} size={18} color={t.fg} />
+      <AppIcon name={icon ?? DEFAULT_ICON[tone]} size={20} color={t.fg} style={styles.icon} />
       <Text style={[styles.text, { color: t.fg }]}>{text}</Text>
     </View>
   );
@@ -38,10 +38,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     marginTop: 10,
   },
+  icon: { marginTop: 1 },
   text: {
     flex: 1,
     fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
   },
 });

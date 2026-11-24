@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   },
   dotOn: { backgroundColor: colors.tide, borderColor: colors.tide },
   dotDone: { backgroundColor: colors.success, borderColor: colors.success },
-  label: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.inkSoft },
+  label: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.inkSoft },
   labelOn: { color: colors.tide, fontFamily: fonts.bodyBold },
   line: {
     position: 'absolute',

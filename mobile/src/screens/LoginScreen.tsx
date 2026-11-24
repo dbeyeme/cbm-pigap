@@ -1,46 +1,73 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchMe, login, type UtilisateurMe } from '../api';
-import {
-  DEMO_ACCOUNTS,
-  isMobileAllowedRole,
-  unsupportedRoleMessage,
-} from '../auth/roles';
+import { attachFisher } from '../auth/attachment';
+import { DEMO_ACCOUNTS, isMobileAllowedRole, unsupportedRoleMessage, type DemoRole } from '../auth/roles';
 import { GlassField } from '../components/GlassField';
-import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
 import { ShipIcon } from '../components/ShipIcon';
-import { friendlyApiError } from '../lib/apiErrors';
+import { HelpTip, Notice, type InfoPoint } from '../components/ui';
+import { MESSAGE_APPAREIL_DEJA_RATTACHE, friendlyApiError } from '../lib/apiErrors';
+import { readTrackingRequest } from '../tracking/state';
+import { reconcileTracking, stopTracking } from '../tracking/tracking';
 import { colors, fonts, radii, space } from '../theme';
 
 type Props = {
   onLoggedIn: (session: { token: string; user: UtilisateurMe }) => void;
+  /** Message à afficher à l'arrivée (session expirée, par exemple). */
+  notice?: string | null;
 };
 
-export function LoginScreen({ onLoggedIn }: Props) {
-  const [email, setEmail] = useState<string>(DEMO_ACCOUNTS.agent.email);
-  const [password, setPassword] = useState<string>(DEMO_ACCOUNTS.agent.password);
-  const [demoRole, setDemoRole] = useState<'agent' | 'pecheur'>('agent');
+const HELP_POINTS: ReadonlyArray<InfoPoint> = [
+  { icon: 'key-outline', text: 'Vos identifiants vous sont remis par l’agent qui a créé votre dossier.' },
+  { icon: 'phone-portrait-outline', text: 'Vous restez connecté sur ce téléphone : l’application se rouvre sans redemander le mot de passe.' },
+  { icon: 'cloud-offline-outline', text: 'La première connexion demande du réseau. Ensuite, vos saisies se font aussi sans réseau.' },
+  { icon: 'lock-closed-outline', text: 'Un téléphone n’accepte qu’un seul compte pêcheur. Pour en changer, adressez-vous à un agent de contrôle.' },
+  { icon: 'desktop-outline', text: 'Autorités et organisations utilisent le portail web, pas cette application.' },
+];
+
+export function LoginScreen({ onLoggedIn, notice }: Props) {
+  const demoAccounts = DEMO_ACCOUNTS;
+  const [email, setEmail] = useState<string>(demoAccounts?.agent.email ?? '');
+  const [password, setPassword] = useState<string>(demoAccounts?.agent.password ?? '');
+  const [demoRole, setDemoRole] = useState<DemoRole>('agent');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Un suivi GPS tourne encore alors qu'aucune session n'est ouverte (session expirée). */
+  const [trackingRunning, setTrackingRunning] = useState(false);
 
-  function pickDemo(kind: 'agent' | 'pecheur') {
+  useEffect(() => {
+    let cancelled = false;
+    reconcileTracking()
+      .then((state) => {
+        if (!cancelled) setTrackingRunning(state.actif);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function stopRunningTracking() {
+    await stopTracking();
+    setTrackingRunning(false);
+    setError(null);
+  }
+
+  function pickDemo(kind: DemoRole) {
+    if (!demoAccounts) return;
     setDemoRole(kind);
-    setEmail(DEMO_ACCOUNTS[kind].email);
-    setPassword(DEMO_ACCOUNTS[kind].password);
+    setEmail(demoAccounts[kind].email);
+    setPassword(demoAccounts[kind].password);
     setError(null);
   }
 
   async function onSubmit() {
+    if (!email.trim() || !password) {
+      setError('Saisissez votre e-mail et votre mot de passe.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -48,6 +75,18 @@ export function LoginScreen({ onLoggedIn }: Props) {
       const user = await fetchMe(result.access_token);
       if (!isMobileAllowedRole(user.role)) {
         throw new Error(unsupportedRoleMessage(user.role));
+      }
+      // Pas de changement de compte pendant un suivi (ADR-012)
+      const tracking = await readTrackingRequest().catch(() => null);
+      if (tracking?.actif && tracking.utilisateurId && tracking.utilisateurId !== user.id) {
+        throw new Error(
+          'Un suivi GPS est en cours sur ce téléphone pour un autre compte. Arrêtez-le d’abord, puis reconnectez-vous.',
+        );
+      }
+      // Un téléphone, un seul compte pêcheur : garde locale, le serveur fait foi
+      if (user.role === 'pecheur') {
+        const verdict = await attachFisher(user.id, result.appareil_rattache === true);
+        if (verdict === 'refuse') throw new Error(MESSAGE_APPAREIL_DEJA_RATTACHE);
       }
       onLoggedIn({ token: result.access_token, user });
     } catch (err) {
@@ -58,54 +97,77 @@ export function LoginScreen({ onLoggedIn }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.content}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.hero}>
-          <View style={styles.badge}>
-            <ShipIcon size={28} />
+          <View style={styles.heroTop}>
+            <View style={styles.badge}>
+              <ShipIcon size={28} />
+            </View>
+            <HelpTip title="Se connecter" points={HELP_POINTS} icon="log-in-outline" onDark />
           </View>
           <Text style={styles.brand}>CBM-PIGAP</Text>
-          <Text style={styles.tagline}>Suivi de la peche artisanale</Text>
-          <Text style={styles.subtitle}>Connexion pecheur ou agent de terrain</Text>
+          <Text style={styles.tagline}>Suivi de la pêche artisanale</Text>
         </View>
 
-        <View style={styles.demoSwitch}>
-          <Pressable
-            onPress={() => pickDemo('agent')}
-            style={[styles.demoChip, demoRole === 'agent' && styles.demoChipOn]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: demoRole === 'agent' }}
-          >
-            <Text style={[styles.demoChipText, demoRole === 'agent' && styles.demoChipTextOn]}>
-              Agent
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => pickDemo('pecheur')}
-            style={[styles.demoChip, demoRole === 'pecheur' && styles.demoChipOn]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: demoRole === 'pecheur' }}
-          >
-            <Text
-              style={[styles.demoChipText, demoRole === 'pecheur' && styles.demoChipTextOn]}
-            >
-              Pecheur
-            </Text>
-          </Pressable>
-        </View>
+        <View style={styles.panel}>
+          {notice ? (
+            <Notice tone="warn" icon="time-outline" text={notice} style={styles.notice} />
+          ) : null}
 
-        <GlassPanel style={styles.panel}>
+          {trackingRunning ? (
+            <View style={styles.trackingBox}>
+              <Notice
+                tone="info"
+                icon="navigate-outline"
+                text="Un suivi GPS est en cours sur ce téléphone. Reconnectez-vous pour envoyer ses relevés, ou arrêtez-le."
+                style={styles.trackingNotice}
+              />
+              <GlowButton
+                label="Arrêter le suivi GPS"
+                icon="stop-circle-outline"
+                variant="ghost"
+                onPress={() => void stopRunningTracking()}
+              />
+            </View>
+          ) : null}
+
+          {demoAccounts ? (
+            <View style={styles.demoSwitch}>
+              {(Object.keys(demoAccounts) as DemoRole[]).map((kind) => {
+                const on = demoRole === kind;
+                const account = demoAccounts[kind];
+                return (
+                  <Pressable
+                    key={kind}
+                    onPress={() => pickDemo(kind)}
+                    style={[styles.demoChip, on && styles.demoChipOn]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`Compte de démonstration : ${account.label}`}
+                  >
+                    <Text style={[styles.demoChipText, on && styles.demoChipTextOn]}>
+                      {account.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
           <GlassField
             label="Votre e-mail"
             icon="mail-outline"
             autoCapitalize="none"
+            autoCorrect={false}
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
-            placeholder="ex. pecheur@exemple.ga"
+            placeholder="Ex. pecheur@exemple.ga"
           />
           <GlassField
             label="Mot de passe"
@@ -114,22 +176,19 @@ export function LoginScreen({ onLoggedIn }: Props) {
             value={password}
             onChangeText={setPassword}
             placeholder="Votre mot de passe"
+            returnKeyType="go"
+            onSubmitEditing={() => void onSubmit()}
           />
-          {error ? (
-            <View style={styles.errorRow} accessibilityLiveRegion="polite">
-              <Ionicons name="alert-circle" size={18} color={colors.danger} />
-              <Text style={styles.error}>{error}</Text>
-            </View>
-          ) : null}
+          {error ? <Notice tone="error" text={error} style={styles.error} /> : null}
           <GlowButton
-            label="Se connecter"
+            label={loading ? 'Connexion…' : 'Se connecter'}
             icon="arrow-forward"
-            onPress={onSubmit}
-            loading={loading}
+            onPress={() => void onSubmit()}
+            disabled={loading}
             variant="accent"
           />
-        </GlassPanel>
-      </View>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -137,53 +196,59 @@ export function LoginScreen({ onLoggedIn }: Props) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
-    flex: 1,
-    justifyContent: 'center',
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: space.lg,
-    paddingBottom: space.xl,
+    paddingTop: space.xl,
+    paddingBottom: space.lg,
   },
-  hero: { marginBottom: space.md },
+  hero: { marginBottom: space.lg },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: space.md,
+  },
   badge: {
     width: 56,
     height: 56,
     borderRadius: radii.md,
-    backgroundColor: colors.glassStrong,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space.md,
   },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 36,
-    color: colors.abyss,
+    fontSize: 38,
+    color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   tagline: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 17,
-    color: colors.tide,
-    marginTop: 8,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    color: colors.inkMuted,
+    fontSize: 18,
+    color: '#D6E6F5',
     marginTop: 6,
-    fontSize: 15,
   },
+  panel: {
+    backgroundColor: colors.card,
+    borderRadius: radii.lg,
+    padding: 18,
+  },
+  notice: { marginTop: 0, marginBottom: space.md },
+  trackingBox: { marginBottom: space.md, gap: 8 },
+  trackingNotice: { marginTop: 0 },
   demoSwitch: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: space.sm,
+    marginBottom: space.md,
   },
   demoChip: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.glassBorder,
-    backgroundColor: colors.glassStrong,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -193,28 +258,12 @@ const styles = StyleSheet.create({
   },
   demoChipText: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.inkMuted,
   },
   demoChipTextOn: {
     color: colors.tide,
     fontFamily: fonts.bodyBold,
   },
-  panel: { marginTop: space.sm },
-  errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: space.md,
-    padding: 12,
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(185, 28, 28, 0.08)',
-  },
-  error: {
-    flex: 1,
-    color: colors.danger,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  error: { marginTop: 0, marginBottom: space.md },
 });

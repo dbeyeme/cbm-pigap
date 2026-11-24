@@ -1,13 +1,32 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { createEmbarcation, createPecheur } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
-import { Chip, Notice, ScreenHeader, SectionTitle, StepBar, type IconName, type Step } from '../components/ui';
+import {
+  Chip,
+  HelpTip,
+  IconBadge,
+  Notice,
+  ScreenHeader,
+  SectionTitle,
+  StepBar,
+  type IconName,
+  type InfoPoint,
+  type Step,
+} from '../components/ui';
+import { DEMO_ACCOUNTS } from '../auth/roles';
 import { friendlyApiError } from '../lib/apiErrors';
-import { space } from '../theme';
+import { colors, fonts, radii, space } from '../theme';
+
+const HELP_LICENCE: ReadonlyArray<InfoPoint> = [
+  { icon: 'ribbon-outline', text: 'Le numéro de licence est attribué automatiquement à l’enregistrement du dossier.' },
+  { icon: 'eye-outline', text: 'Il s’affiche dès que le dossier est enregistré : communiquez-le au pêcheur.' },
+  { icon: 'document-text-outline', text: 'Le pêcheur a déjà une licence sur papier ? Ouvrez « Reprendre un numéro déjà délivré » et recopiez son numéro.' },
+];
 
 const STEPS: ReadonlyArray<Step> = [
   { label: 'Pêcheur', icon: 'person-outline' },
@@ -82,8 +101,11 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [licence, setLicence] = useState('');
+  /** Reprise d'un numéro déjà délivré sur papier : repliée, hors du parcours normal. */
+  const [paperLicence, setPaperLicence] = useState(false);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('PecheurPass1!');
+  // En démonstration, le mot de passe du compte d'essai est proposé ; sur le terrain, l'agent le saisit
+  const [password, setPassword] = useState(DEMO_ACCOUNTS?.pecheur.password ?? '');
   const [bateau, setBateau] = useState('');
   const [immat, setImmat] = useState('');
   const [longueur, setLongueur] = useState('');
@@ -92,7 +114,8 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   const [securite, setSecurite] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [doneFlash, setDoneFlash] = useState(false);
+  /** Numéro de licence du dossier enregistré, à communiquer au pêcheur. */
+  const [savedLicence, setSavedLicence] = useState<string | null>(null);
   const [step, setStep] = useState(0);
 
   function nextStep() {
@@ -130,7 +153,7 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       const pecheur = await createPecheur(token, {
         nom: nom.trim(),
         prenom: prenom.trim(),
-        ...(licence.trim() ? { numero_licence: licence.trim() } : {}),
+        ...(paperLicence && licence.trim() ? { numero_licence: licence.trim() } : {}),
         email: email.trim() || undefined,
         mot_de_passe: password,
       });
@@ -142,8 +165,7 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
         longueur: longueur.trim() ? Number(longueur.replace(',', '.')) : null,
         equipements: equipementsPayload({ engins, moteur, securite }),
       });
-      setDoneFlash(true);
-      setTimeout(onDone, 700);
+      setSavedLicence(pecheur.numero_licence);
     } catch (err) {
       setError(friendlyApiError(err));
     } finally {
@@ -156,22 +178,64 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenHeader kicker="Agent" title="Nouveau dossier" onBack={step === 0 ? onBack : () => setStep(0)} />
+      <ScreenHeader
+        kicker="Agent"
+        title="Nouveau dossier"
+        onBack={savedLicence || step === 0 ? onBack : () => setStep(0)}
+      />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <StepBar steps={STEPS} current={step} onSelect={setStep} />
+        {savedLicence ? null : <StepBar steps={STEPS} current={step} onSelect={setStep} />}
 
-        {step === 0 ? (
+        {savedLicence ? (
+          <GlassPanel style={styles.panel} contentStyle={styles.savedInner}>
+            <View style={styles.savedHead}>
+              <IconBadge icon="checkmark-circle" tone="ok" solid size={48} />
+              <Text style={styles.savedTitle}>Dossier enregistré</Text>
+            </View>
+            <View style={styles.savedBox}>
+              <Text style={styles.savedLabel}>Numéro de licence</Text>
+              <Text style={styles.savedNumber} selectable adjustsFontSizeToFit numberOfLines={1}>
+                {savedLicence}
+              </Text>
+            </View>
+            <Text style={styles.savedBody}>
+              Communiquez ce numéro au pêcheur : il se connecte avec son e-mail et son mot de passe.
+            </Text>
+            <GlowButton label="Terminer" icon="checkmark" onPress={onDone} />
+          </GlassPanel>
+        ) : step === 0 ? (
           <GlassPanel style={styles.panel}>
             <SectionTitle icon="person-outline" text="Identité du pêcheur" style={{ marginTop: 0 }} />
             <GlassField label="Nom" icon="person-outline" value={nom} onChangeText={setNom} />
             <GlassField label="Prénom" icon="person-outline" value={prenom} onChangeText={setPrenom} />
-            <GlassField
-              label="N° licence"
-              icon="ribbon-outline"
-              value={licence}
-              onChangeText={setLicence}
-              placeholder="Vide : attribution automatique"
-            />
+            <View style={styles.licenceRow}>
+              <IconBadge icon="ribbon-outline" size={40} />
+              <Text style={styles.licenceText}>
+                Le numéro de licence est attribué automatiquement à l’enregistrement.
+              </Text>
+              <HelpTip title="Le numéro de licence" points={HELP_LICENCE} icon="ribbon-outline" />
+            </View>
+            <Pressable
+              onPress={() => setPaperLicence((v) => !v)}
+              style={styles.disclosure}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: paperLicence }}
+            >
+              <Ionicons name="document-text-outline" size={20} color={colors.tide} />
+              <Text style={styles.disclosureText}>Reprendre un numéro déjà délivré (support papier)</Text>
+              <Ionicons name={paperLicence ? 'chevron-up' : 'chevron-down'} size={20} color={colors.inkSoft} />
+            </Pressable>
+            {paperLicence ? (
+              <GlassField
+                label="Numéro de la licence papier"
+                icon="ribbon-outline"
+                value={licence}
+                onChangeText={setLicence}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholder="Laisser vide pour une attribution automatique"
+              />
+            ) : null}
             <SectionTitle icon="key-outline" text="Compte mobile" />
             <GlassField
               label="E-mail"
@@ -179,7 +243,7 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
-              placeholder="optionnel"
+              placeholder="Facultatif"
             />
             <GlassField
               label="Mot de passe"
@@ -202,14 +266,14 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
               value={longueur}
               onChangeText={setLongueur}
               keyboardType="decimal-pad"
-              placeholder="ex. 7,5"
+              placeholder="Ex. 7,5"
             />
             <GlassField
               label="Moteur"
               icon="speedometer-outline"
               value={moteur}
               onChangeText={setMoteur}
-              placeholder="ex. hors-bord 15 ch, ou aucun"
+              placeholder="Ex. hors-bord 15 ch, ou aucun"
             />
             <SectionTitle icon="mci:hook" text="Engins de pêche" />
             <ChipGroup items={ENGINS} selected={engins} onChange={setEngins} />
@@ -217,12 +281,11 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
             <ChipGroup items={SECURITE} selected={securite} onChange={setSecurite} />
 
             {error ? <Notice tone="error" text={error} style={{ marginTop: 0, marginBottom: 12 }} /> : null}
-            {doneFlash ? <Notice tone="ok" text="Dossier enregistré" style={{ marginTop: 0, marginBottom: 12 }} /> : null}
 
             <GlowButton
               label="Enregistrer le dossier"
               icon="save-outline"
-              onPress={onSubmit}
+              onPress={() => void onSubmit()}
               loading={loading}
               variant="accent"
             />
@@ -242,4 +305,34 @@ const styles = StyleSheet.create({
   },
   panel: { marginBottom: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  licenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+  },
+  licenceText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 16, lineHeight: 22, color: colors.ink },
+  disclosure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 48,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  disclosureText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.tide },
+  savedInner: { padding: 18, gap: 14 },
+  savedHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  savedTitle: { flex: 1, fontFamily: fonts.display, fontSize: 22, color: colors.abyss },
+  savedBox: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+  },
+  savedLabel: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.inkMuted },
+  savedNumber: { fontFamily: fonts.bodyBold, fontSize: 24, color: colors.ink, letterSpacing: 0.4, marginTop: 2 },
+  savedBody: { fontFamily: fonts.body, fontSize: 16, lineHeight: 23, color: colors.inkMuted },
 });

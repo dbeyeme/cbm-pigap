@@ -14,7 +14,7 @@ type Props = {
   disabled?: boolean;
 };
 
-/** Bouton sans Reanimated — stable sur Expo Go / simulateur / device. */
+/** Bouton sans Reanimated : stable sur tous les téléphones. */
 export function GlowButton({
   label,
   onPress,

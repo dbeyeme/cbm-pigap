@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { colors, gradients } from '../theme';
 
-/** Fond clair calme — pas d’orbes animés (moins de distraction). */
+/** Fond clair et calme, sans élément animé : rien ne distrait de la saisie. */
 export function OceanBackground({ children }: PropsWithChildren) {
   return (
     <View style={styles.root}>

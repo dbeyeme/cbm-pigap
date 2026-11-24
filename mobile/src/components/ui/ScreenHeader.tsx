@@ -48,8 +48,8 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   back: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontFamily: fonts.bodyMedium,
     color: colors.tide,
-    fontSize: 13,
+    fontSize: 14,
   },
   title: {
     fontFamily: fonts.display,

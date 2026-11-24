@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.88 },
   text: { flex: 1, minWidth: 0 },
-  title: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 },
-  meta: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13, marginTop: 2, lineHeight: 18 },
+  title: { fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 16 },
+  meta: { fontFamily: fonts.body, color: colors.inkMuted, fontSize: 14, marginTop: 2, lineHeight: 20 },
 });

@@ -1,8 +1,38 @@
-import { parseApiError } from './lib/apiErrors';
+import { API_URL } from './config';
+import { deviceId } from './device';
+import {
+  ApiError,
+  MESSAGE_RESEAU,
+  MESSAGE_SESSION_EXPIREE,
+  extractErrorCode,
+  messageForCode,
+  messageForStatus,
+  parseApiError,
+} from './lib/apiErrors';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
+/** Délai au-delà duquel un appel est abandonné : l'écran n'attend jamais le réseau. */
+const DELAI_MS = 20_000;
 
-export type TokenResponse = { access_token: string; token_type: string };
+/**
+ * Appelé quand le serveur refuse un jeton (401). Le gestionnaire de session
+ * s'y abonne pour effacer le jeton stocké et ramener à l'écran de connexion.
+ */
+type UnauthorizedHandler = (rejectedToken: string) => void | Promise<void>;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
+export type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  /**
+   * Le serveur confirme que cet appareil est rattaché au compte (ADR-012).
+   * Champ attendu du lot 10 côté serveur ; absent tant qu'il n'est pas livré.
+   */
+  appareil_rattache?: boolean;
+};
 
 export type Pecheur = {
   id: string;
@@ -33,30 +63,66 @@ export type PositionPoint = {
 
 async function request<T>(
   path: string,
-  options: RequestInit & { token?: string } = {},
+  options: RequestInit & { token?: string; timeoutMs?: number; device?: boolean } = {},
 ): Promise<T> {
-  const { token, headers, ...rest } = options;
-  const response = await fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(parseApiError(body || `HTTP ${response.status}`));
+  const { token, headers, timeoutMs = DELAI_MS, device, ...rest } = options;
+  // Identifiant de l'appareil (ADR-012) : à la connexion et sur toute requête authentifiée
+  const appareil = token || device ? await deviceId() : null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}${path}`, {
+        ...rest,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(appareil ? { 'X-Appareil-Id': appareil } : {}),
+          ...headers,
+        },
+      });
+    } catch {
+      // Pas de réseau, serveur injoignable ou délai dépassé
+      throw new ApiError(MESSAGE_RESEAU, 0, 'RESEAU');
+    }
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      const code = extractErrorCode(body) ?? response.headers.get('X-Error-Code');
+      if (response.status === 401 && token) {
+        // Session refusée par le serveur : le jeton stocké est effacé
+        try {
+          await unauthorizedHandler?.(token);
+        } catch {
+          // la suite ne dépend pas du gestionnaire
+        }
+        throw new ApiError(MESSAGE_SESSION_EXPIREE, 401, 'SESSION_EXPIREE');
+      }
+      const message =
+        messageForCode(code) ?? (body.trim() ? parseApiError(body) : messageForStatus(response.status));
+      throw new ApiError(message, response.status, code);
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    try {
+      return (await response.json()) as T;
+    } catch {
+      // Réponse coupée en cours de route
+      throw new ApiError(MESSAGE_RESEAU, 0, 'RESEAU');
+    }
+  } finally {
+    clearTimeout(timer);
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
 }
 
 export function login(email: string, mot_de_passe: string) {
   return request<TokenResponse>('/api/v1/auth/login', {
     method: 'POST',
+    device: true,
     body: JSON.stringify({ email, mot_de_passe }),
   });
 }
@@ -248,7 +314,7 @@ export function syncCapturesBatch(token: string, captures: CaptureCreatePayload[
   });
 }
 
-/* ——— Abonnements ——— */
+/* Abonnements */
 
 export type OffreAbonnement = {
   code: string;
@@ -349,7 +415,7 @@ export function synchroniserPaiement(token: string, paiementId: string) {
 }
 
 
-/* ——— Météo-marine : avis pour la position du pêcheur ——— */
+/* Météo-marine : avis pour la position du pêcheur */
 
 export type AvisMer = {
   niveau: 'vert' | 'orange' | 'rouge' | string;
@@ -378,7 +444,7 @@ export function getAvisMer(token: string, lon: number, lat: number) {
 }
 
 
-/* ——— Payeur attendu : téléphone enregistré du pêcheur ——— */
+/* Payeur attendu : téléphone enregistré du pêcheur */
 
 export type Payeur = {
   acteur: string;
@@ -404,7 +470,7 @@ export function updateMonTelephone(token: string, telephone: string) {
 }
 
 
-/* ——— Redevances : taxe à la production, quittances ——— */
+/* Redevances : taxe à la production, quittances */
 
 export type EncoursRedevances = {
   pecheur_id: string | null;
@@ -472,4 +538,53 @@ export function confirmerQuittanceDemo(token: string, paiementId: string) {
     `/api/v1/redevances/paiements/${paiementId}/confirmer-demo`,
     { method: 'POST', token },
   );
+}
+
+
+/* Carte professionnelle du pêcheur et contrôle de licence */
+
+/** Couverture et numéro de licence du pêcheur connecté. */
+export function getMaCouverture(token: string) {
+  return request<CouvertureAbonnement>('/api/v1/abonnements/me', { token });
+}
+
+/** Vérification publique d'une licence : aucune donnée personnelle. */
+export type VerifPublique = {
+  numero: string;
+  type: string;
+  valide: boolean;
+  /** `valide`, `sans_date`, `expiree`, `suspendue` ou `inconnue`. */
+  statut: string;
+  date_expiration: string | null;
+  nb_embarcations: number;
+  montant_fcfa: number | null;
+};
+
+export function verifPubliqueLicence(numero: string) {
+  return request<VerifPublique>(`/api/v1/public/verif/licence/${encodeURIComponent(numero)}`);
+}
+
+/** Vérification complète d'une licence, réservée aux agents. */
+export type VerificationLicence = {
+  numero_licence: string;
+  trouvee: boolean;
+  /** `valide`, `sans_date`, `expiree`, `suspendue` ou `inconnue`. */
+  statut_licence: string;
+  date_delivrance: string | null;
+  date_expiration: string | null;
+  pecheur_id: string | null;
+  pecheur_nom: string | null;
+  nationalite: string | null;
+  organisation: string | null;
+  embarcations: Array<{ id: string; nom: string; immatriculation: string; type: string | null }>;
+  taxes_dues_fcfa: number;
+  alertes_nouvelles: number;
+  controles_12_mois: number;
+  infractions_12_mois: number;
+  engins_autorises: string[];
+};
+
+export function verifierLicence(token: string, numero: string) {
+  const params = new URLSearchParams({ numero });
+  return request<VerificationLicence>(`/api/v1/controles/verifier-licence?${params}`, { token });
 }

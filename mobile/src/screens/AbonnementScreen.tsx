@@ -40,9 +40,9 @@ function formatDate(iso: string): string {
   }
 }
 
-/** « Licence pêcheur — mensuel » devient « Mensuel » : la carte porte déjà le contexte. */
+/** Le libellé du serveur perd son préfixe « Licence pêcheur » : la carte porte déjà le contexte. */
 function offerLabel(o: OffreAbonnement): string {
-  const short = o.libelle.replace(/^licence\s+p[êe]cheur\s*[—–-]\s*/i, '').trim();
+  const short = o.libelle.replace(/^licence\s+p[êe]cheur\s*[\u2014\u2013-]\s*/i, '').trim();
   return short ? short.charAt(0).toUpperCase() + short.slice(1) : o.libelle;
 }
 
@@ -50,7 +50,7 @@ function offerIcon(o: OffreAbonnement): IconName {
   return /an/i.test(o.code) || /an/i.test(o.libelle) ? 'ribbon-outline' : 'calendar-outline';
 }
 
-/** Evite un crash silencieux si le catalogue ou le paiement echoue. */
+/** Évite une fermeture silencieuse si le catalogue ou le paiement échoue. */
 class ScreenSafe extends Component<
   PropsWithChildren<{ onBack: () => void }>,
   { error: string | null }
@@ -58,7 +58,7 @@ class ScreenSafe extends Component<
   state = { error: null as string | null };
 
   static getDerivedStateFromError(err: Error) {
-    return { error: err.message || 'Erreur ecran abonnement' };
+    return { error: err.message || 'Cet écran a rencontré un incident. Revenez à l’accueil, puis réessayez.' };
   }
 
   render() {
@@ -158,17 +158,17 @@ function AbonnementBody({ token, onBack }: Props) {
       const done = await synchroniserPaiement(token, paiementId);
       if (done.paiement.statut === 'reussi') return done;
       if (done.paiement.statut === 'echoue' || done.paiement.statut === 'expire') {
-        throw new Error('Paiement refuse ou expire — reessayez');
+        throw new Error('Paiement refusé ou expiré. Réessayez.');
       }
-      setMessage('Validez le code PIN Airtel Money sur votre telephone…');
+      setMessage('Validez le code secret Airtel Money sur votre téléphone…');
       await new Promise((r) => setTimeout(r, 3000));
     }
-    throw new Error('Delai depasse — si le debit a eu lieu, reouvrez cet ecran dans 1 min');
+    throw new Error('Délai dépassé. Si le débit a eu lieu, rouvrez cet écran dans une minute.');
   }
 
   async function pay() {
     if (live && !msisdn.trim()) {
-      setError('Numero Airtel Money requis (ex. 077xxxxxx)');
+      setError('Numéro Airtel Money requis, par exemple 077 12 34 56.');
       return;
     }
     setLoading(true);
@@ -182,7 +182,7 @@ function AbonnementBody({ token, onBack }: Props) {
         msisdn: msisdn.trim() || undefined,
       });
       if (!init?.paiement?.id) {
-        throw new Error('Paiement non cree — reessayez');
+        throw new Error('Paiement non créé. Réessayez.');
       }
       const done =
         live || init.paiement.operateur !== 'demo'
@@ -190,7 +190,7 @@ function AbonnementBody({ token, onBack }: Props) {
           : await confirmerPaiementDemo(token, init.paiement.id);
       const fin = done.abonnement.date_fin ? ` jusqu'au ${formatDate(done.abonnement.date_fin)}` : '';
       setMessage(
-        `Abonnement ${done.abonnement.code_offre} actif - ${formatFcfa(done.abonnement.montant_fcfa)}${fin}`,
+        `Abonnement actif : ${formatFcfa(done.abonnement.montant_fcfa)}${fin}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Paiement impossible');
@@ -262,11 +262,11 @@ function AbonnementBody({ token, onBack }: Props) {
             />
           ) : null}
           <GlassField
-            label="N° de licence (optionnel)"
+            label="N° de licence (facultatif)"
             icon="ribbon-outline"
             value={licence}
             onChangeText={setLicence}
-            placeholder="LIC-DEMO-01"
+            placeholder="Ex. GA-PA-2026-00012"
             autoCapitalize="characters"
           />
 
@@ -274,7 +274,7 @@ function AbonnementBody({ token, onBack }: Props) {
             <View style={{ flex: 1 }}>
               <Text style={styles.summaryLabel}>Total</Text>
               <Text style={styles.summaryValue}>
-                {selectedOffer ? formatFcfa(selectedOffer.montant_fcfa) : '—'}
+                {selectedOffer ? formatFcfa(selectedOffer.montant_fcfa) : 'À choisir'}
               </Text>
             </View>
             <View style={styles.modePill}>

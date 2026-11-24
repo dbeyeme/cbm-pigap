@@ -9,7 +9,7 @@ type Props = {
   alert?: boolean;
 };
 
-/** Marqueur navire statique (sans Reanimated — stable Expo Go). */
+/** Marqueur de navire statique, sans Reanimated. */
 export function ShipRadarMarker({ size = 44, alert }: Props) {
   const stroke = alert ? colors.danger : colors.foam;
   const half = size / 2;

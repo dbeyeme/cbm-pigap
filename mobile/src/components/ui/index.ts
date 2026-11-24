@@ -1,6 +1,7 @@
 export { AppIcon, type IconName } from './AppIcon';
 export { IconBadge } from './IconBadge';
 export { ScreenHeader } from './ScreenHeader';
+export { PhotoBanner } from './PhotoBanner';
 export { Notice } from './Notice';
 export { StatRow, StatTile } from './StatTile';
 export { Chip } from './Chip';
@@ -9,3 +10,6 @@ export { StepBar, type Step } from './StepBar';
 export { ListRow } from './ListRow';
 export { SectionTitle } from './SectionTitle';
 export { ActionTile } from './ActionTile';
+export { InfoSheet, type InfoPoint } from './InfoSheet';
+export { HelpTip } from './HelpTip';
+export { useReducedMotion } from './useReducedMotion';

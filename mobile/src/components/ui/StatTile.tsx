@@ -61,8 +61,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 17,
     color: colors.inkMuted,
   },
 });

@@ -17,5 +17,5 @@ export function SectionTitle({ icon, text, style }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10, marginTop: 6 },
-  text: { fontFamily: fonts.bodyBold, color: colors.abyss, fontSize: 15 },
+  text: { fontFamily: fonts.bodyBold, color: colors.abyss, fontSize: 16 },
 });

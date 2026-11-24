@@ -2,31 +2,58 @@
   "expo": {
     "name": "CBM-PIGAP",
     "slug": "cbm-pigap",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kimbaconnect.cbmpigap"
+      "bundleIdentifier": "com.kimbaconnect.cbmpigap",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#021A22",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.kimbaconnect.cbmpigap",
-      "versionCode": 3
+      "versionCode": 4,
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-font",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "CBM-PIGAP relève la position de votre bateau quand vous démarrez le suivi GPS, et celle de votre lieu de pêche quand vous la joignez à une déclaration.",
+          "locationAlwaysAndWhenInUsePermission": "CBM-PIGAP relève la position de votre bateau quand vous démarrez le suivi GPS, et celle de votre lieu de pêche quand vous la joignez à une déclaration.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true,
+          "androidForegroundServiceIcon": "./assets/notification-suivi.png"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "CBM-PIGAP utilise la caméra pour lire le QR des licences de pêche. Aucune photo n'est prise ni conservée.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ]
   }
 }
