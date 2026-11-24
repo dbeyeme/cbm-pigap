@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node scripts/verifier-fonds-carte.mjs",
+    "prebuild": "npm test",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

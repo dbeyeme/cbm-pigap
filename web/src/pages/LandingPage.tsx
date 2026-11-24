@@ -5,6 +5,13 @@ import { IconAlert, IconClose, IconDashboard, IconDownload, IconFileText, IconFi
 import Modal from '../components/Modal';
 import { ILLUSTRATIONS } from '../media';
 
+/**
+ * Les comptes de démonstration ne sont rappelés qu'en développement, ou sur une
+ * instance de démonstration construite avec `VITE_DEMO_ACCOUNTS=true`. Jamais
+ * par défaut sur une instance ouverte au public.
+ */
+const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV || import.meta.env.VITE_DEMO_ACCOUNTS === 'true';
+
 type Props = {
   email: string;
   password: string;
@@ -331,7 +338,7 @@ export default function LandingPage({
             <input
               type="email"
               autoComplete="username"
-              placeholder="admin@example.com"
+              placeholder="adresse@exemple.ga"
               value={email}
               onChange={(e) => onEmail(e.target.value)}
               required
@@ -348,10 +355,12 @@ export default function LandingPage({
               required
             />
           </label>
-          <p className="hint" style={{ fontSize: 12, opacity: 0.75, marginTop: -4 }}>
-            Démo : admin@example.com / AdminPass123! · agent@example.com / AgentPass123! ·
-            autorite@example.com / AutoritePass123!
-          </p>
+          {SHOW_DEMO_ACCOUNTS ? (
+            <p className="hint" style={{ fontSize: 12, opacity: 0.75, marginTop: -4 }}>
+              Démo : admin@example.com / AdminPass123! · agent@example.com / AgentPass123! ·
+              autorite@example.com / AutoritePass123!
+            </p>
+          ) : null}
           {error ? <p className="error">{error}</p> : null}
           <button type="submit" className="btn-primary" disabled={loading}><IconLogin size={16} /> {loading ? 'Connexion…' : 'Se connecter'}</button>
         </form>

@@ -11,10 +11,11 @@
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-10-04 |
+| **Dernière mise à jour** | 2026-11-24 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Note récente** | Correctif Android GPS sans clé Google Maps, APK 0.1.1 (2026-10-04) · Mobile allégé (2026-10-02) : APK Android, écran de bienvenue, numéro Mobile Money modifiable par le pêcheur, parcours captures par étapes, tuiles chiffrées, icônes, composants `ui/` · Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
+| **Chantier en cours** | Évolutions de novembre 2026, lots 0 à 5 : [`chantier-evolutions-2026-11.md`](chantier-evolutions-2026-11.md) · lot 0 présent en code (branche `fix/lot-0-fonds-de-carte`), non commité, non déployé |
+| **Note récente** | Lot 0 (2026-11-24) : fond de carte sans clé et polices (ADR-010), garde-fou à la construction, comptes de démonstration retirés de la fenêtre de connexion publique · Correctif Android GPS sans clé Google Maps, APK 0.1.1 (2026-10-04) · Mobile allégé (2026-10-02) : APK Android, écran de bienvenue, numéro Mobile Money modifiable par le pêcheur, parcours captures par étapes, tuiles chiffrées, icônes, composants `ui/` · Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -71,7 +72,10 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 
 - Liste fermée espèces/méthodes MVP à valider zone pilote (avant quotas réalistes)
 - Agrégateur Mobile Money live (SingPay/PViT) + calendrier `ABONNEMENT_ENFORCE=true`
-- _(ADR-001…008 acceptés ; ADR-009 proposé : suivi temps réel, triangulation GSM/GPS écartée ; ingestion `source=balise` livrée avec données fictives)_
+- _(ADR-001…008 acceptés ; ADR-009 proposé : suivi temps réel, triangulation GSM/GPS écartée ; ingestion `source=balise` livrée avec données fictives ; ADR-010 accepté : fonds de carte sans clé)_
+- Commandes entre pêcheurs, clients et revendeurs : hors périmètre du cahier (§2.2), ADR et validation de Kimba Connect à venir ; acompte de 30 % par Mobile Money décidé en option le 2026-11-24
+- Règles « Proposé » du chantier de novembre 2026 (prix, rentabilité, seuils d'alerte des navires, confirmation de livraison) à valider avant les lots 4 et 5
+- Comptes de démonstration en ligne, imagerie satellitaire sans clé, accès Skylight et station AIS : décisions du porteur
 
 ## Comment mettre à jour
 

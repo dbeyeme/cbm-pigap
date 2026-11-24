@@ -50,7 +50,12 @@ import {
   silhouetteForType,
   startLineFlowAnimation,
 } from './geo/mapEffects';
-import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE, GULF_OF_GUINEA_BOUNDS } from './geo/mapStyle';
+import {
+  GABON_MAP_VIEW,
+  GABON_SATELLITE_STYLE,
+  GULF_OF_GUINEA_BOUNDS,
+  MAP_FONT_REGULAR,
+} from './geo/mapStyle';
 import { removeZonesFromMap, syncZonesOnMap } from './geo/zoneMap';
 import { useNotifications } from './hooks/useNotifications';
 import { friendlyApiError } from './lib/apiErrors';
@@ -744,7 +749,7 @@ export default function App() {
           layout: {
             'text-field': ['get', 'etiquette'],
             'text-size': 11,
-            'text-font': ['Open Sans Regular'],
+            'text-font': MAP_FONT_REGULAR,
             'text-anchor': 'center',
             'text-allow-overlap': false,
           },

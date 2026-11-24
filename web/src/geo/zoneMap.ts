@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 
 import type { ZoneReglementee } from '../api';
+import { MAP_FONT_REGULAR } from './mapStyle';
 
 export const ZONE_COLORS: Record<ZoneReglementee['type'], string> = {
   interdite: '#DC2626',
@@ -167,6 +168,7 @@ function ensureLayers(map: maplibregl.Map): void {
     filter: ['==', ['get', 'kind'], 'label'],
     layout: {
       'text-field': ['get', 'nom'],
+      'text-font': MAP_FONT_REGULAR,
       'text-size': 11,
       'text-offset': [0, 0.2],
       'text-anchor': 'center',

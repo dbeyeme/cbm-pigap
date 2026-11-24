@@ -1354,3 +1354,41 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Points ouverts / dette technique :**
 - APK toujours signé avec la clé de débogage : une clé de signature propre reste à prévoir avant diffusion large (une mise à jour signée avec une autre clé imposera de désinstaller l'ancienne version)
 - Version et taille affichées sur l'accueil à mettre à jour à chaque nouvel APK
+
+---
+
+## [2026-11-24] Lot 0 : fond de carte sans clé, polices, comptes de démonstration (ADR-010)
+
+**Ce qui a été construit :**
+- Diagnostic de l'anomalie de carte signalée par le porteur : le fournisseur du fond et des noms de lieux exige une clé depuis le 25 septembre 2026 et couvre chaque tuile neuve de la mention « API KEY REQUIRED » ; le cache du navigateur masquait le défaut sur les postes déjà utilisés ; la police des étiquettes répondait 404 sur un serveur de démonstration
+- `web/src/geo/mapStyle.ts` : fond vectoriel OpenStreetMap sans clé (eau et terre sous l'imagerie, noms de lieux au-dessus, en français), polices du même service exportées par `MAP_FONT_*`, adresse surchargeable par `VITE_MAP_TILES_URL` ; imagerie satellitaire inchangée
+- `web/src/App.tsx` et `web/src/geo/zoneMap.ts` : les couches de texte utilisent `MAP_FONT_REGULAR`
+- `web/scripts/verifier-fonds-carte.mjs`, lancé avant chaque construction (`npm test`, `prebuild`) : échoue si un hôte de tuiles interdit réapparaît, si une couche de texte n'a pas de police ou si une police est écrite en dur
+- `web/src/pages/LandingPage.tsx` : le rappel des comptes de démonstration n'apparaît plus qu'en développement, ou avec `VITE_DEMO_ACCOUNTS=true` ; champ de saisie sans adresse d'administrateur suggérée
+- `docs/adr/ADR-010-fonds-de-carte-sans-cle.md`, `docs/chantier-evolutions-2026-11.md` (cadrage des évolutions demandées le 2026-11-24, décisions du porteur, lots 0 à 5)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.2, §5.3, §5.6 : les cartes du portail doivent rester lisibles pour tout utilisateur, pas seulement sur un poste dont le cache est rempli
+- §3.2 : cartographie open source, sans dépendance payante ; l'ADR-002 laissait le fournisseur de tuiles à figer
+- §7 : aucun identifiant affiché sur une page publique
+
+**Technologies / principes utilisés :**
+- MapLibre GL, source vectorielle unique au schéma OpenMapTiles, noms `name:fr` avec repli sur le nom latin
+- Contrôle statique sans dépendance (Node), exécuté par le crochet `prebuild` de npm, donc aussi à chaque construction de l'hébergeur
+- Variables de construction Vite ; le code mort des comptes de démonstration est éliminé du paquet de production
+
+**Tests réalisés :**
+- Garde-fou sur l'ancien code : échec attendu, 4 défauts signalés (2 hôtes interdits, 1 couche sans police, 1 police en dur) ; sur le nouveau code : réussite
+- `tsc --noEmit` (web) : OK ; `npm run build` : OK
+- Paquet de production : aucun mot de passe de démonstration ; seuls hôtes de carte présents : imagerie et service vectoriel
+- Navigateur, instance locale, page Surveillance : polices en 200, aucune requête vers les deux hôtes retirés, aucune mention de clé sur une zone jamais mise en cache (Nigeria et Cameroun), libellés français ; rendu contrôlé à 1280, 768 et 375 px, sans défilement horizontal
+- Sonde du flux AIS communautaire (2026-11-23, 23 h 30 UTC) : 10 navires en 15 s sur la Manche (témoin), 1 navire en 180 s sur tout le golfe de Guinée, aucun message dans les eaux gabonaises
+- Tests backend : non exécutés (aucun fichier backend modifié)
+
+**Points ouverts / dette technique :**
+- Non commité, non déployé : fusion et mise en ligne reviennent au porteur
+- Service de tuiles public sans garantie de disponibilité ; cible : copie hébergée par la plateforme (ADR-010)
+- Imagerie satellitaire utilisée sans clé, conditions non confirmées ; même fond raster dans `TileTrajectoryMap` du mobile
+- Comptes de démonstration : leurs mots de passe sont lisibles dans le dépôt public (`backend/scripts/seed_production_demo.py`, vérifié sans authentification) ; leur présence en ligne n'a pas été testée, la décision revient au porteur
+- Le navire AIS affiché à Owendo provient d'une observation du 2026-09-20 rechargée depuis `ais_zee_snapshot.geojson`, sans indication d'âge : à traiter dans le lot 2
+- Attribution de la carte sur quatre lignes à 375 px ; l'API locale réécrit le fichier suivi `ais_zee_snapshot.geojson` à chaque lancement
