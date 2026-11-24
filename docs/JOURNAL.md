@@ -1639,3 +1639,27 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Tests réalisés :** deux passages complets consécutifs, 246 passés et 0 échoué à chaque fois ; base de développement identique avant et après ; garde-fou vérifié avec une adresse visant `pigap` (arrêt immédiat).
 
 **Points ouverts :** ADR-013 à valider ; CI présente en code, non exécutée ; `ruff` signale une variable inutilisée dans `test_m2_geoloc.py` (antérieure), la CI échouera sur ce point tant qu'il n'est pas corrigé.
+
+---
+
+## [2026-11-25] Commits des lots du chantier de novembre et mise en ligne du portail
+
+**Ce qui a été fait :**
+- Cinq commits sur `fix/lot-0-fonds-de-carte`, un par lot : `a8b8bb4` (lot 0), `6f546c9` (lot 0 bis), `989642e` (serveur : lots 5, 10 et 2, base de test dédiée), `7a33218` (mobile : lot 3), `d7f1843` (portail : lot 1 et documents) ; branche ni fusionnée dans `main`, ni poussée
+- Portail mis en ligne sur Vercel (production, adresse `cbm-pigap-web.vercel.app`) depuis le poste, comme les mises en ligne précédentes
+- Serveur non mis en ligne : `railway up` refusé par le mode automatique de Claude Code (cas prévu par les standards, section 5.3) ; commande remise au porteur
+- APK 0.2.0 non publiée : la version de démonstration propose des comptes d'essai partagés, que la règle « un appareil, un seul compte pêcheur » (lot 10) rattacherait au premier téléphone une fois le serveur à jour ; décision demandée au porteur
+
+**Pourquoi :** demande du porteur du 2026-11-25 (« commit les modifications effectuées puis déploie »). Standards, section 5.1 : commit et déploiement ne valent pas fusion vers `main` sans mention explicite.
+
+**Tests réalisés :**
+- Avant les commits : serveur 246 tests passés, 0 échoué (base de test dédiée) ; mobile 77 tests passés, typage sans erreur ; portail : garde-fou, typage et construction réussis
+- Fouille des secrets sur l'ensemble des lignes ajoutées : aucun secret ; les seuls identifiants trouvés sont ceux de démonstration, déjà publics avant ces commits
+- Production : paquet servi identique à la construction locale (`index-DfXvc80u.js`), nouveautés présentes, ni ancien fournisseur de tuiles ni identifiant de démonstration, photographies et pages publiques en 200, API en ligne saine (`/health` 200, ancienne version)
+
+**Points ouverts :**
+- Mise en ligne du serveur par le porteur, puis vérification (migrations `f8b2d3e4a516` et `a9c3e4f5b627` jouées au démarrage, `/health`, bulletin à 8 secteurs)
+- Publication de l'APK 0.2.0 et choix du traitement des comptes de démonstration
+- Fusion dans `main` et envoi sur le dépôt distant à décider par le porteur
+- Lint du serveur déjà rouge avant ce chantier (CI) ; `web/tsconfig.tsbuildinfo` et l'étude du 2026-10-30 laissés hors commit (fichiers tiers)
+
