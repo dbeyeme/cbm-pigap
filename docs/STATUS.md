@@ -14,8 +14,8 @@
 | **Dernière mise à jour** | 2026-11-24 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Chantier en cours** | Évolutions de novembre 2026, lots 0 à 5 : [`chantier-evolutions-2026-11.md`](chantier-evolutions-2026-11.md) · lot 0 présent en code (branche `fix/lot-0-fonds-de-carte`), non commité, non déployé |
-| **Note récente** | Lot 0 (2026-11-24) : fond de carte sans clé et polices (ADR-010), garde-fou à la construction, comptes de démonstration retirés de la fenêtre de connexion publique · Correctif Android GPS sans clé Google Maps, APK 0.1.1 (2026-10-04) · Mobile allégé (2026-10-02) : APK Android, écran de bienvenue, numéro Mobile Money modifiable par le pêcheur, parcours captures par étapes, tuiles chiffrées, icônes, composants `ui/` · Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
+| **Chantier en cours** | Évolutions de novembre 2026, lots 0 à 7 : [`chantier-evolutions-2026-11.md`](chantier-evolutions-2026-11.md) · lots 0 et 0 bis présents en code, non commités · en parallèle depuis le 2026-11-24 : lot 1 (portail, session principale), lot 3 (mobile), lots 5 puis 2 côté serveur · branche `fix/lot-0-fonds-de-carte`, un seul arbre de travail |
+| **Note récente** | Lot 0 bis (2026-11-24) : carte plein cadre avec panneaux refermables, bannières et arrière-plans à partir des images du porteur, correctifs d'affichage sur téléphone ; lecture de l'API Global Fishing Watch (ADR-011 proposé, usage non commercial seulement) · Lot 0 (2026-11-24) : fond de carte sans clé et polices (ADR-010), garde-fou à la construction, comptes de démonstration retirés de la fenêtre de connexion publique · Correctif Android GPS sans clé Google Maps, APK 0.1.1 (2026-10-04) · Mobile allégé (2026-10-02) : APK Android, écran de bienvenue, numéro Mobile Money modifiable par le pêcheur, parcours captures par étapes, tuiles chiffrées, icônes, composants `ui/` · Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -76,6 +76,9 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 - Commandes entre pêcheurs, clients et revendeurs : hors périmètre du cahier (§2.2), ADR et validation de Kimba Connect à venir ; acompte de 30 % par Mobile Money décidé en option le 2026-11-24
 - Règles « Proposé » du chantier de novembre 2026 (prix, rentabilité, seuils d'alerte des navires, confirmation de livraison) à valider avant les lots 4 et 5
 - Comptes de démonstration en ligne, imagerie satellitaire sans clé, accès Skylight et station AIS : décisions du porteur
+- Global Fishing Watch (ADR-011) : essai de faisabilité hors service décidé le 2026-11-24 ; API réservées à un usage non commercial, mise en service soumise à l'accord de l'éditeur (traité par le porteur)
+- Commit des lots 0 et 0 bis : question posée les 2026-11-24 (deux fois), en attente ; aucun commit sans demande explicite
+- Décidé le 2026-11-24 : commandes sans paiement en ligne (réservation gratuite indiquant le montant prévu), page de profil visible des comptes connectés et ouvrable au public par l'acteur, bannières du portail conservées · restent « Proposé » : informations d'inscription à ajouter, espèces du profil tirées des captures
 
 ## Comment mettre à jour
 

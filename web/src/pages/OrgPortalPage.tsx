@@ -10,6 +10,7 @@ import {
   OrgPortalRead,
   synchroniserPaiement,
 } from '../api';
+import PageBanner from '../components/PageBanner';
 import StatusPill from '../components/StatusPill';
 import { IconCheckCircle } from '../components/Icons';
 
@@ -109,15 +110,10 @@ export default function OrgPortalPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide">
-      <header className="stage-head">
-        <p className="eyebrow">Espace organisation</p>
-        <h1>{portal.organisation_nom}</h1>
-        <p>
-          Inscription validee puis abonnement B2B — meme logique de paiement que les acteurs
-          (Mobile Money).
-        </p>
-        <p className="status-line">{status}</p>
-      </header>
+      <PageBanner photo="filiere" eyebrow="Espace organisation" title={portal.organisation_nom}>
+        <p>Inscription validée, puis abonnement réglé par Mobile Money.</p>
+        {status ? <p>{status}</p> : null}
+      </PageBanner>
 
       <div className="kpi-strip">
         <div className="kpi-card">

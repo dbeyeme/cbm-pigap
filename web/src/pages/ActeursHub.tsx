@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import HubTabs from '../components/HubTabs';
 import { IconBuilding, IconCard, IconBadge, IconInbox } from '../components/Icons';
-import Illustration from '../components/Illustration';
+import PageBanner from '../components/PageBanner';
 import AbonnementsPage from './AbonnementsPage';
 import DemandesPage from './DemandesPage';
 import LicencesPage from './LicencesPage';
@@ -34,14 +34,9 @@ export default function ActeursHub({
 
   return (
     <section className="stage stage-wide ds-hub">
-      <div className="stage-head page-head-with-icon page-head-illustrated">
-        <Illustration name="acteurs" size={104} className="page-illustration" />
-        <div>
-          <p className="eyebrow">Registre</p>
-          <h1>Acteurs</h1>
-          <p>Demandes de licence, pêcheurs, organisations et abonnements.</p>
-        </div>
-      </div>
+      <PageBanner photo="peche" eyebrow="Registre" title="Acteurs">
+        <p>Demandes de licence, pêcheurs, organisations et abonnements.</p>
+      </PageBanner>
       <HubTabs
         tabs={[
           { id: 'demandes', label: 'Demandes', badge: demandesBadge, icon: IconInbox, hint: 'Demandes de licence à traiter' },

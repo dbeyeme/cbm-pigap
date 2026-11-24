@@ -23,7 +23,7 @@ import { IconDownload, IconRefresh, IconReport, IconUsers } from '../components/
 import { useToast } from '../components/ToastProvider';
 import { syncGabonBoundariesOnMap } from '../geo/gabonBoundary';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
-import Illustration from '../components/Illustration';
+import PageBanner from '../components/PageBanner';
 
 type Props = {
   token: string;
@@ -194,17 +194,12 @@ export default function RapportsPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide">
-      <div className="stage-head page-head-with-icon page-head-illustrated">
-        <Illustration name="rapports" size={104} className="page-illustration" />
-        <div>
-          <p className="eyebrow">Pilotage · Rapports</p>
-          <h1>Rapports et documents</h1>
-          <p>
-            Tendances saisonnières, prévisions consultatives et pièces officielles : licence,
-            fiche, bilan, rapport.
-          </p>
-        </div>
-      </div>
+      <PageBanner photo="logistique" eyebrow="Pilotage · Rapports" title="Rapports et documents">
+        <p>
+          Tendances saisonnières, prévisions consultatives et pièces officielles : licence, fiche,
+          bilan, rapport.
+        </p>
+      </PageBanner>
 
       <form className="dash-period-bar dash-period-bar--rapports" onSubmit={onFilter} aria-label="Période et grain">
         <span className="dash-period-label">Période</span>

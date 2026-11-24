@@ -15,7 +15,7 @@ import {
 } from '../api';
 import CompactList from '../components/CompactList';
 import HelpTip from '../components/HelpTip';
-import Illustration from '../components/Illustration';
+import PageBanner from '../components/PageBanner';
 import KpiCard from '../components/KpiCard';
 import { IconAlert, IconCheckCircle, IconPlus, IconSearch, IconShield, IconXCircle } from '../components/Icons';
 
@@ -166,14 +166,9 @@ export default function ControlesPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide ds-hub">
-      <div className="stage-head stage-head-illustrated">
-        <Illustration name="surveillance" size={64} className="page-illustration" />
-        <div>
-          <p className="eyebrow">Opérations</p>
-          <h1>Contrôles</h1>
-          <p>Missions de surveillance, contrôles d'embarcation, vérification des licences par QR code.</p>
-        </div>
-      </div>
+      <PageBanner photo="quai" eyebrow="Opérations" title="Contrôles">
+        <p>Missions de surveillance, contrôles d'embarcation, vérification des licences par QR code.</p>
+      </PageBanner>
 
       <div className="ds-kpi-row ds-rise-in">
         <KpiCard label="Missions" value={missions.length} hint={`${missions.filter((m) => m.statut === 'en_cours').length} en cours`} icon={<IconShield size={22} />} />

@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
+import { photoVars, type PhotoId } from '../media';
 import Illustration, { type IllustrationName } from './Illustration';
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
   footer?: ReactNode;
   /** Illustration d'en-tête (remplace le logo) pour identifier l'action. */
   illustration?: IllustrationName;
+  /** Bande photographique en tête de fenêtre (connexion). */
+  banner?: PhotoId;
 };
 
 /**
@@ -22,7 +25,16 @@ type Props = {
  * Ne pas dépendre de `onClose` (souvent recréé à chaque frappe du parent),
  * sinon le focus revient au 1er champ et la saisie paraît cassée.
  */
-export default function Modal({ open, title, onClose, children, wide, footer, illustration }: Props) {
+export default function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  wide,
+  footer,
+  illustration,
+  banner,
+}: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -95,6 +107,9 @@ export default function Modal({ open, title, onClose, children, wide, footer, il
         aria-modal="true"
         aria-labelledby="modal-title"
       >
+        {banner ? (
+          <div className="modal-banner photo-bg" style={photoVars(banner)} aria-hidden />
+        ) : null}
         <header className="modal-head">
           <div className="modal-brand">
             {illustration ? (

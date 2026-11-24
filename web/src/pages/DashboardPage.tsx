@@ -18,6 +18,7 @@ import {
 } from '../api';
 import CompactList from '../components/CompactList';
 import KpiCard from '../components/KpiCard';
+import PageBanner from '../components/PageBanner';
 import PredictionStrip from '../components/PredictionStrip';
 import StatusPill from '../components/StatusPill';
 import TrendCharts from '../components/TrendCharts';
@@ -352,11 +353,11 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
 
   return (
     <section className="dash dash-dense dash-scenic">
-      <header className="dash-head dash-head-period">
-        <div>
-          <p className="eyebrow">Pilotage · temps réel</p>
-          <h1>Tableau de bord</h1>
-        </div>
+      <PageBanner
+        photo="filiere"
+        eyebrow="Pilotage · temps réel"
+        title="Tableau de bord"
+        actions={
         <form className="dash-period-bar" onSubmit={onFilter} aria-label="Période des indicateurs">
           <span className="dash-period-label">
             <IconCalendar size={14} /> Période
@@ -377,7 +378,8 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
             {loading ? 'Calcul…' : 'Actualiser'}
           </button>
         </form>
-      </header>
+        }
+      />
 
       <div className="ds-kpi-row ds-rise-in">
         <KpiCard

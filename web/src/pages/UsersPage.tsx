@@ -10,7 +10,7 @@ import {
 } from '../api';
 import CompactList from '../components/CompactList';
 import Modal from '../components/Modal';
-import Illustration from '../components/Illustration';
+import PageBanner from '../components/PageBanner';
 import { IconFilter, IconPlus, IconTrash } from '../components/Icons';
 
 type Props = {
@@ -156,29 +156,27 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
 
   return (
     <section className="stage stage-wide team-stage">
-      <header className="stage-head page-head-with-icon glass-block team-hero">
-        <Illustration name="equipe" size={96} className="page-illustration" />
-        <div>
-          <p className="eyebrow">Administration · Équipe</p>
-          <h1>Équipe</h1>
-          <p>
-            Créez et gérez les comptes agents et administrateurs. Réservé aux
-            administrateurs.
-          </p>
-          <div className="team-stats">
-            <span className="team-stat">
+      <PageBanner
+        photo="logistique"
+        eyebrow="Administration · Équipe"
+        title="Équipe"
+        actions={
+          <>
+            <span className="page-banner-chip">
               <strong>{users.length}</strong> comptes
             </span>
-            <span className="team-stat">
+            <span className="page-banner-chip">
               <strong>{agents}</strong> agents
             </span>
-            <span className="team-stat">
-              <strong>{admins}</strong> admins
+            <span className="page-banner-chip">
+              <strong>{admins}</strong> administrateurs
             </span>
-          </div>
-          {status ? <p className="status-line">{status}</p> : null}
-        </div>
-      </header>
+          </>
+        }
+      >
+        <p>Créez et gérez les comptes agents et administrateurs. Réservé aux administrateurs.</p>
+        {status ? <p>{status}</p> : null}
+      </PageBanner>
 
       <div className="split-body team-split">
         <aside className="glass-block team-side">

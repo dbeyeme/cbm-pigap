@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState, type ComponentType } from 'react';
 import DemandeLicenceWizard from '../components/DemandeLicenceWizard';
 import { IconAlert, IconClose, IconDashboard, IconDownload, IconFileText, IconFish, IconLogin, IconMenu, IconShield, IconShip, IconUsers } from '../components/Icons';
 import Modal from '../components/Modal';
-import { ILLUSTRATIONS } from '../media';
+import { ILLUSTRATIONS, photoVars } from '../media';
 
 /**
  * Les comptes de démonstration ne sont rappelés qu'en développement, ou sur une
@@ -204,13 +204,7 @@ export default function LandingPage({
         </nav>
       </aside>
 
-      <section
-        id="accueil"
-        className="ds-fo-hero ds-fo-hero-slim"
-        style={{
-          backgroundImage: `linear-gradient(105deg, rgba(0,26,61,0.9) 0%, rgba(0,26,61,0.5) 45%, rgba(0,26,61,0.22) 100%), url(${ILLUSTRATIONS.hero})`,
-        }}
-      >
+      <section id="accueil" className="ds-fo-hero ds-fo-hero-slim photo-bg" style={photoVars('peche')}>
         <div className="ds-fo-hero-copy ds-rise-in">
           <p className="ds-fo-brand-hero">CBM-PIGAP</p>
           <h1>
@@ -229,9 +223,9 @@ export default function LandingPage({
       </section>
 
       <section id="services" className="ds-fo-section">
-        <header className="ds-fo-section-head">
+        <header className="ds-fo-section-head ds-fo-section-banner photo-bg" style={photoVars('filiere')}>
           <h2>Services de la plateforme</h2>
-          <p>Six piliers pour piloter le secteur — du registre à la surveillance.</p>
+          <p>Six piliers pour piloter le secteur, du registre à la surveillance.</p>
         </header>
         <div className="ds-fo-services ds-stagger">
           {SERVICES.map((s) => (
@@ -249,7 +243,12 @@ export default function LandingPage({
         </div>
       </section>
 
-      <section id="application" className="ds-fo-app" aria-labelledby="fo-app-title">
+      <section
+        id="application"
+        className="ds-fo-app photo-bg"
+        style={photoVars('quai')}
+        aria-labelledby="fo-app-title"
+      >
         <div className="ds-fo-app-copy">
           <p className="ds-fo-app-kicker">Application mobile</p>
           <h2 id="fo-app-title">CBM-PIGAP sur votre téléphone Android</h2>
@@ -331,7 +330,7 @@ export default function LandingPage({
         <p className="ds-fo-flag">République Gabonaise — Une mer, une richesse, notre avenir</p>
       </footer>
 
-      <Modal open={loginOpen} title="Connexion autorités" onClose={closeModals}>
+      <Modal open={loginOpen} title="Connexion autorités" banner="logistique" onClose={closeModals}>
         <form id="fo-login-form" className="login-form" onSubmit={onLogin}>
           <label>
             E-mail

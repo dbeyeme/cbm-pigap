@@ -4,7 +4,7 @@ import { listAlertes, patchAlerteStatut, QuotaAlerte, refreshNotifications } fro
 import CompactList from '../components/CompactList';
 import { useToast } from '../components/ToastProvider';
 import { friendlyApiError } from '../lib/apiErrors';
-import { MODULE_VISUALS } from '../media';
+import PageBanner from '../components/PageBanner';
 import { IconCheckCircle, IconXCircle } from '../components/Icons';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -95,18 +95,13 @@ export default function AlertesPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide cmd-overlay-panel">
-      <div className="stage-head page-head-with-icon">
-        <img src={MODULE_VISUALS.alertes.src} alt="" className="page-module-icon" />
-        <div>
-          <p className="eyebrow">Opérations · Événements à traiter</p>
-          <h1>Alertes</h1>
-          <p>
-            Intrusions en zone interdite, dépassements de quota et activités inhabituelles.
-            Chaque alerte indique la règle qui l’a déclenchée.
-          </p>
-          <p className="status-line">{status}</p>
-        </div>
-      </div>
+      <PageBanner photo="peche" eyebrow="Opérations · Événements à traiter" title="Alertes">
+        <p>
+          Intrusions en zone interdite, dépassements de quota et activités inhabituelles. Chaque
+          alerte indique la règle qui l’a déclenchée.
+        </p>
+        {status ? <p>{status}</p> : null}
+      </PageBanner>
 
       <CompactList
         items={rows}

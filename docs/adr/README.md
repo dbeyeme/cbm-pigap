@@ -16,6 +16,7 @@ Décisions techniques structurantes de CBM-PIGAP.
 | [ADR-008](ADR-008-meteo-marine-open-data.md) | Bulletin météo-marine et zones calculées (open data) | Accepté | 2026-09-20 |
 | [ADR-009](ADR-009-suivi-temps-reel-sources-position.md) | Suivi temps réel : triangulation GSM/GPS écartée, balises NEMO de l'État | Proposé | 2026-10-01 |
 | [ADR-010](ADR-010-fonds-de-carte-sans-cle.md) | Fonds de carte du portail : service sans clé, cible auto-hébergée | Accepté | 2026-11-24 |
+| [ADR-011](ADR-011-global-fishing-watch-source-differee.md) | Global Fishing Watch : source différée pour les navires industriels | Accepté pour essai hors service | 2026-11-24 |
 
 ## Convention
 

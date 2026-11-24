@@ -1392,3 +1392,44 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - Comptes de démonstration : leurs mots de passe sont lisibles dans le dépôt public (`backend/scripts/seed_production_demo.py`, vérifié sans authentification) ; leur présence en ligne n'a pas été testée, la décision revient au porteur
 - Le navire AIS affiché à Owendo provient d'une observation du 2026-09-20 rechargée depuis `ais_zee_snapshot.geojson`, sans indication d'âge : à traiter dans le lot 2
 - Attribution de la carte sur quatre lignes à 375 px ; l'API locale réécrit le fichier suivi `ais_zee_snapshot.geojson` à chaque lancement
+
+---
+
+## [2026-11-24] Lot 0 bis : carte plein cadre, bannières et arrière-plans, affichage sur téléphone ; lecture de l'API Global Fishing Watch (ADR-011)
+
+**Ce qui a été construit :**
+- Carte plein cadre sur les pages Navires, Surveillance et Cartographie : la carte occupe toute la surface sous l'en-tête ; barre d'outils flottante (`MapToolbar`), panneaux à la demande (`MapPanel`) et passage en plein écran ; hauteur mesurée par `useMapStage` et non plus codée en dur
+- Page Navires : l'ancienne colonne fixe est répartie en quatre panneaux (Couches, Navires, Mer, Ports), un seul ouvert à la fois, aucun à l'arrivée
+- Cartes secondaires bornées : tableau de bord entre 380 et 520 px, rapports entre 300 et 420 px
+- Images fournies par le porteur, rognées et allégées (`web/public/photos/`, 59 à 78 ko, variante de 800 px pour les téléphones) : arrière-plan d'ouverture de l'accueil, bandeau Services, bloc Application, bande de la fenêtre de connexion ; bannière `PageBanner` sur huit pages principales du portail
+- Correctifs d'affichage sur téléphone : en-tête de l'accueil (page large de 761 px pour un écran de 375 px), en-tête du portail (titre tronqué, cloche superposée), 84 px vides sous chaque page
+- Libellés du panneau des zones passés au vouvoiement et débarrassés du vocabulaire de développement ; icônes sur les trois onglets de mode
+- `docs/adr/ADR-011-global-fishing-watch-source-differee.md` (statut Proposé) ; section 5.3 et plan de lots révisé dans `docs/chantier-evolutions-2026-11.md` ; `docs/LECONS.md`
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §5.2, §5.3, §5.6 : la carte est l'outil de travail des pages de suivi ; elle n'occupait que 60 % de l'écran
+- Demandes du porteur du 2026-11-24 : carte presque en plein écran, images en arrière-plan et en bannières, portail adapté à toutes les largeurs, exploitation de la clé Global Fishing Watch
+- §3.2 et §7 : aucune dépendance tierce n'entre en service sans conditions d'usage vérifiées
+
+**Technologies / principes utilisés :**
+- Mise en page par superposition (carte en fond, barre et panneaux au-dessus), API Fullscreen du navigateur, variables CSS posées par composant (`photoVars`, `--stage-top`)
+- Standards du porteur appliqués quand ils s'y prêtent : icône et libellé sur chaque bouton, cibles tactiles de 44 px sur téléphone, pas de flou d'arrière-plan sur un conteneur d'infobulles, panneaux bornés à la hauteur de l'écran, vérification à 375, 768 et 1280 px, construction de production avant clôture
+- Écart assumé : la section 11.4 des standards écarte la photographie décorative des outils de travail ; les bannières du portail répondent à la demande expresse du porteur, restent basses et sans animation, et tiennent en un composant retirable
+
+**Tests réalisés :**
+- `tsc --noEmit` (web) : OK ; `npm test` (garde-fou des fonds de carte) : OK ; `npm run build` : OK
+- Navigateur, instance locale, 1280 × 800 px : carte de la page Navires passée de 842 × 734 px à 1202 × 725 px, sans défilement de page ; quatre panneaux ouverts et refermés ; carte du tableau de bord à 439 px
+- 768 × 1024 px et 375 × 812 px : carte, panneau en bas d'écran, bannières, accueil ; aucune page plus large que l'écran
+- Photographies servies en 200, 26 à 77 ko selon la variante
+- Essai en lecture seule de l'API Global Fishing Watch sur la ZEE du Gabon (2026-08-01 au 2026-11-01) : 4 158 heures de pêche apparente, 10 navires, 1 110 détections radar ; jeton jamais affiché
+- Non vérifiés à l'écran : bannière de l'espace organisation (aucun compte d'essai local de ce rôle), bouton « Plein écran » (non essayé dans le volet de prévisualisation)
+- Tests backend : non exécutés (aucun fichier backend modifié)
+
+**Points ouverts / dette technique :**
+- Non commité, non déployé ; lots 0 et 0 bis dans le même arbre de travail (copie de l'état du lot 0 conservée pour deux commits distincts)
+- Global Fishing Watch : usage non commercial seulement ; aucune intégration avant décision du porteur (ADR-011) ; la ligne ajoutée au fichier d'environnement porte un nom qu'aucun réglage ne lit
+- Le portail n'a pas de tests d'interface rejouables : les correctifs d'affichage ne sont prouvés que par mesures et captures ; à installer au lot 1
+- Images non intégrées à l'application mobile ; illustrations des embarcations, menu et formulaires à reprendre (lot 1)
+- Règles de style de l'ancien panneau latéral et anciennes illustrations de 0,9 à 2,6 Mo restées dans le dépôt
+- Les quatre images sont des captures de 1 384 px de large : un fichier d'origine plus grand donnerait un rendu plus net sur très grand écran
+

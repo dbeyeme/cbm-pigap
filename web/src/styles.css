@@ -823,8 +823,6 @@ label {
 
 .map-stage {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(300px, 360px) 1fr;
   min-height: 0;
   animation: fade-in 0.35s ease both;
   /* Keep map canvas opaque — no frosted veil over MapLibre */
@@ -1476,11 +1474,6 @@ label {
 }
 
 @media (max-width: 800px) {
-  .map-stage {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 55vh;
-  }
-
   .side {
     border-right: none;
     border-bottom: 1px solid var(--border);

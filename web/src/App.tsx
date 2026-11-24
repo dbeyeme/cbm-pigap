@@ -30,12 +30,19 @@ import AisPanel from './components/AisPanel';
 import PortPresencePanel from './components/PortPresencePanel';
 import VesselDetailDrawer from './components/VesselDetailDrawer';
 import PirogueDetailDrawer from './components/PirogueDetailDrawer';
-import Illustration from './components/Illustration';
 import SeaStatePanel from './components/SeaStatePanel';
 import HelpTip from './components/HelpTip';
 import AppTopbar from './components/AppTopbar';
 import CompactList from './components/CompactList';
-import { IconLogin, IconPirogue, IconShip } from './components/Icons';
+import {
+  IconAnchor,
+  IconLayers,
+  IconLogin,
+  IconPirogue,
+  IconShip,
+  IconWaves,
+} from './components/Icons';
+import MapToolbar, { MapPanel } from './components/MapToolbar';
 import { useToast } from './components/ToastProvider';
 import { syncGabonBoundariesOnMap } from './geo/gabonBoundary';
 import { GABON_COAST_BOUNDS } from './geo/gabonMaritimeRoutes';
@@ -57,6 +64,7 @@ import {
   MAP_FONT_REGULAR,
 } from './geo/mapStyle';
 import { removeZonesFromMap, syncZonesOnMap } from './geo/zoneMap';
+import { useMapStage } from './hooks/useMapStage';
 import { useNotifications } from './hooks/useNotifications';
 import { friendlyApiError } from './lib/apiErrors';
 import { canAccessPage, type NavId, type Page } from './nav';
@@ -95,6 +103,9 @@ function colorFor(id: string): string {
 function isMapPage(page: Page): boolean {
   return page === 'navires' || page === 'map' || page === 'surveillance';
 }
+
+/** Panneaux de la carte ; un seul ouvert à la fois, aucun par défaut (carte dégagée). */
+type MapPanelId = 'couches' | 'navires' | 'mer' | 'ports';
 
 function vesselKind(type: string | null | undefined): VesselKind {
   const t = (type ?? '').toLowerCase();
@@ -152,6 +163,8 @@ export default function App() {
   const [selectedEmbarcation, setSelectedEmbarcation] = useState<string | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<AisTrackPoint[]>([]);
   const [mapExtent, setMapExtent] = useState<'gabon' | 'golfe'>('gabon');
+  const [mapPanel, setMapPanel] = useState<MapPanelId | null>(null);
+  const mapStage = useMapStage<HTMLElement>();
   const [bulletin, setBulletin] = useState<BulletinMeteoMarine | null>(null);
   const [bulletinLoading, setBulletinLoading] = useState(false);
   const [zonesCalc, setZonesCalc] = useState<ZoneCalculee[]>([]);
@@ -202,6 +215,13 @@ export default function App() {
   }, [liveVessels, boatFilter]);
 
   const onMap = isMapPage(page);
+  /** Pages où la carte occupe toute la surface : pas de marge sous le contenu. */
+  const fullBleed = onMap || page === 'cartographie' || page === 'zones';
+
+  /** Sur petit écran, la fiche ouverte prend la place du panneau. */
+  function closePanelOnSmallScreen() {
+    if (window.matchMedia('(max-width: 768px)').matches) setMapPanel(null);
+  }
 
   useEffect(() => {
     if (!token || !meRole) return;
@@ -1107,7 +1127,7 @@ export default function App() {
       <div className="app app-cmd ds-app">
         <header className="ds-topbar" style={{ padding: '12px 20px', display: 'flex', gap: 16 }}>
           <strong>PIGAP · Organisation</strong>
-          <button type="button" className="btn ghost" onClick={logout} style={{ marginLeft: 'auto' }}><IconLogin size={16} /> Deconnexion</button>
+          <button type="button" className="btn ghost" onClick={logout} style={{ marginLeft: 'auto' }}><IconLogin size={16} /> Déconnexion</button>
         </header>
         {error ? <p className="error pad">{error}</p> : null}
         <OrgPortalPage token={token} onError={setError} />
@@ -1173,7 +1193,7 @@ export default function App() {
           onMenuOpen={() => setMobileNavOpen(true)}
         />
 
-        <div className="cmd-content ds-content">
+        <div className={`cmd-content ds-content${fullBleed ? ' ds-content--map' : ''}`}>
           <div key={onMap ? 'map' : page} className="ds-page">
           {error && onMap ? (
             <p className="error pad" style={{ paddingInline: 22 }}>
@@ -1222,6 +1242,7 @@ export default function App() {
                 onOpenTrajectory={(s) => {
                   setSelectedId(s.id);
                   setBoatFilter(s.embarcation_id);
+                  setMapPanel('navires');
                   void goMap('navires');
                 }}
               />
@@ -1240,244 +1261,7 @@ export default function App() {
           ) : null}
 
           {onMap ? (
-            <section className="map-stage">
-              <aside className="side">
-                <header className="zones-head page-head-with-icon zones-head-icon side-head-illustrated">
-                  <Illustration name={page === 'surveillance' ? 'surveillance' : 'navire'} size={64} className="page-illustration" />
-                  <div>
-                    <h2>{page === 'surveillance' ? 'Surveillance' : 'Navires'}</h2>
-                    <p className="side-status">{status || 'Chargement des données…'}</p>
-                  </div>
-                </header>
-                <div className="map-extent" role="group" aria-label="Emprise de la carte">
-                  <button
-                    type="button"
-                    className={mapExtent === 'gabon' ? 'is-on' : ''}
-                    onClick={() => {
-                      setMapExtent('gabon');
-                      mapObj.current?.fitBounds(GABON_MAP_VIEW.fitBounds, { padding: 48, maxZoom: 7.6 });
-                    }}
-                  >
-                    Eaux gabonaises
-                  </button>
-                  <button
-                    type="button"
-                    className={mapExtent === 'golfe' ? 'is-on' : ''}
-                    onClick={() => setMapExtent('golfe')}
-                    title="Zone de veille élargie : navires en approche"
-                  >
-                    Golfe de Guinée
-                  </button>
-                </div>
-                <div className="map-layer-toggles">
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={liveMode}
-                      onChange={(e) => {
-                        const on = e.target.checked;
-                        setLiveMode(on);
-                        if (token) {
-                          if (on) void loadLive(token);
-                          else void loadTrajectories(token);
-                        }
-                      }}
-                    />
-                    Live GPS PIGAP
-                  </label>
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={aisOverlay}
-                      onChange={(e) => {
-                        const on = e.target.checked;
-                        setAisOverlay(on);
-                        if (on && token) void loadAis(token, true);
-                        if (!on) {
-                          clearMarkers(aisMarkers.current);
-                          setAisVessels([]);
-                        }
-                      }}
-                    />
-                    Navires AIS (eaux gabonaises)
-                  </label>
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={meteoOverlay}
-                      onChange={(e) => setMeteoOverlay(e.target.checked)}
-                    />
-                    Zones calculées (mer, pêche, quotas)
-                    <HelpTip title="Zones calculées" side="right">
-                      Secteurs colorés d'après le croisement de l'état de la mer, des captures
-                      déclarées, des quotas et des zones réglementées : rouge danger, orange
-                      prudence, vert favorable, violet surexploité. Recalculées toutes les trente
-                      minutes.
-                    </HelpTip>
-                  </label>
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={showZonesOverlay || page === 'surveillance'}
-                      onChange={() => void toggleZonesOverlay()}
-                      disabled={page === 'surveillance'}
-                    />
-                    Zones
-                  </label>
-                </div>
-                {aisOverlay ? (
-                  <AisPanel
-                    live={aisLive}
-                    vessels={aisVessels}
-                    note={aisNote}
-                    onRefresh={() => {
-                      if (token) void loadAis(token, true);
-                    }}
-                    onSelect={(mmsi) => {
-                      setSelectedEmbarcation(null);
-                      setSelectedMmsi(mmsi);
-                    }}
-                  />
-                ) : null}
-                <SeaStatePanel
-                  bulletin={bulletin}
-                  loading={bulletinLoading}
-                  onRefresh={() => {
-                    if (token) void loadMeteo(token, true);
-                  }}
-                  onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 8 })}
-                />
-                {liveMode ? (
-                  <PortPresencePanel
-                    data={portPresence}
-                    loading={presenceLoading}
-                    onRefresh={() => {
-                      if (token) void loadPresence(token);
-                    }}
-                    onSelectEmbarcation={(id) => {
-                      setBoatFilter(id);
-                      setSelectedMmsi(null);
-                      setSelectedEmbarcation(id);
-                    }}
-                  />
-                ) : null}
-                {showZonesOverlay || page === 'surveillance' ? (
-                  <div className="zone-legend compact zone-legend-rich">
-                    <span>
-                      <img src="/icons/zone-interdite.svg" alt="" width="16" height="16" /> interdite
-                    </span>
-                    <span>
-                      <img src="/icons/zone-protegee.svg" alt="" width="16" height="16" /> protégée
-                    </span>
-                    <span>
-                      <img src="/icons/zone-sensible.svg" alt="" width="16" height="16" /> sensible
-                    </span>
-                    <span>
-                      <img src="/icons/zone-autorisee.svg" alt="" width="16" height="16" /> autorisée
-                    </span>
-                  </div>
-                ) : null}
-                <label className="filter-label">
-                  Embarcation
-                  <select
-                    value={boatFilter}
-                    onChange={(e) => {
-                      setBoatFilter(e.target.value);
-                      setSelectedId(null);
-                    }}
-                  >
-                    <option value="">Toutes</option>
-                    {boats.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.nom} · {b.trips}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {liveMode ? (
-                  <CompactList
-                    items={liveVisible}
-                    getKey={(v) => v.embarcation_id}
-                    initial={8}
-                    empty={
-                      <p className="empty-list">
-                        Aucune position GPS récente. Les embarcations apparaissent dès qu’un
-                        relevé est transmis par l’application mobile.
-                      </p>
-                    }
-                    renderItem={(v) => {
-                      const kind = vesselKind(v.type);
-                      const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
-                      return (
-                        <button
-                          type="button"
-                          className={`traj-item traj-item--vessel traj-item--${kind}`}
-                          style={{ borderLeftColor: colorFor(v.embarcation_id) }}
-                          title={`${v.nom} · ${v.statut} · ${formatAge(v.age_seconds)}`}
-                          onClick={() => {
-                            setBoatFilter(v.embarcation_id);
-                            setSelectedMmsi(null);
-                            setSelectedEmbarcation(v.embarcation_id);
-                          }}
-                        >
-                          <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
-                            <VesselIcon size={18} />
-                          </span>
-                          <span className="traj-item-body">
-                            <span className="traj-title">{v.nom}</span>
-                            <span className="traj-meta">
-                              {secteurLabel(v.secteur)} · {v.statut} · {formatAge(v.age_seconds)}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    }}
-                  />
-                ) : (
-                  <CompactList
-                    items={
-                      boatFilter
-                        ? segments.filter((s) => s.embarcation_id === boatFilter)
-                        : segments
-                    }
-                    getKey={(s) => s.id}
-                    initial={8}
-                    empty={
-                      <p className="empty-list">
-                        Aucune trajectoire enregistrée. Les sorties s’affichent dès que des
-                        relevés GPS sont consolidés.
-                      </p>
-                    }
-                    renderItem={(s) => {
-                      const on = selectedId === s.id;
-                      const kind = vesselKind(s.type);
-                      const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
-                      return (
-                        <button
-                          type="button"
-                          className={`traj-item traj-item--vessel traj-item--${kind}${on ? ' on' : ''}`}
-                          style={{ borderLeftColor: colorFor(s.id) }}
-                          title={`${s.embarcation_nom} · sortie ${s.index}`}
-                          onClick={() => setSelectedId(on ? null : s.id)}
-                        >
-                          <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
-                            <VesselIcon size={18} />
-                          </span>
-                          <span className="traj-item-body">
-                            <span className="traj-title">
-                              {s.embarcation_nom}
-                              <em> · {s.index}</em>
-                            </span>
-                            <span className="traj-meta">
-                              {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    }}
-                  />
-                )}
-              </aside>
+            <section ref={mapStage.stageRef} className="map-stage">
               <div className="map-wrap">
                 <div ref={mapRef} className="map" />
                 {token ? (
@@ -1509,6 +1293,299 @@ export default function App() {
                   />
                 ) : null}
               </div>
+
+              <MapToolbar
+                items={[
+                  { id: 'couches', label: 'Couches', icon: IconLayers, hint: 'Emprise et informations affichées' },
+                  {
+                    id: 'navires',
+                    label: 'Navires',
+                    icon: IconShip,
+                    count: liveMode ? liveVessels.length : segments.length,
+                    hint: 'Embarcations suivies et navires AIS',
+                  },
+                  { id: 'mer', label: 'Mer', icon: IconWaves, hint: 'État de la mer et des fleuves' },
+                  { id: 'ports', label: 'Ports', icon: IconAnchor, hint: 'Présence au port' },
+                ]}
+                active={mapPanel}
+                onToggle={setMapPanel}
+                fullscreen={mapStage.fullscreen}
+                canFullscreen={mapStage.canFullscreen}
+                onFullscreen={mapStage.toggleFullscreen}
+              />
+
+              {loading ? (
+                <p className="map-loading" role="status">
+                  <span className="ds-spinner" aria-hidden /> Chargement des données…
+                </p>
+              ) : null}
+
+              {mapPanel === 'couches' ? (
+                <MapPanel
+                  title="Couches"
+                  subtitle="Emprise de la carte et informations affichées."
+                  onClose={() => setMapPanel(null)}
+                >
+                  <div className="map-extent" role="group" aria-label="Emprise de la carte">
+                    <button
+                      type="button"
+                      className={mapExtent === 'gabon' ? 'is-on' : ''}
+                      onClick={() => {
+                        setMapExtent('gabon');
+                        mapObj.current?.fitBounds(GABON_MAP_VIEW.fitBounds, { padding: 48, maxZoom: 7.6 });
+                      }}
+                    >
+                      Eaux gabonaises
+                    </button>
+                    <button
+                      type="button"
+                      className={mapExtent === 'golfe' ? 'is-on' : ''}
+                      onClick={() => setMapExtent('golfe')}
+                      title="Zone de veille élargie : navires en approche"
+                    >
+                      Golfe de Guinée
+                    </button>
+                  </div>
+                  <div className="map-layer-toggles">
+                    <label className="toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={liveMode}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setLiveMode(on);
+                          if (token) {
+                            if (on) void loadLive(token);
+                            else void loadTrajectories(token);
+                          }
+                        }}
+                      />
+                      Positions GPS en direct
+                    </label>
+                    <label className="toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={aisOverlay}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setAisOverlay(on);
+                          if (on && token) void loadAis(token, true);
+                          if (!on) {
+                            clearMarkers(aisMarkers.current);
+                            setAisVessels([]);
+                          }
+                        }}
+                      />
+                      Navires AIS (eaux gabonaises)
+                    </label>
+                    <label className="toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={meteoOverlay}
+                        onChange={(e) => setMeteoOverlay(e.target.checked)}
+                      />
+                      Zones calculées (mer, pêche, quotas)
+                      <HelpTip title="Zones calculées" side="right">
+                        Secteurs colorés d'après le croisement de l'état de la mer, des captures
+                        déclarées, des quotas et des zones réglementées : rouge danger, orange
+                        prudence, vert favorable, violet surexploité. Recalculées toutes les trente
+                        minutes.
+                      </HelpTip>
+                    </label>
+                    <label className="toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={showZonesOverlay || page === 'surveillance'}
+                        onChange={() => void toggleZonesOverlay()}
+                        disabled={page === 'surveillance'}
+                      />
+                      Zones réglementées
+                    </label>
+                  </div>
+                  {showZonesOverlay || page === 'surveillance' ? (
+                    <div className="zone-legend compact zone-legend-rich">
+                      <span>
+                        <img src="/icons/zone-interdite.svg" alt="" width="16" height="16" /> interdite
+                      </span>
+                      <span>
+                        <img src="/icons/zone-protegee.svg" alt="" width="16" height="16" /> protégée
+                      </span>
+                      <span>
+                        <img src="/icons/zone-sensible.svg" alt="" width="16" height="16" /> sensible
+                      </span>
+                      <span>
+                        <img src="/icons/zone-autorisee.svg" alt="" width="16" height="16" /> autorisée
+                      </span>
+                    </div>
+                  ) : null}
+                </MapPanel>
+              ) : null}
+
+              {mapPanel === 'navires' ? (
+                <MapPanel
+                  title={page === 'surveillance' ? 'Surveillance' : 'Navires'}
+                  subtitle={status || 'Chargement des données…'}
+                  onClose={() => setMapPanel(null)}
+                >
+                  <label className="filter-label">
+                    Embarcation
+                    <select
+                      value={boatFilter}
+                      onChange={(e) => {
+                        setBoatFilter(e.target.value);
+                        setSelectedId(null);
+                      }}
+                    >
+                      <option value="">Toutes</option>
+                      {boats.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.nom} · {b.trips}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {liveMode ? (
+                    <CompactList
+                      items={liveVisible}
+                      getKey={(v) => v.embarcation_id}
+                      initial={8}
+                      empty={
+                        <p className="empty-list">
+                          Aucune position GPS récente. Les embarcations apparaissent dès qu’un
+                          relevé est transmis par l’application mobile.
+                        </p>
+                      }
+                      renderItem={(v) => {
+                        const kind = vesselKind(v.type);
+                        const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
+                        return (
+                          <button
+                            type="button"
+                            className={`traj-item traj-item--vessel traj-item--${kind}`}
+                            style={{ borderLeftColor: colorFor(v.embarcation_id) }}
+                            title={`${v.nom} · ${v.statut} · ${formatAge(v.age_seconds)}`}
+                            onClick={() => {
+                              setBoatFilter(v.embarcation_id);
+                              setSelectedMmsi(null);
+                              setSelectedEmbarcation(v.embarcation_id);
+                              closePanelOnSmallScreen();
+                            }}
+                          >
+                            <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
+                              <VesselIcon size={18} />
+                            </span>
+                            <span className="traj-item-body">
+                              <span className="traj-title">{v.nom}</span>
+                              <span className="traj-meta">
+                                {secteurLabel(v.secteur)} · {v.statut} · {formatAge(v.age_seconds)}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      }}
+                    />
+                  ) : (
+                    <CompactList
+                      items={
+                        boatFilter
+                          ? segments.filter((s) => s.embarcation_id === boatFilter)
+                          : segments
+                      }
+                      getKey={(s) => s.id}
+                      initial={8}
+                      empty={
+                        <p className="empty-list">
+                          Aucune trajectoire enregistrée. Les sorties s’affichent dès que des
+                          relevés GPS sont consolidés.
+                        </p>
+                      }
+                      renderItem={(s) => {
+                        const on = selectedId === s.id;
+                        const kind = vesselKind(s.type);
+                        const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
+                        return (
+                          <button
+                            type="button"
+                            className={`traj-item traj-item--vessel traj-item--${kind}${on ? ' on' : ''}`}
+                            style={{ borderLeftColor: colorFor(s.id) }}
+                            title={`${s.embarcation_nom} · sortie ${s.index}`}
+                            onClick={() => setSelectedId(on ? null : s.id)}
+                          >
+                            <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
+                              <VesselIcon size={18} />
+                            </span>
+                            <span className="traj-item-body">
+                              <span className="traj-title">
+                                {s.embarcation_nom}
+                                <em> · {s.index}</em>
+                              </span>
+                              <span className="traj-meta">
+                                {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      }}
+                    />
+                  )}
+                  {aisOverlay ? (
+                    <AisPanel
+                      live={aisLive}
+                      vessels={aisVessels}
+                      note={aisNote}
+                      onRefresh={() => {
+                        if (token) void loadAis(token, true);
+                      }}
+                      onSelect={(mmsi) => {
+                        setSelectedEmbarcation(null);
+                        setSelectedMmsi(mmsi);
+                        closePanelOnSmallScreen();
+                      }}
+                    />
+                  ) : null}
+                </MapPanel>
+              ) : null}
+
+              {mapPanel === 'mer' ? (
+                <MapPanel title="Mer et fleuves" onClose={() => setMapPanel(null)}>
+                  <SeaStatePanel
+                    bulletin={bulletin}
+                    loading={bulletinLoading}
+                    onRefresh={() => {
+                      if (token) void loadMeteo(token, true);
+                    }}
+                    onLocate={(lng, lat) => {
+                      mapObj.current?.flyTo({ center: [lng, lat], zoom: 8 });
+                      closePanelOnSmallScreen();
+                    }}
+                  />
+                </MapPanel>
+              ) : null}
+
+              {mapPanel === 'ports' ? (
+                <MapPanel title="Ports" onClose={() => setMapPanel(null)}>
+                  {liveMode ? (
+                    <PortPresencePanel
+                      data={portPresence}
+                      loading={presenceLoading}
+                      onRefresh={() => {
+                        if (token) void loadPresence(token);
+                      }}
+                      onSelectEmbarcation={(id) => {
+                        setBoatFilter(id);
+                        setSelectedMmsi(null);
+                        setSelectedEmbarcation(id);
+                        closePanelOnSmallScreen();
+                      }}
+                    />
+                  ) : (
+                    <p className="empty-list">
+                      La présence au port s’affiche lorsque la couche « Positions GPS en direct »
+                      est active.
+                    </p>
+                  )}
+                </MapPanel>
+              ) : null}
             </section>
           ) : null}
 
@@ -1583,11 +1660,6 @@ export default function App() {
             </>
           ) : null}
 
-          {loading && onMap ? (
-            <p className="status-line ds-loading-line" style={{ padding: 12 }}>
-              <span className="ds-spinner" aria-hidden /> Chargement des données…
-            </p>
-          ) : null}
           </div>
         </div>
       </div>

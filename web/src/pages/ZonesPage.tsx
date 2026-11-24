@@ -12,6 +12,7 @@ import {
   ZoneReglementee,
 } from '../api';
 import CompactList from '../components/CompactList';
+import MapToolbar, { MapPanel } from '../components/MapToolbar';
 import { syncGabonBoundariesOnMap } from '../geo/gabonBoundary';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
 import {
@@ -22,8 +23,18 @@ import {
   syncZonesOnMap,
   zoneColor,
 } from '../geo/zoneMap';
-import { MODULE_VISUALS } from '../media';
-import { IconDownload, IconRefresh, IconSave, IconTrash, IconUpload } from '../components/Icons';
+import { useMapStage } from '../hooks/useMapStage';
+import {
+  IconDownload,
+  IconEdit,
+  IconEye,
+  IconMap,
+  IconRadar,
+  IconRefresh,
+  IconSave,
+  IconTrash,
+  IconUpload,
+} from '../components/Icons';
 
 function escapeHtml(value: string): string {
   return value
@@ -109,6 +120,10 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
   const cornerAMarker = useRef<maplibregl.Marker | null>(null);
   const didFit = useRef(false);
   const popup = useRef<maplibregl.Popup | null>(null);
+
+  const mapStage = useMapStage<HTMLElement>();
+  /** Panneau des zones : ouvert à l'arrivée (outils de dessin), refermable pour dégager la carte. */
+  const [panel, setPanel] = useState<'zones' | null>('zones');
 
   const [zones, setZones] = useState<ZoneReglementee[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -511,7 +526,7 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
       setFlash(
         created
           ? `${created} zone(s) démo ciblée(s) ajoutée(s)`
-          : 'Les 3 presets démo sont déjà présents',
+          : 'Les 3 zones d’exemple sont déjà présentes',
       );
       setMode('voir');
     } catch (err) {
@@ -558,36 +573,55 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
   const hint =
     mode === 'dessiner'
       ? cornerA && !cornerB
-        ? 'Étape 2/2 — clique le coin opposé'
+        ? 'Étape 2 sur 2 : cliquez le coin opposé'
         : cornerA && cornerB
-          ? 'Rectangle prêt — nomme et valide à gauche'
-          : 'Étape 1/2 — clique un premier coin'
+          ? 'Rectangle prêt : nommez-le et validez dans le panneau Zones'
+          : 'Étape 1 sur 2 : cliquez un premier coin'
       : mode === 'tester'
-        ? 'Clique n’importe où pour tester une intrusion'
-        : 'Clique une zone pour la sélectionner · pastilles = libellés';
+        ? 'Cliquez un point de la carte pour tester une intrusion'
+        : 'Cliquez une zone pour la sélectionner';
 
   return (
-    <section className="map-stage">
-      <aside className="side side-scroll zones-side">
-        <header className="zones-head page-head-with-icon zones-head-icon">
-          <img src={MODULE_VISUALS.zones.src} alt="" className="page-module-icon sm" />
-          <div>
-            <p className="eyebrow">Cartographie · Zones réglementées</p>
-            <h2>Zones</h2>
-            <p className="side-status">Secteurs ciblés — pas toute la côte.</p>
-          </div>
-        </header>
+    <section ref={mapStage.stageRef} className="map-stage">
+      <div className="map-wrap">
+        <div ref={mapRef} className="map" />
+        <p className={`map-hint mode-${mode}`}>{hint}</p>
+      </div>
 
+      <MapToolbar
+        items={[
+          {
+            id: 'zones',
+            label: 'Zones',
+            icon: IconMap,
+            count: zones.length,
+            hint: 'Liste, dessin et test des zones réglementées',
+          },
+        ]}
+        active={panel}
+        onToggle={setPanel}
+        fullscreen={mapStage.fullscreen}
+        canFullscreen={mapStage.canFullscreen}
+        onFullscreen={mapStage.toggleFullscreen}
+      />
+
+      {panel === 'zones' ? (
+      <MapPanel
+        title="Zones réglementées"
+        subtitle="Secteurs ciblés, pas toute la côte."
+        onClose={() => setPanel(null)}
+      >
+        <div className="zones-side">
         <div className="preset-row">
           <button type="button" className="ghost compact" disabled={loading} onClick={() =>
-              void loadDemoPresets()}><IconDownload size={16} /> Charger 3 presets démo</button>
+              void loadDemoPresets()}><IconDownload size={16} /> Charger 3 zones d’exemple</button>
           <button
             type="button"
             className="ghost compact"
             disabled={loading || overlapIds.size === 0}
             onClick={() =>
               void purgeOverlapsKeepOne()}
-          ><IconTrash size={16} /> Purger doublons</button>
+          ><IconTrash size={16} /> Supprimer les doublons</button>
         </div>
         <div className="preset-chips">
           {ZONE_PRESETS.map((p) => (
@@ -607,11 +641,11 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
         <div className="mode-tabs" role="tablist" aria-label="Mode zones">
           {(
             [
-              ['voir', 'Voir'],
-              ['dessiner', 'Dessiner'],
-              ['tester', 'Tester'],
+              ['voir', 'Voir', IconEye],
+              ['dessiner', 'Dessiner', IconEdit],
+              ['tester', 'Tester', IconRadar],
             ] as const
-          ).map(([id, label]) => (
+          ).map(([id, label, ModeIcon]) => (
             <button
               key={id}
               type="button"
@@ -625,7 +659,7 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
                 if (id === 'dessiner') resetDraw();
               }}
             >
-              {label}
+              <ModeIcon size={15} /> {label}
             </button>
           ))}
         </div>
@@ -711,7 +745,7 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
                 checked={showOnlyActive}
                 onChange={(e) => setShowOnlyActive(e.target.checked)}
               />
-              Actives seulem.
+              Actives seulement
             </label>
           </div>
 
@@ -769,7 +803,7 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
                       onClick={() => void onToggleActif(z)}
                       disabled={loading}
                     >
-                      {z.actif ? 'Off' : 'On'}
+                      {z.actif ? 'Désactiver' : 'Activer'}
                     </button>
                     <button
                       type="button"
@@ -803,12 +837,9 @@ export default function ZonesPage({ token, onStatus, onError }: Props) {
             <button type="submit" disabled={loading}><IconUpload size={16} /> Importer</button>
           </form>
         ) : null}
-      </aside>
-
-      <div className="map-wrap">
-        <div ref={mapRef} className="map" />
-        <p className={`map-hint mode-${mode}`}>{hint}</p>
-      </div>
+        </div>
+      </MapPanel>
+      ) : null}
     </section>
   );
 }

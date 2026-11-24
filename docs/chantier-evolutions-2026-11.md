@@ -3,7 +3,7 @@
 - **Statut :** document de cadrage interne, projet soumis à validation humaine
 - **Date :** 2026-11-24
 - **Auteur :** Christian BEYEME (+ agent)
-- **Liens :** [ADR-009](adr/ADR-009-suivi-temps-reel-sources-position.md), [ADR-010](adr/ADR-010-fonds-de-carte-sans-cle.md), [étude du 2026-10-30](etude-localisation-sans-capteur-et-zones-favorables.md), [cahier](../cdc-mvp-pigap.md)
+- **Liens :** [ADR-009](adr/ADR-009-suivi-temps-reel-sources-position.md), [ADR-010](adr/ADR-010-fonds-de-carte-sans-cle.md), [ADR-011](adr/ADR-011-global-fishing-watch-source-differee.md), [étude du 2026-10-30](etude-localisation-sans-capteur-et-zones-favorables.md), [cahier](../cdc-mvp-pigap.md)
 
 ## 1. Compréhension stratégique
 
@@ -16,6 +16,18 @@
 5. QR code du pêcheur (fiche d'identité, portail et mobile) et lecture par les agents.
 6. Correction de l'anomalie de la carte ; la carte doit montrer et signaler les navires et pêcheurs en infraction.
 7. Géolocalisation en temps réel, effective et fiable.
+
+Compléments du porteur, le 2026-11-24 en cours de séance :
+
+8. Carte presque en plein écran quand elle est l'information principale, de bonne dimension quand elle accompagne d'autres informations.
+9. Images fournies par le porteur en arrière-plan et en bannières.
+10. Page de profil pour chaque pêcheur, navire, entreprise, association ou organisation : espèces pêchées et, si l'acteur le souhaite, tarifs au kilo ou à l'unité.
+11. Fiche d'identité des pêcheurs et des navires à la manière d'un outil public de suivi des navires : ce que dit le registre d'un côté, ce que le navire émet de l'autre ; informations utiles à collecter à l'inscription. Le concept est repris, pas le style.
+12. Zones d'heures de pêche consolidées sur la carte, avec filtres temporels ; rapports générables à la demande, avec les captures par zone.
+13. Exploitation de l'API Global Fishing Watch, dont le porteur a obtenu une clé.
+14. Portail mieux adapté à toutes les largeurs d'écran ; menu, formulaires, icônes et application entière plus marquants, en restant professionnels et institutionnels ; illustrations des pirogues et des navires à reprendre avec finesse.
+15. Commandes payantes : formulation reçue à clarifier (section 3).
+16. Application des standards techniques du porteur quand ils s'y prêtent.
 
 ### 1.2 Constats vérifiés le 2026-11-24
 
@@ -34,6 +46,14 @@
 | Lieu de pêche | Champ prévu, aucun écran ne le renseigne | étude du 2026-10-30 |
 | Poids | Application de 95 Mo ; portail livré en un seul fichier de 1,96 Mo ; vidéo de 16 Mo et environ 12 Mo d'illustrations servies par le portail | `mobile/dist`, `web/dist`, `web/public` |
 | Portail en ligne | En pause le 2026-11-24 (503), remis en service le même jour par le porteur | mesure HTTP |
+| Carte, place à l'écran | Page Navires : carte de 842 × 734 px sur un écran de 1280 × 800 px, soit 60 % de l'écran ; panneau fixe de 360 px portant 1 922 px de contenu à faire défiler | mesure dans le navigateur |
+| Cartes secondaires | Tableau de bord : hauteur liée à l'écran sans plafond (`calc(100vh - 320px)`) ; rapports : 280 px fixes | `web/src/styles.css` |
+| Accueil sur téléphone | Les deux boutons d'en-tête restaient affichés : page large de 761 px sur un écran de 375 px, bouton de menu hors champ | mesure dans le navigateur ; règle `button:has(> svg:first-child)` de `ui-kit.css` |
+| Portail sur téléphone | Titre de page réduit à 21 px de large, cloche superposée ; 84 px vides sous chaque page (réserve d'une ancienne barre d'icônes) | mesure dans le navigateur ; `styles.css` |
+| Poids de l'accueil | Image d'ouverture de 2,6 Mo | `web/public/illustrations/landing-hero-gabon.png` |
+| Inscription d'une embarcation | Le registre porte nom, immatriculation, type, longueur, puissance, engins, matériau, site d'attache et balise ; il ne porte ni MMSI, ni numéro OMI, ni indicatif radio, ni jauge, ni année de construction, ni distinction entre propriétaire et exploitant | `backend/app/db/models.py`, `web/src/components/EquipementsFields.tsx` |
+| Global Fishing Watch, données | Clé valide. ZEE du Gabon, du 2026-08-01 au 2026-11-01 : 4 158 heures de pêche apparente, 10 navires, 1 110 détections radar (détail en 5.3) | essai en lecture seule du 2026-11-24 |
+| Global Fishing Watch, usage | API réservées à un usage non commercial ; CBM-PIGAP vend des licences et des abonnements | documentation de l'éditeur ; `docs/modele-economique.md` |
 
 ### 1.3 Recadrages
 
@@ -47,16 +67,32 @@
 | Sujet | Décision |
 |-------|----------|
 | Fond de carte | Fond OpenStreetMap sans clé (ADR-010) |
-| Commandes | Mise en relation sans paiement en ligne par défaut ; en option, paiement Mobile Money avec acompte de 30 % du prix, solde à la réception ou à la livraison, sous un mécanisme de confirmation entre vendeur et client |
+| Commandes | Obsolète, révisée plus bas le même jour. Mise en relation sans paiement en ligne par défaut ; en option, paiement Mobile Money avec acompte de 30 % du prix, solde à la réception ou à la livraison, sous un mécanisme de confirmation entre vendeur et client |
 | Parité | Périmètre « acteurs » de la demande initiale, retenu sauf avis contraire |
 | Récepteurs AIS | Explorer d'abord les voies gratuites (section 5) |
+| Carte | Presque plein écran quand elle est l'information principale ; taille bornée ailleurs |
+| Images | Les quatre images du porteur servent d'arrière-plans et de bannières |
+| Page de profil | Espèces pêchées ; tarifs facultatifs, au kilo ou à l'unité |
+| Fiche d'identité, zones d'heures de pêche, rapports de zone | Concept repris d'un outil public de suivi des navires, sans en copier le style |
+| Global Fishing Watch | Clé obtenue par le porteur ; exploitation demandée, sous réserve des conditions d'usage (5.3) |
+| Design | Portail et application plus marquants, professionnels et institutionnels ; illustrations des embarcations à reprendre |
+
+Réponses du porteur aux quatre questions du 2026-11-24 (soir) :
+
+| Sujet | Décision |
+|-------|----------|
+| Commandes | Aucun paiement en ligne : la réservation est gratuite et indique le montant prévu. Le paiement en ligne reste réservé aux abonnements, aux renouvellements et à l'enregistrement avec achat de licence et d'abonnement, étape par étape. L'option d'acompte de 30 % est abandonnée |
+| Page de profil | Visible des personnes connectées ; l'acteur peut en plus l'ouvrir au public par un lien ou un QR code, s'il le décide |
+| Global Fishing Watch | Essai de faisabilité d'abord, hors service ; le porteur traite de son côté la question des conditions d'usage et en assume la responsabilité |
+| Bannières du portail | Conservées en l'état |
+| Organisation | Lots sans conflit de fichiers menés en parallèle |
 
 ## 3. Règles métier
 
 | Règle | Statut | Valideur |
 |-------|--------|----------|
-| Acompte de 30 % du prix à la commande, par Mobile Money | Décidée le 2026-11-24 | Christian |
-| Solde réglé ou confirmé à la réception ou à la livraison | Décidée le 2026-11-24 | Christian |
+| Acompte de 30 % du prix à la commande, par Mobile Money | Obsolète (abandonnée le 2026-11-24 au soir) | Christian |
+| Solde réglé ou confirmé à la réception ou à la livraison | Obsolète (abandonnée le 2026-11-24 au soir) | Christian |
 | Forme de la confirmation (code remis au client et saisi par le vendeur, ou double validation) | Proposé | Christian |
 | Annulation, remboursement de l'acompte, litiges, délais | Proposé | Christian, Kimba Connect |
 | Frais de paiement et éventuelle commission | Proposé | Christian |
@@ -66,23 +102,61 @@
 | Formule du seuil de rentabilité et liste des charges d'une sortie | Proposé | Christian, expert halieutique |
 | Seuils d'alerte pour les navires AIS (zone, absence au registre, extinction du signal) | Proposé | Christian, DGPA |
 | Photo d'identité sur la carte professionnelle | Proposé | Christian (donnée personnelle, consentement) |
+| Commande : réservation gratuite, sans paiement en ligne, indiquant le montant prévu | Décidée le 2026-11-24 | Christian |
+| Paiement en ligne réservé aux abonnements, aux renouvellements et à l'enregistrement avec achat de licence et d'abonnement, étape par étape | Décidée le 2026-11-24 | Christian |
+| Tarifs du profil : facultatifs, par espèce, au kilo ou à l'unité | Décidée le 2026-11-24 | Christian |
+| Page de profil : visible des comptes connectés ; ouverture au public par lien ou QR code sur décision de l'acteur, désactivée au départ | Décidée le 2026-11-24 | Christian |
+| Contenu de la vitrine publique d'un profil : aucune coordonnée personnelle sans accord de l'acteur | Proposé | Christian (donnée personnelle, consentement) |
+| Espèces du profil : tirées des captures déclarées, l'acteur pouvant en masquer | Proposé | Christian, DGPA |
+| Informations d'inscription d'un navire à ajouter : MMSI, numéro OMI, indicatif radio, jauge, année de construction, propriétaire et exploitant distincts ; exigées selon la catégorie (pirogue, navire). Déjà collectés : nom, immatriculation, type, longueur, puissance, engins, site d'attache | Proposé | Christian, DGPA |
+| Heure de pêche d'une embarcation suivie par l'application : règle de calcul (vitesse, durée, distance au port) et taille de maille | Proposé | Christian, expert halieutique |
+| Données Global Fishing Watch | Essai de faisabilité hors service décidé le 2026-11-24 ; mise en service soumise à l'accord de l'éditeur, que le porteur traite de son côté | Christian |
 
 Point de vigilance sur l'option de paiement : la plateforme encaisserait un acompte pour le compte du vendeur. Le cadre applicable aux services de paiement, les possibilités de l'agrégateur (versement au vendeur, remboursement) et les conditions générales sont à vérifier avant l'ADR ; rien n'est supposé ici.
 
 ## 4. Exécution
 
-Un lot à la fois, avec tests, journal et mise à jour du statut (`AGENTS.md`).
+Un lot à la fois, avec tests, journal et mise à jour du statut (`AGENTS.md`). Plan révisé le 2026-11-24 après les compléments du porteur ; l'ancien numéro figure entre parenthèses.
 
 | Lot | Contenu | Prérequis | État |
 |-----|---------|-----------|------|
 | 0 | Fond de carte sans clé, polices, garde-fou ; rappel des comptes de démonstration retiré des constructions publiques | Aucun | Présent en code le 2026-11-24, branche `fix/lot-0-fonds-de-carte`, non commité, non déployé |
-| 1 | Socle mobile fiable : session conservée, suivi GPS en arrière-plan, sortie et retour, lieu de pêche. QR : carte professionnelle (mobile hors ligne, portail), lecteur par caméra pour l'agent | Documentation de la version d'Expo du projet ; ADR pour la déclaration de sortie (écart §5.2) | À faire |
-| 2 | Carte des infractions : statut de régularité sur chaque marqueur, filtre « à contrôler », alertes automatiques pour les navires AIS, âge de chaque position, notification | Seuils à valider | À faire |
-| 3 | Espace acteur commun mobile et portail (pêcheur, organisation) ; reprise visuelle ; allègement des pages et de l'application | Lot 1 | À faire |
-| 4 | Prix de vente, courbes, carnet de sortie, rendement et rentabilité | Règles de la section 3 | À faire |
-| 5 | Commandes, clients et revendeurs | ADR, validation de Kimba Connect, vérifications de paiement | À faire |
+| 0 bis | Carte plein cadre (Navires, Surveillance, Cartographie) avec panneaux refermables et plein écran ; cartes secondaires bornées ; images du porteur en arrière-plan de l'accueil et en bannières des pages principales ; correctifs d'affichage sur téléphone | Aucun | Présent en code le 2026-11-24, même arbre de travail, non commité, non déployé |
+| 1 | Reprise visuelle du portail : illustrations des pirogues et des navires, menu, formulaires, icônes, adaptation à toutes les largeurs, allègement des pages ; méthode des standards (spécification par écran, revue, vérification à 375, 768 et 1280 px, tests d'interface rejouables) | Aucun | En cours depuis le 2026-11-24 (session principale, dossier `web/`) |
+| 2 | Fiche d'identité et page de profil sur le portail : registre d'un côté, suivi de l'autre ; QR ; espèces ; tarifs facultatifs ; informations d'inscription complétées ; espace acteur ouvert au pêcheur et à l'organisation | Règles « Proposé » de la section 3 (champs d'inscription, espèces) | Partie serveur à la suite du lot 5 dans la session serveur ; partie portail après le lot 1 |
+| 3 (ancien 1) | Socle mobile fiable : session conservée, suivi GPS en arrière-plan, sortie et retour, lieu de pêche ; profil et QR sur mobile, lecteur par caméra pour l'agent ; images et reprise visuelle de l'application | Documentation de la version d'Expo du projet ; ADR pour la déclaration de sortie (écart §5.2) | En cours depuis le 2026-11-24 (session mobile, dossier `mobile/`) ; sortie et retour reportés, faute de modèle serveur |
+| 4 (ancien 2) | Carte des infractions : statut de régularité sur chaque marqueur, filtre « à contrôler », alertes automatiques pour les navires AIS, âge de chaque position, notification | Seuils à valider | À faire |
+| 5 | Activité par zone : heures de pêche par maille à partir des positions de l'application et des balises, filtre temporel, captures par zone, rapport de zone à la demande ; en complément, navires industriels vus par Global Fishing Watch | Lieu de pêche (lot 3) pour les captures par zone ; Global Fishing Watch à l'essai, hors service (ADR-011) | Partie serveur en cours depuis le 2026-11-24 (session serveur, dossier `backend/`) ; partie portail après le lot 1 |
+| 6 (ancien 4) | Prix de vente, courbes, carnet de sortie, rendement et rentabilité | Règles de la section 3 | À faire |
+| 7 (ancien 5) | Commandes, clients et revendeurs : réservation gratuite indiquant le montant prévu, sans paiement en ligne | ADR, validation de Kimba Connect (hors périmètre du cahier) | À faire |
 
-Dettes relevées hors lots : scénario de bout en bout du cahier (§9), tests mobiles, base de test isolée, clé de signature de l'application, mots de passe des comptes de démonstration lisibles dans le dépôt public, imagerie satellitaire à régulariser.
+L'ancien lot 3 (espace acteur commun, reprise visuelle, allègement) est réparti entre les lots 1, 2 et 3.
+
+Travail en parallèle décidé le 2026-11-24 : trois chantiers aux dossiers disjoints dans le même arbre de travail, sans commit par les chantiers délégués. La session principale orchestre, tient `docs/JOURNAL.md`, `docs/STATUS.md` et ce document ; chaque session déléguée remet son compte rendu dans un document propre (`docs/lot-3-mobile-socle.md`, `docs/lot-5-activite-zones-serveur.md`, `docs/lot-2-profil-serveur.md`). Une seule suite de tests serveur tourne à la fois : les lots 5 et 2 côté serveur se suivent dans la même session.
+
+### 4.1 Lot 0 bis : ce qui est livré en code, comment le vérifier
+
+| Sujet | Avant | Après | Preuve |
+|-------|-------|-------|--------|
+| Carte de la page Navires, écran de 1280 × 800 px | 842 × 734 px, 60 % de l'écran | 1202 × 725 px, 85 % de l'écran, sans défilement de page | mesure dans le navigateur |
+| Panneau de la carte | Colonne fixe de 360 px, 1 922 px de contenu | Quatre panneaux à la demande (Couches, Navires, Mer, Ports), un seul ouvert, aucun à l'arrivée | captures |
+| Plein écran | Absent | Bouton « Plein écran » (masqué sur téléphone, où la carte remplit déjà l'écran) | essai manuel non fait dans le volet de prévisualisation ; à essayer dans un navigateur |
+| Cartographie des zones | Même colonne fixe | Même carte plein cadre, panneau « Zones » ouvert à l'arrivée et refermable | capture |
+| Carte du tableau de bord | 520 px au minimum, sans plafond | Entre 380 et 520 px selon l'écran (439 px sur 800 px de haut) | mesure |
+| Carte des rapports | 280 px | Entre 300 et 420 px | règle de style |
+| Accueil | Image d'ouverture de 2,6 Mo | Image du porteur, 68 ko (30 ko sur téléphone) ; bandeau Services et bloc Application sur photographie ; bande photographique sur la fenêtre de connexion | captures, mesure réseau |
+| Pages principales du portail | En-têtes illustrés par pictogrammes | Bannière photographique de 124 px (tableau de bord, rapports, acteurs, pêches et ressources, alertes, contrôles, équipe, espace organisation) | captures, sauf espace organisation (aucun compte d'essai local) |
+| Accueil sur téléphone | Page large de 761 px pour un écran de 375 px | 375 px, bouton de menu visible | mesure |
+| En-tête du portail sur téléphone | Titre tronqué à une lettre | Titre et actions sur une ligne, recherche en dessous | capture |
+| Bas de page sur téléphone | 84 px vides | Supprimés | mesure |
+
+Vérification rejouable : `npm test` et `npm run build` dans `web/` (garde-fou des fonds de carte, typage, construction). Les points d'affichage ci-dessus ne sont prouvés que par mesures et captures : le portail n'a pas encore de tests d'interface.
+
+Écart assumé par rapport aux standards (section 11.4, outils de travail sans photographie décorative) : les bannières photographiques du portail répondent à la demande expresse du porteur. Elles sont basses, sans animation, limitées aux huit pages principales et portées par un seul composant (`PageBanner`), donc retirables en un point.
+
+Non fait dans ce lot : images dans l'application mobile (lot 3), illustrations des embarcations, menu et formulaires (lot 1).
+
+Dettes relevées hors lots : scénario de bout en bout du cahier (§9), tests mobiles, tests d'interface du portail, base de test isolée, clé de signature de l'application, mots de passe des comptes de démonstration lisibles dans le dépôt public, imagerie satellitaire à régulariser, anciennes règles de style du panneau latéral et anciennes illustrations de 0,9 à 2,6 Mo restées dans le dépôt.
 
 ## 5. Géolocalisation : mesures et pistes
 
@@ -113,17 +187,63 @@ Même résultat que le 2026-09-20 pour le Gabon. Ces réseaux gratuits ne voient
 
 Les pirogues en bois de petite taille échappent largement au radar satellitaire (étude du 2026-10-30) : pour elles, l'application et les balises restent les seules sources.
 
+### 5.3 Global Fishing Watch : lecture de la documentation et essai du 2026-11-24
+
+Le porteur a obtenu une clé et demandé l'exploitation de l'API (version 3).
+
+**Essai en lecture seule sur la ZEE du Gabon (identifiant de zone 8476), du 2026-08-01 au 2026-11-01 :**
+
+| Mesure | Résultat |
+|--------|----------|
+| Heures de pêche apparente (navires émettant en AIS) | 4 158 h : 858 en août, 1 018 en septembre, 2 281 en octobre |
+| Navires distincts | 10 : 9 chalutiers, 1 thonier senneur |
+| Pavillons | Chine 2 596 h, Maroc 1 429 h, Panama 133 h |
+| Détections radar | 1 110 |
+| Quota restant affiché après l'essai | 49 921 requêtes sur 50 000 pour la journée |
+
+À comparer aux réseaux AIS communautaires, qui ne reçoivent rien dans ces eaux (5.1) : ce service s'appuie sur l'AIS reçu par satellite.
+
+**Ce qu'il n'apporte pas :** le temps réel (effort et présence publiés jusqu'à 96 heures avant le présent, radar jusqu'à 5 jours) ; les pirogues sans AIS ; une preuve d'infraction (l'effort est estimé par un modèle, une autorisation publique ne prouve pas la conformité).
+
+**Correspondance avec les besoins du chantier :**
+
+| Besoin | Ce que l'API fournit | Limite |
+|--------|----------------------|--------|
+| Zones d'heures de pêche, filtre temporel | Rapport par zone ou par polygone : heures par maille, par jour, mois ou année, par pavillon, engin ou navire ; tuiles de carte de chaleur | Navires AIS seulement ; retard de 96 heures |
+| Fiche d'identité d'un navire | Identité croisée : registres publics (nom, pavillon, numéro OMI, indicatif, engins, longueur, jauge, propriétaires, autorisations) et identité déclarée par AIS | Aucun champ « exploitant » repéré ; registres publics seulement |
+| Navires sans AIS | Détections radar et optiques par maille | Passages de satellites ; petites embarcations peu détectées |
+| Signaux à contrôler | Évènements (pêche, rencontres en mer, stationnement prolongé, escales, interruptions d'AIS) et indicateurs par navire (liste de pêche illicite, pêche en aire protégée) | Jeu des interruptions en statut prototype ; indices, pas preuves |
+| Rapports à la demande | Rapport CSV ou JSON par zone et par période | Un seul rapport à la fois par jeton |
+
+**Conditions d'usage (page « License and Rate Limits », lue le 2026-11-24) :**
+
+- usage non commercial seulement, licence CC BY-NC 4.0 : l'application ne doit pas viser, à titre principal ou substantiel, un avantage commercial ou une rémunération ; l'éditeur peut retirer l'accès à tout moment, notamment s'il juge l'usage contraire à cette restriction ;
+- aucun cas particulier lu pour une administration, ni pour un prestataire privé qui l'équipe ; aucune procédure de licence commerciale sur les pages lues (la foire aux questions de l'éditeur renvoie à une demande au cas par cas) ;
+- jeton interdit dans une interface web publique : appels depuis le serveur seulement ;
+- mention « Powered by Global Fishing Watch. » avec lien sur chaque écran qui affiche ces données ; nom et logo de l'éditeur non utilisables sans accord écrit ;
+- 50 000 requêtes par jour et 1 500 000 par mois, tous jetons confondus ; au-delà, blocage de 24 heures ou de 30 jours ;
+- compte à ouvrir au nom d'une organisation qui soutient l'usage durable des ressources marines ; l'éditeur peut demander une déclaration d'usage.
+
+**Conséquence :** CBM-PIGAP est exploitée commercialement (licences et abonnements payants, `docs/modele-economique.md`). L'affichage de ces données dans la plateforme en service demande un accord écrit préalable de l'éditeur. La décision et la démarche reviennent au porteur. L'architecture proposée et les options sont dans l'[ADR-011](adr/ADR-011-global-fishing-watch-source-differee.md).
+
+**État de la clé dans le projet :** la ligne ajoutée au fichier d'environnement porte un nom qu'aucun réglage ne lit ; elle est sans effet et n'empêche pas le démarrage. Le nom prévu est `GFW_API_TOKEN` (ADR-011).
+
+**Ce que le concept inspire, avec ou sans ce service :** la fiche d'identité à deux volets (registre, suivi), la carte des heures de pêche par maille avec filtre temporel et le rapport de zone se construisent d'abord sur les données de la plateforme (registre, positions de l'application et des balises, captures déclarées), qui sont les seules à couvrir les pirogues. Les données de l'éditeur complètent le tableau pour les navires industriels.
+
 ## 6. Ce qui revient au porteur
 
-1. Déploiement du lot 0 (fusion vers `main`, mise en ligne).
+1. Commit, fusion vers `main` et mise en ligne des lots 0 et 0 bis.
 2. Sort des comptes de démonstration : leurs mots de passe sont lisibles dans le dépôt public (`backend/scripts/seed_production_demo.py`) ; leur présence en ligne n'a pas été testée.
-3. Demande d'accès à Skylight et candidature à une station AIS, par l'administration ou Kimba Connect.
-4. Validation des règles « Proposé » de la section 3 avant les lots 4 et 5.
-5. Régularisation de l'imagerie satellitaire (clé ou autre fournisseur).
+3. Global Fishing Watch : accord de l'éditeur et titulaire du compte avant toute mise en service (le porteur s'en charge).
+4. Demande d'accès à Skylight et candidature à une station AIS, par l'administration ou Kimba Connect.
+5. Règles « Proposé » de la section 3 avant la mise en service des lots 2, 5, 6 et 7.
+6. Régularisation de l'imagerie satellitaire (clé ou autre fournisseur).
+7. Bannières photographiques du portail : maintenues par décision du 2026-11-24.
 
 ## 7. Sources
 
 - Fonds de carte : [CARTO, FAQ](https://docs.carto.com/faqs/carto-basemaps), [CARTO, conditions](https://www.carto.com/legal/basemap-terms/), [OpenFreeMap](https://openfreemap.org/), [OpenFreeMap, conditions](https://openfreemap.org/tos/)
 - Hébergement : [Vercel, déploiement en pause](https://vercel.com/kb/guide/why-is-my-account-deployment-blocked)
 - Surveillance : [Skylight](https://www.skylight.global/), [Allen Institute for AI](https://allenai.org/skylight), [publication](https://arxiv.org/abs/2312.03207), [Global Fishing Watch, usage commercial](https://globalfishingwatch.org/faqs/can-i-use-global-fishing-watch-apis-for-commercial-purposes/), [Maritime Executive, suivi radiofréquence](https://maritime-executive.com/article/satellite-rf-tracking-follows-the-dark-ships-that-ais-can-t-see)
+- Global Fishing Watch : [licence et limites](https://globalfishingwatch.org/our-apis/documentation/docs/license-rate-limits), [authentification](https://globalfishingwatch.org/our-apis/documentation/docs/authentication), [rapports et carte](https://globalfishingwatch.org/our-apis/documentation/docs/v3/4wings), [navires](https://globalfishingwatch.org/our-apis/documentation/docs/v3/vessels), [évènements](https://globalfishingwatch.org/our-apis/documentation/docs/v3/events), [mises en garde](https://globalfishingwatch.org/our-apis/documentation/docs/v3/general-api-doc/data-caveats)
 - Liaison directe : [Via Satellite](https://www.satellitetoday.com/connectivity/2025/12/17/airtel-africa-partners-with-starlink-for-direct-to-cell-service/), [Connecting Africa](https://www.connectingafrica.com/connectivity/airtel-africa-starlink-launch-satellite-to-mobile-service-in-drc)

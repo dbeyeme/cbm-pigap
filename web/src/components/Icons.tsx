@@ -518,3 +518,43 @@ export function IconGlobe(p: IconProps) {
     </Svg>
   );
 }
+
+/** Couches de la carte. */
+export function IconLayers(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3.5 3.5 8 12 12.5 20.5 8 12 3.5Z" />
+      <path d="M3.5 12 12 16.5 20.5 12" />
+      <path d="M3.5 16 12 20.5 20.5 16" opacity="0.55" />
+    </Svg>
+  );
+}
+
+/** Houle : état de la mer. */
+export function IconWaves(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M3 8.5c2-1.8 4-1.8 6 0s4 1.8 6 0 4-1.8 6 0" />
+      <path d="M3 13c2-1.8 4-1.8 6 0s4 1.8 6 0 4-1.8 6 0" />
+      <path d="M3 17.5c2-1.8 4-1.8 6 0s4 1.8 6 0 4-1.8 6 0" opacity="0.55" />
+    </Svg>
+  );
+}
+
+/** Passer la carte en plein écran. */
+export function IconFullscreen(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 9V4.5h4.5M20 9V4.5h-4.5M4 15v4.5h4.5M20 15v4.5h-4.5" />
+    </Svg>
+  );
+}
+
+/** Quitter le plein écran. */
+export function IconFullscreenExit(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M8.5 4v4.5H4M15.5 4v4.5H20M8.5 20v-4.5H4M15.5 20v-4.5H20" />
+    </Svg>
+  );
+}

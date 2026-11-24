@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import HubTabs from '../components/HubTabs';
+import PageBanner from '../components/PageBanner';
 import { IconFish, IconReceipt, IconReport } from '../components/Icons';
 import CapturesPage from './CapturesPage';
 import QuotasPage from './QuotasPage';
@@ -19,11 +20,9 @@ export default function PechesHub({ token, onError, initialTab = 'captures' }: P
 
   return (
     <section className="stage stage-wide ds-hub">
-      <div className="stage-head">
-        <p className="eyebrow">Ressources</p>
-        <h1>Pêches & Ressources</h1>
+      <PageBanner photo="quai" eyebrow="Ressources" title="Pêches et ressources">
         <p>Déclarations de captures, suivi des quotas, taxe à la production et quittances.</p>
-      </div>
+      </PageBanner>
       <HubTabs
         tabs={[
           { id: 'captures', label: 'Captures', icon: IconFish },
