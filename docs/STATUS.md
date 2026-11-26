@@ -10,12 +10,12 @@
 | **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
-| **Branche active** | `fix/lot-0-fonds-de-carte` |
+| **Branche active** | `main` |
 | **Dernière mise à jour** | 2026-11-26 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
 | **Chantier en cours** | Évolutions de novembre 2026 : lots 0 à 6, 9 et 10 livrés en code (serveur + portail, mobile pour 3/6/10) ; lots 7 et 8 reportés (ADR / Kimba Connect, multi-zones). |
-| **Note récente** | 2026-11-26 (avant 8 h) : lot 6 clos ; courbes de prix sur Pêches ; API production à jour ; portail Vercel `cbm-pigap-web.vercel.app` redéployé ; lots 7 et 8 reportés |
+| **Note récente** | 2026-11-26 : `fix/lot-0-fonds-de-carte` fusionnée dans `main` et poussée ; lot 6 clos ; portail Vercel et API Railway en ligne ; lots 7 et 8 reportés |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -77,7 +77,7 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 - Règles « Proposé » du chantier de novembre 2026 (prix, rentabilité, seuils d'alerte des navires, confirmation de livraison) à valider avant les lots 4 et 5
 - Comptes de démonstration en ligne, imagerie satellitaire sans clé, accès Skylight et station AIS : décisions du porteur
 - Global Fishing Watch (ADR-011) : essai de faisabilité hors service décidé le 2026-11-24 ; API réservées à un usage non commercial, mise en service soumise à l'accord de l'éditeur (traité par le porteur)
-- Commit de tous les lots faits : demandé par le porteur le 2026-11-25, fait ; fusion dans `main` non demandée dans la session principale (standards, section 5.1), à confirmer
+- Commit de tous les lots faits : demandé par le porteur le 2026-11-25, fait ; fusion dans `main` demandée et effectuée le 2026-11-26
 - ADR-013 (base de test dédiée) : Proposé, à valider
 - Lot 8 (périmètre de suivi) : effet d'une désactivation sur les données et rôle habilité, à décider · Lot 9 (alertes) : liste des états de traitement, à décider (questions posées le 2026-11-25)
 - Lot 10, un appareil, un seul compte pêcheur (ADR-012) : règle R1 décidée le 2026-11-25 ; règles R2 à R6 « Proposé » ; mise en service après fixation de la clé de signature de l'application

@@ -5,6 +5,19 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-26] Fusion de `fix/lot-0-fonds-de-carte` dans `main`
+
+**Ce qui a été construit :**
+- Branche poussée vers GitHub, puis fusionnée dans `main` (avance rapide)
+
+**Pourquoi :** demande explicite du porteur (« pousse et fusionne »)
+
+**Tests réalisés :** aucun test supplémentaire à la fusion ; les 27 tests lots 4, 6, 9 et tableau de bord étaient verts avant le commit
+
+**Points ouverts :** lots 7 et 8 reportés ; `GFW_ENABLED` hors commit ; APK 0.2.0 non publiée
+
+---
+
 ## [2026-11-26] Ajustements portail : prix sur Captures, tableaux, déploiement
 
 **Ce qui a été construit :**
