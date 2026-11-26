@@ -14,7 +14,7 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 **Pourquoi :** finir les lots du chantier avant 8 h, sans inventer les lots 7 (commandes) et 8 (multi-zones)
 
-**Tests réalisés :** `pytest` lots 4, 6, 9 et tableau de bord : 27 verts ; `npx tsc --noEmit` sans erreur ; navigateur 1280 px, compte agent, page Pêches (champ prix, panneau Prix de vente). API production `/health` et routes `/prix/courbes`, `/alertes/etats` déjà en ligne (déploiement du 26 nov. 05 h 44)
+**Tests réalisés :** `pytest` lots 4, 6, 9 et tableau de bord : 27 verts ; `npx tsc --noEmit` sans erreur ; navigateur 1280 px, compte agent, page Pêches (champ prix, panneau Prix de vente). API production `/health` et routes `/prix/courbes`, `/alertes/etats` en ligne. Portail production : https://cbm-pigap-web.vercel.app (déploiement Vercel du 26 nov. avant 8 h)
 
 **Points ouverts :** lots 7 et 8 reportés ; `GFW_ENABLED` hors commit ; APK 0.2.0 non publiée ; fusion `main` non demandée ; dates aberrantes et « Hors liste » viennent des jeux de test locaux (année isolée, liste pêcheurs limitée à 200)
 

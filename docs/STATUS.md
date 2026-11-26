@@ -15,7 +15,7 @@
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
 | **Chantier en cours** | Évolutions de novembre 2026 : lots 0 à 6, 9 et 10 livrés en code (serveur + portail, mobile pour 3/6/10) ; lots 7 et 8 reportés (ADR / Kimba Connect, multi-zones). |
-| **Note récente** | 2026-11-26 (avant 8 h) : lot 6 clos en code (prix facultatif, courbes anonymes, carnet) ; CompactList restants convertis ; courbes de prix sur Pêches pour l'agent ; API production déjà à jour (`/prix`, `/alertes`) ; portail à redéployer ; lots 7 et 8 non démarrés · 2026-11-25 : lots commités sur `fix/lot-0-fonds-de-carte` |
+| **Note récente** | 2026-11-26 (avant 8 h) : lot 6 clos ; courbes de prix sur Pêches ; API production à jour ; portail Vercel `cbm-pigap-web.vercel.app` redéployé ; lots 7 et 8 reportés |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

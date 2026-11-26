@@ -2,7 +2,7 @@
 
 - **Statut :** compte rendu interne, projet soumis à validation humaine
 - **Date :** 2026-11-26
-- **État :** présent en code (serveur, portail, mobile) ; serveur en production le 2026-11-26 ; portail à redéployer après les ajustements Captures
+- **État :** présent en code (serveur, portail, mobile) ; serveur et portail en production le 2026-11-26
 - **Liens :** [chantier de novembre 2026](chantier-evolutions-2026-11.md)
 
 ## 1. Compréhension
