@@ -189,6 +189,7 @@ export default function QuotasPage({ token, onError }: Props) {
           {quotas.length === 0 ? (
             <p className="empty-list">Aucun quota. Créez-en un à gauche.</p>
           ) : (
+            <div className="table-defile">
             <table className="ds-table empilable">
               <thead>
                 <tr>
@@ -234,6 +235,7 @@ export default function QuotasPage({ token, onError }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <h2 style={{ marginTop: 28 }}>Alertes quotas</h2>

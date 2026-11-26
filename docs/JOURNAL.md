@@ -5,19 +5,34 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-26] Ajustements portail : prix sur Captures, tableaux, déploiement
+
+**Ce qui a été construit :**
+- Courbes de prix et carnet aussi sur Pêches (l'agent n'a pas Rapports) ; bouton « Voir les rapports » masqué hors rôle
+- Liste des captures en tableau défilant, actions en icônes, formulaire collé en haut
+- CompactList retiré des pages restantes (quotas, contrôles, organisations, redevances, trajets)
+
+**Pourquoi :** finir les lots du chantier avant 8 h, sans inventer les lots 7 (commandes) et 8 (multi-zones)
+
+**Tests réalisés :** `pytest` lots 4, 6, 9 et tableau de bord : 27 verts ; `npx tsc --noEmit` sans erreur ; navigateur 1280 px, compte agent, page Pêches (champ prix, panneau Prix de vente). API production `/health` et routes `/prix/courbes`, `/alertes/etats` déjà en ligne (déploiement du 26 nov. 05 h 44)
+
+**Points ouverts :** lots 7 et 8 reportés ; `GFW_ENABLED` hors commit ; APK 0.2.0 non publiée ; fusion `main` non demandée ; dates aberrantes et « Hors liste » viennent des jeux de test locaux (année isolée, liste pêcheurs limitée à 200)
+
+---
+
 ## [2026-11-26] Lot 6 : prix de vente, courbes et carnet des déclarations
 
 **Ce qui a été construit :**
 - Prix de vente au kilo facultatif sur une capture (`prix_fcfa_kg`), plafond et anonymat lus dans `prix_marche.json` (Proposé)
 - Courbes agrégées (globale pondérée et par espèce), masquées sous 5 déclarations et 3 pêcheurs ; carnet par embarcation et par jour, sans charges ni rentabilité calculées
-- Portail : champ prix sur Captures, courbes et carnet sur Rapports ; mobile : champ prix et onglet Carnet
+- Portail : champ prix sur Captures, courbes et carnet sur Rapports et Pêches ; mobile : champ prix et onglet Carnet
 - Valeur estimée du tableau de bord : prix déclaré s'il existe, sinon référence 2024
 
 **Pourquoi :** lot 6 du chantier de novembre 2026 ; aucun prix collecté jusqu'ici ; pas d'invention de formule de rentabilité ni de carnet de sortie (départ / retour reportés)
 
-**Tests réalisés :** `pytest app/tests/test_lot6_prix.py` (à confirmer à l'exécution) ; typage portail. Seuils d'anonymat, prix facultatif et formule de rentabilité : statut « Proposé »
+**Tests réalisés :** `pytest app/tests/test_lot6_prix.py` (6 verts, dont prix masqué pour le chercheur) ; `pytest` lots 4 et 9 + tableau de bord : 27 verts au total ; `npx tsc --noEmit`. Seuils d'anonymat, prix facultatif et formule de rentabilité : statut « Proposé »
 
-**Points ouverts :** lots 7 et 8 bloqués (ADR / Kimba Connect, multi-zones) ; CompactList encore sur Quotas, Contrôles, Organisations, Redevances ; rien n'est commité
+**Points ouverts :** lots 7 et 8 bloqués (ADR / Kimba Connect, multi-zones)
 
 ---
 

@@ -175,7 +175,7 @@ export default function PrixMarchePanel({
         retour. Les charges et le seuil de rentabilité ne sont pas calculés.
       </p>
       {!pecheurId ? (
-        <p className="empty-list">Choisissez un pêcheur dans la barre de période.</p>
+        <p className="empty-list">Choisissez un pêcheur pour afficher son carnet.</p>
       ) : !carnet || carnet.jours.length === 0 ? (
         <p className="empty-list">Aucune déclaration pour ce pêcheur sur la période.</p>
       ) : (

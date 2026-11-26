@@ -44,7 +44,6 @@ import {
   IconAnchor,
   IconLayers,
   IconLogin,
-  IconPirogue,
   IconShield,
   IconShip,
   IconWaves,
@@ -1498,7 +1497,11 @@ export default function App() {
                   {error}
                 </p>
               ) : null}
-              <DashboardPage token={token} onError={setError} onNavigate={navigate} />
+              <DashboardPage
+                token={token}
+                onError={setError}
+                onNavigate={canAccessPage(meRole, 'rapports') ? navigate : undefined}
+              />
             </>
           ) : null}
 

@@ -13,6 +13,7 @@ import {
   Pecheur,
   updateCapture,
 } from '../api';
+import PrixMarchePanel from '../components/PrixMarchePanel';
 import { IconEdit, IconPlus, IconRefresh, IconTrash, IconXCircle } from '../components/Icons';
 
 type Props = {
@@ -64,6 +65,15 @@ export default function CapturesPage({ token, onError }: Props) {
   const [prixKg, setPrixKg] = useState('');
   const [debarquement, setDebarquement] = useState('Owendo');
   const [dateCapture, setDateCapture] = useState(() => toLocalDatetimeValue(new Date().toISOString()));
+  const periodePrix = useMemo(() => {
+    const fin = new Date();
+    const debut = new Date();
+    debut.setUTCDate(debut.getUTCDate() - 90);
+    return {
+      debut: `${debut.toISOString().slice(0, 10)}T00:00:00.000Z`,
+      fin: `${fin.toISOString().slice(0, 10)}T23:59:59.999Z`,
+    };
+  }, []);
 
   const boatsForPecheur = useMemo(
     () => (pecheurId ? embarcations.filter((e) => e.pecheur_id === pecheurId) : embarcations),
@@ -73,7 +83,7 @@ export default function CapturesPage({ token, onError }: Props) {
   const pecheurLabel = useCallback(
     (id: string) => {
       const p = pecheurs.find((x) => x.id === id);
-      return p ? `${p.prenom} ${p.nom} (${p.numero_licence})` : id.slice(0, 8);
+      return p ? `${p.prenom} ${p.nom} (${p.numero_licence})` : 'Hors liste';
     },
     [pecheurs],
   );
@@ -255,7 +265,7 @@ export default function CapturesPage({ token, onError }: Props) {
   return (
     <section className="stage stage-wide">
       {status ? <p className="status-line">{status}</p> : null}
-      <div className="licences-layout" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)' }}>
+      <div className="licences-layout captures-layout">
         <div className="licences-col">
           <h2>{editingId ? 'Corriger la capture' : 'Déclarer une capture'}</h2>
           <form className="login-form" onSubmit={onSubmit}>
@@ -412,12 +422,13 @@ export default function CapturesPage({ token, onError }: Props) {
           {rows.length === 0 ? (
             <p className="empty-list">Aucune capture pour ce filtre.</p>
           ) : (
+            <div className="table-defile">
             <table className="ds-table empilable">
               <thead>
                 <tr>
                   <th scope="col">Espèce</th>
                   <th scope="col">Quantité</th>
-                  <th scope="col">Prix / kg</th>
+                  <th scope="col">Prix</th>
                   <th scope="col">Pêcheur</th>
                   <th scope="col">Date</th>
                   <th scope="col">Actions</th>
@@ -428,14 +439,20 @@ export default function CapturesPage({ token, onError }: Props) {
                   <tr key={c.id} className={editingId === c.id ? 'is-selected' : undefined}>
                     <td data-label="Espèce">{especeNom(c.espece)}</td>
                     <td data-label="Quantité">{c.quantite_kg.toLocaleString('fr-FR')} kg</td>
-                    <td data-label="Prix / kg">
+                    <td data-label="Prix">
                       {c.prix_fcfa_kg != null
                         ? `${c.prix_fcfa_kg.toLocaleString('fr-FR')} FCFA`
                         : '—'}
                     </td>
                     <td data-label="Pêcheur">{pecheurLabel(c.pecheur_id)}</td>
-                    <td data-label="Date" className="cellule-serree">
-                      {new Date(c.date_capture).toLocaleDateString('fr-FR')}
+                    <td
+                      data-label="Date"
+                      title={new Date(c.date_capture).toLocaleString('fr-FR')}
+                    >
+                      {new Date(c.date_capture).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      })}
                     </td>
                     <td data-label="Actions">
                       <div className="zone-actions">
@@ -444,16 +461,20 @@ export default function CapturesPage({ token, onError }: Props) {
                           className="ghost compact"
                           disabled={loading}
                           onClick={() => startEdit(c)}
+                          aria-label="Éditer"
+                          title="Éditer"
                         >
-                          <IconEdit size={16} /> Éditer
+                          <IconEdit size={16} />
                         </button>
                         <button
                           type="button"
                           className="ghost compact danger-ghost"
                           disabled={loading}
                           onClick={() => void onDelete(c.id)}
+                          aria-label="Supprimer"
+                          title="Supprimer"
                         >
-                          <IconTrash size={16} /> Supprimer
+                          <IconTrash size={16} />
                         </button>
                       </div>
                     </td>
@@ -461,9 +482,18 @@ export default function CapturesPage({ token, onError }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
+      <PrixMarchePanel
+        token={token}
+        debut={periodePrix.debut}
+        fin={periodePrix.fin}
+        grain="semaine"
+        pecheurId={pecheurId}
+        onError={onError}
+      />
     </section>
   );
 }

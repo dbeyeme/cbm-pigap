@@ -67,8 +67,11 @@ export default function PredictionStrip({ data, onNavigate }: Props) {
         ) : (
           <span className="pred-mode">Modèle sklearn (consultatif)</span>
         )}
-        <button type="button" className="ghost" onClick={() =>
-              onNavigate?.('rapports')}><IconEye size={16} /> Voir les rapports</button>
+        {onNavigate ? (
+          <button type="button" className="ghost" onClick={() => onNavigate('rapports')}>
+            <IconEye size={16} /> Voir les rapports
+          </button>
+        ) : null}
       </div>
       <ul className="pred-strip-list">
         {items.slice(0, 3).map((it) => (

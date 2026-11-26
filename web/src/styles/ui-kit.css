@@ -5302,7 +5302,23 @@ input.is-locked {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-.table-defile { width: 100%; overflow-x: auto; }
+.table-defile {
+  width: 100%;
+  max-height: min(62vh, 560px);
+  overflow: auto;
+}
+.table-defile .ds-table {
+  width: 100%;
+}
+.licences-layout.captures-layout {
+  grid-template-columns: minmax(260px, 20rem) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .licences-layout.captures-layout {
+    grid-template-columns: 1fr;
+  }
+}
 .empreinte {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 0.8rem;

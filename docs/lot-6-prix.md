@@ -2,7 +2,7 @@
 
 - **Statut :** compte rendu interne, projet soumis à validation humaine
 - **Date :** 2026-11-26
-- **État :** présent en code (serveur, portail, mobile), non commité, non déployé
+- **État :** présent en code (serveur, portail, mobile) ; serveur en production le 2026-11-26 ; portail à redéployer après les ajustements Captures
 - **Liens :** [chantier de novembre 2026](chantier-evolutions-2026-11.md)
 
 ## 1. Compréhension
@@ -27,11 +27,11 @@ Paramétrage versionné : `backend/app/data/regles/prix_marche.json` (statut « 
 | Surface | Après |
 |---------|-------|
 | Serveur | Colonne `captures.prix_fcfa_kg` ; `GET /api/v1/prix/courbes` ; `GET /api/v1/prix/carnet` ; valeur du tableau de bord : prix déclaré, sinon référence 2024 |
-| Portail | Prix facultatif sur Captures (liste en tableau) ; courbes et carnet sur Rapports |
+| Portail | Prix facultatif sur Captures (liste en tableau) ; courbes et carnet sur Pêches (agent) et Rapports (autorité, administrateur, chercheur) |
 | Mobile | Prix facultatif à l'étape Détails ; onglet Carnet (rendement du jour, valeur estimée, rappel d'anonymat) |
 
 Rôles : courbes lisibles par pêcheur, agent, autorité, administrateur, chercheur, organisation. Carnet nominatif : pêcheur (le sien), agent, autorité, administrateur. Chercheur et organisation : refusés (403).
 
 ## 4. Vérification
 
-`pytest app/tests/test_lot6_prix.py` dans `backend/`. Typage du portail. L'anonymat, le caractère facultatif du prix et l'absence de formule de rentabilité restent à valider.
+`pytest app/tests/test_lot6_prix.py` : 6 verts (dont prix masqué pour le chercheur). `npx tsc --noEmit` sans erreur. Navigateur, page Pêches, compte agent : champ prix et panneau « Prix de vente ». L'anonymat, le caractère facultatif du prix et l'absence de formule de rentabilité restent à valider.
