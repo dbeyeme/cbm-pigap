@@ -2793,10 +2793,10 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
     flex: 1 1 auto;
   }
 
+  /* Défilement horizontal : sans white-space: nowrap (cassait la hauteur des lignes). */
   .ds-table {
     display: block;
     overflow-x: auto;
-    white-space: nowrap;
   }
 }
 
@@ -5086,7 +5086,7 @@ input.is-locked {
 /* ——— Redevances et contrôles ——— */
 .redev-page { display: grid; gap: 16px; }
 .redev-grid, .ctrl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
-.redev-panel { padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+.redev-panel { padding: 16px 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
 .redev-filter { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .redev-filter label, .redev-panel .login-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
 .redev-total { display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px; background: rgba(14, 165, 163, 0.08); border: 1px solid rgba(14, 165, 163, 0.25); }
@@ -5097,6 +5097,53 @@ input.is-locked {
 .redev-groupes li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; font-size: 13px; padding: 6px 10px; border-radius: 8px; background: var(--surface-2, #f4f7fa); }
 .redev-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .redev-item .vessel-reg { margin-left: 6px; }
+
+/* Quittances : une ligne = une hauteur, actions alignées, sans boutons primaires trop hauts. */
+.redev-quittances {
+  min-width: 720px;
+  table-layout: fixed;
+}
+.redev-quittances th,
+.redev-quittances td {
+  vertical-align: middle;
+  height: auto;
+  overflow-wrap: anywhere;
+}
+.redev-quittances th:nth-child(1),
+.redev-quittances td:nth-child(1) { width: 9.5rem; }
+.redev-quittances th:nth-child(3),
+.redev-quittances td:nth-child(3),
+.redev-quittances th:nth-child(5),
+.redev-quittances td:nth-child(5) { width: 6.5rem; }
+.redev-quittances th:nth-child(4),
+.redev-quittances td:nth-child(4) { width: 7rem; }
+.redev-quittances th:nth-child(6),
+.redev-quittances td:nth-child(6) { width: 6rem; }
+.redev-quittances th:nth-child(8),
+.redev-quittances td:nth-child(8) { width: 11.5rem; }
+.redev-quittances .cellule-principale {
+  display: block;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+}
+.ds-table .zone-actions {
+  margin-top: 0;
+  align-items: center;
+}
+.ds-table .table-actions > button.ghost.compact,
+.ds-table .zone-actions > button.ghost.compact {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
 .vessel-reg--muted { background: #e2e8f0; color: #475569; }
 .ctrl-verif { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1px solid #cbd5e1; background: #f8fafc; }
 .ctrl-verif strong { display: inline-flex; align-items: center; gap: 6px; }

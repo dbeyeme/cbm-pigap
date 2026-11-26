@@ -275,115 +275,131 @@ export default function RedevancesPage({ token, onError }: Props) {
           {quittances.length === 0 ? (
             <p className="empty-list">Aucune quittance émise.</p>
           ) : (
-            <table className="ds-table empilable">
-              <thead>
-                <tr>
-                  <th scope="col">Numéro</th>
-                  <th scope="col">Titulaire</th>
-                  <th scope="col">Montant</th>
-                  <th scope="col">Statut</th>
-                  <th scope="col">Captures</th>
-                  <th scope="col">Émise</th>
-                  <th scope="col">Paiement</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quittances.map((q) => {
-                  const st = STATUT[q.statut] ?? { label: q.statut, tone: 'muted' };
-                  const paiement = q.paiement;
-                  const pillTone = st.tone === 'ok' ? 'ok' : st.tone === 'warn' ? 'warn' : 'neutral';
-                  return (
-                    <tr key={q.id}>
-                      <td data-label="Numéro">{q.numero}</td>
-                      <td data-label="Titulaire">{q.titulaire ?? pecheurLabel(q.pecheur_id)}</td>
-                      <td data-label="Montant">{fcfa(q.montant_fcfa)}</td>
-                      <td data-label="Statut">
-                        <StatusPill label={st.label} tone={pillTone} />
-                      </td>
-                      <td data-label="Captures">{q.nb_captures}</td>
-                      <td data-label="Émise" className="cellule-serree">
-                        {fmtDate(q.date_creation)}
-                      </td>
-                      <td data-label="Paiement">
-                        {paiement && paiement.statut === 'en_attente'
-                          ? `Paiement ${paiement.operateur} en attente (${paiement.msisdn ?? 'Non renseigné'})`
-                          : q.date_paiement
-                            ? `Payée le ${fmtDate(q.date_paiement)}`
-                            : 'Aucun'}
-                      </td>
-                      <td data-label="Actions">
-                        <div className="zone-actions">
-                          {q.statut === 'en_attente' && (!paiement || paiement.statut !== 'en_attente') ? (
-                            <button
-                              type="button"
-                              className="compact"
-                              disabled={busy !== null}
-                              onClick={() =>
-                                void run(`payer-${q.id}`, async () => {
-                                  const r = await payerQuittance(token, q.id, {
-                                    operateur: live ? 'airtel_money' : 'demo',
-                                    msisdn: tiers && msisdn.trim() ? msisdn.trim() : undefined,
-                                    numero_tiers_autorise: tiers,
-                                  });
-                                  setStatus(
-                                    live
-                                      ? `Dépôt initié vers ${r.paiement.msisdn} : validation du code PIN attendue`
-                                      : `Paiement démonstration initié (${r.paiement.reference_interne})`,
-                                  );
-                                })
-                              }
-                            >
-                              <IconCard size={14} /> {live ? 'Payer par Mobile Money' : 'Initier le paiement (démo)'}
-                            </button>
-                          ) : null}
-                          {q.statut === 'en_attente' && paiement && paiement.statut === 'en_attente' && !live ? (
-                            <button
-                              type="button"
-                              className="compact"
-                              disabled={busy !== null}
-                              onClick={() =>
-                                void run(`confirmer-${q.id}`, async () => {
-                                  await confirmerQuittanceDemo(token, paiement.id);
-                                  setStatus(`Quittance ${q.numero} payée (démonstration)`);
-                                })
-                              }
-                            >
-                              Confirmer le paiement (démo)
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="ghost compact"
-                            disabled={busy !== null}
-                            onClick={() =>
-                              void run(`pdf-${q.id}`, () => downloadQuittancePdf(token, q.id, q.numero))
-                            }
-                          >
-                            <IconDownload size={14} /> PDF
-                          </button>
-                          {q.statut === 'en_attente' ? (
+            <div className="table-defile">
+              <table className="ds-table redev-quittances">
+                <thead>
+                  <tr>
+                    <th scope="col">Numéro</th>
+                    <th scope="col">Titulaire</th>
+                    <th scope="col">Montant</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col">Captures</th>
+                    <th scope="col">Émise</th>
+                    <th scope="col">Paiement</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quittances.map((q) => {
+                    const st = STATUT[q.statut] ?? { label: q.statut, tone: 'muted' };
+                    const paiement = q.paiement;
+                    const pillTone = st.tone === 'ok' ? 'ok' : st.tone === 'warn' ? 'warn' : 'neutral';
+                    return (
+                      <tr key={q.id}>
+                        <td data-label="Numéro">
+                          <span className="empreinte">{q.numero}</span>
+                        </td>
+                        <td data-label="Titulaire">
+                          <span className="cellule-principale">
+                            {q.titulaire ?? pecheurLabel(q.pecheur_id)}
+                          </span>
+                        </td>
+                        <td data-label="Montant" className="cellule-serree">
+                          {fcfa(q.montant_fcfa)}
+                        </td>
+                        <td data-label="Statut">
+                          <StatusPill label={st.label} tone={pillTone} />
+                        </td>
+                        <td data-label="Captures" className="cellule-serree">
+                          {q.nb_captures}
+                        </td>
+                        <td data-label="Émise" className="cellule-serree">
+                          {fmtDate(q.date_creation)}
+                        </td>
+                        <td data-label="Paiement">
+                          <span className="cellule-note" style={{ margin: 0 }}>
+                            {paiement && paiement.statut === 'en_attente'
+                              ? `${paiement.operateur} · ${paiement.msisdn ?? 'non renseigné'} · en attente`
+                              : q.date_paiement
+                                ? `Payée le ${fmtDate(q.date_paiement)}`
+                                : 'Aucun'}
+                          </span>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="table-actions">
+                            {q.statut === 'en_attente' && (!paiement || paiement.statut !== 'en_attente') ? (
+                              <button
+                                type="button"
+                                className="ghost compact"
+                                disabled={busy !== null}
+                                title={live ? 'Payer par Mobile Money' : 'Initier le paiement (démonstration)'}
+                                onClick={() =>
+                                  void run(`payer-${q.id}`, async () => {
+                                    const r = await payerQuittance(token, q.id, {
+                                      operateur: live ? 'airtel_money' : 'demo',
+                                      msisdn: tiers && msisdn.trim() ? msisdn.trim() : undefined,
+                                      numero_tiers_autorise: tiers,
+                                    });
+                                    setStatus(
+                                      live
+                                        ? `Dépôt initié vers ${r.paiement.msisdn} : validation du code PIN attendue`
+                                        : `Paiement démonstration initié (${r.paiement.reference_interne})`,
+                                    );
+                                  })
+                                }
+                              >
+                                <IconCard size={14} /> Payer
+                              </button>
+                            ) : null}
+                            {q.statut === 'en_attente' && paiement && paiement.statut === 'en_attente' && !live ? (
+                              <button
+                                type="button"
+                                className="ghost compact"
+                                disabled={busy !== null}
+                                title="Confirmer le paiement (démonstration)"
+                                onClick={() =>
+                                  void run(`confirmer-${q.id}`, async () => {
+                                    await confirmerQuittanceDemo(token, paiement.id);
+                                    setStatus(`Quittance ${q.numero} payée (démonstration)`);
+                                  })
+                                }
+                              >
+                                Confirmer
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className="ghost compact"
                               disabled={busy !== null}
                               onClick={() =>
-                                void run(`annuler-${q.id}`, async () => {
-                                  await annulerQuittance(token, q.id);
-                                  setStatus(`Quittance ${q.numero} annulée, captures libérées`);
-                                })
+                                void run(`pdf-${q.id}`, () => downloadQuittancePdf(token, q.id, q.numero))
                               }
                             >
-                              <IconXCircle size={14} /> Annuler
+                              <IconDownload size={14} /> PDF
                             </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            {q.statut === 'en_attente' ? (
+                              <button
+                                type="button"
+                                className="ghost compact danger-ghost"
+                                disabled={busy !== null}
+                                onClick={() =>
+                                  void run(`annuler-${q.id}`, async () => {
+                                    await annulerQuittance(token, q.id);
+                                    setStatus(`Quittance ${q.numero} annulée, captures libérées`);
+                                  })
+                                }
+                              >
+                                <IconXCircle size={14} /> Annuler
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       </div>
