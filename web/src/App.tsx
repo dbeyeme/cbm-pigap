@@ -7,12 +7,16 @@ import {
   AisVessel,
   aisStatutLabel,
   fetchMe,
+  getGfwEtat,
+  getGfwEvenements,
   listAisLive,
   listAlertes,
   getBulletinMeteo,
   getPortPresence,
   getZonesCalculees,
   type BulletinMeteoMarine,
+  type GfwEtat,
+  type GfwEvenements,
   type ZoneCalculee,
   ZONE_CLASSE_COLORS,
   type AisTrackPoint,
@@ -30,6 +34,8 @@ import AisPanel from './components/AisPanel';
 import PortPresencePanel from './components/PortPresencePanel';
 import VesselDetailDrawer from './components/VesselDetailDrawer';
 import PirogueDetailDrawer from './components/PirogueDetailDrawer';
+import GfwFiche from './components/GfwFiche';
+import GfwPanel from './components/GfwPanel';
 import SeaStatePanel from './components/SeaStatePanel';
 import HelpTip from './components/HelpTip';
 import AppTopbar from './components/AppTopbar';
@@ -40,6 +46,7 @@ import {
   IconLayers,
   IconLogin,
   IconPirogue,
+  IconShield,
   IconShip,
   IconWaves,
 } from './components/Icons';
@@ -59,6 +66,7 @@ import {
   silhouetteForType,
   startLineFlowAnimation,
 } from './geo/mapEffects';
+import { COUCHE_GFW, COUCHE_GFW_HALO, syncGfwOnMap } from './geo/gfwLayer';
 import {
   GABON_MAP_VIEW,
   GABON_SATELLITE_STYLE,
@@ -69,6 +77,11 @@ import { removeZonesFromMap, syncZonesOnMap } from './geo/zoneMap';
 import { useMapStage } from './hooks/useMapStage';
 import { useNotifications } from './hooks/useNotifications';
 import { friendlyApiError } from './lib/apiErrors';
+import {
+  classePastilleRegularite,
+  estAControler,
+  libelleRegularite,
+} from './lib/regularite';
 import { canAccessPage, type NavId, type Page } from './nav';
 import ActeursHub from './pages/ActeursHub';
 import AlertesPage from './pages/AlertesPage';
@@ -76,6 +89,7 @@ import ControlesPage from './pages/ControlesPage';
 import DashboardPage from './pages/DashboardPage';
 import LandingPage from './pages/LandingPage';
 import OrgPortalPage from './pages/OrgPortalPage';
+import ProfilPublicPage from './pages/ProfilPublicPage';
 import PechesHub from './pages/PechesHub';
 import RapportsPage from './pages/RapportsPage';
 import UsersPage from './pages/UsersPage';
@@ -104,6 +118,10 @@ function colorFor(id: string): string {
 
 function isMapPage(page: Page): boolean {
   return page === 'navires' || page === 'map' || page === 'surveillance';
+}
+
+function peutLireGfw(role: string | null): boolean {
+  return role === 'admin' || role === 'autorite' || role === 'agent_controle';
 }
 
 /**
@@ -160,6 +178,49 @@ function secteurLabel(s: string): string {
   return s;
 }
 
+function pointFlotte(v: LiveVessel) {
+  return {
+    lng: v.position.coordinates[0],
+    lat: v.position.coordinates[1],
+    id: v.embarcation_id,
+    kind: vesselKind(v.type),
+    statut: v.statut,
+    label: v.nom,
+    alert: v.statut === 'silence',
+    regularite: v.regularite ?? undefined,
+    regulariteLibelle: v.regularite_libelle,
+    ageLibelle: v.age_libelle,
+    perimee: v.perimee,
+  };
+}
+
+function pointAis(v: AisVessel, extra?: { approche?: boolean; label?: string }) {
+  return {
+    lng: v.position.coordinates[0],
+    lat: v.position.coordinates[1],
+    demo: v.demo,
+    mmsi: v.mmsi,
+    name: v.nom,
+    kind: silhouetteForType(v.type_label, v.ship_type),
+    statut: v.statut_nav,
+    headingDeg: v.heading_deg ?? v.cog_deg ?? null,
+    speedKn: v.sog_kn ?? null,
+    lengthM: v.longueur_m ?? null,
+    flagCode: v.pavillon_code ?? null,
+    regularite: v.regularite ?? undefined,
+    regulariteLibelle: v.regularite_libelle,
+    ageLibelle: v.age_libelle,
+    approche: extra?.approche,
+    label:
+      extra?.label ??
+      (v.demo
+        ? 'démonstration'
+        : `${aisStatutLabel(v.statut_nav)}${v.port_proche ? ` · ${v.port_proche}` : ''}${
+            v.age_libelle ? ` · ${v.age_libelle}` : ''
+          }`),
+  };
+}
+
 export default function App() {
   const toast = useToast();
   const mapRef = useRef<HTMLDivElement>(null);
@@ -201,6 +262,13 @@ export default function App() {
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [liveMode, setLiveMode] = useState(true);
   const [aisOverlay, setAisOverlay] = useState(true);
+  const [filtreAControler, setFiltreAControler] = useState(false);
+  const [gfwEtat, setGfwEtat] = useState<GfwEtat | null>(null);
+  const [gfwEvenements, setGfwEvenements] = useState<GfwEvenements | null>(null);
+  const [gfwOverlay, setGfwOverlay] = useState(true);
+  const [gfwErreur, setGfwErreur] = useState<string | null>(null);
+  const [gfwChargement, setGfwChargement] = useState(false);
+  const [selectedGfwId, setSelectedGfwId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [boatFilter, setBoatFilter] = useState('');
   const [zones, setZones] = useState<ZoneReglementee[]>([]);
@@ -242,8 +310,28 @@ export default function App() {
   const liveVisible = useMemo(() => {
     let list = liveVessels;
     if (boatFilter) list = list.filter((v) => v.embarcation_id === boatFilter);
+    if (filtreAControler) list = list.filter((v) => estAControler(v.regularite));
     return list;
-  }, [liveVessels, boatFilter]);
+  }, [liveVessels, boatFilter, filtreAControler]);
+
+  const aisVisibles = useMemo(() => {
+    if (!filtreAControler) return aisVessels;
+    return aisVessels.filter((v) => estAControler(v.regularite));
+  }, [aisVessels, filtreAControler]);
+
+  const approchesVisibles = useMemo(() => {
+    const approches = aisLive?.approches ?? [];
+    if (!filtreAControler) return approches;
+    return approches.filter((v) => estAControler(v.regularite));
+  }, [aisLive, filtreAControler]);
+
+  const nbAControler = useMemo(
+    () =>
+      liveVessels.filter((v) => estAControler(v.regularite)).length +
+      aisVessels.filter((v) => estAControler(v.regularite)).length +
+      (aisLive?.approches ?? []).filter((v) => estAControler(v.regularite)).length,
+    [liveVessels, aisVessels, aisLive],
+  );
 
   const onMap = isMapPage(page);
   /** Pages où la carte occupe toute la surface : pas de marge sous le contenu. */
@@ -258,12 +346,19 @@ export default function App() {
     if (sceneEtroite()) setMapPanel(null);
   }
 
+  /** Fiche et panneau partagent le bas de scène en mode étroit : un seul à la fois. */
+  useEffect(() => {
+    if (!onMap) return;
+    const fiche = Boolean(selectedMmsi || selectedEmbarcation || selectedGfwId);
+    if (fiche && sceneEtroite()) setMapPanel(null);
+  }, [onMap, selectedMmsi, selectedEmbarcation, selectedGfwId]);
+
   // La fiche et le panneau recouvrent une partie de la carte : le centre utile se décale
   // d'autant, pour qu'un navire sélectionné ne se retrouve jamais dessous.
   useEffect(() => {
     const map = mapObj.current;
     if (!map || !onMap) return;
-    const fiche = Boolean(selectedMmsi || selectedEmbarcation);
+    const fiche = Boolean(selectedMmsi || selectedEmbarcation || selectedGfwId);
     const etroit = sceneEtroite();
     const padding = etroit
       ? {
@@ -274,7 +369,7 @@ export default function App() {
         }
       : { top: 0, bottom: 0, left: mapPanel ? 384 : 0, right: fiche ? 404 : 0 };
     map.easeTo({ padding, duration: 280 });
-  }, [onMap, mapPanel, selectedMmsi, selectedEmbarcation]);
+  }, [onMap, mapPanel, selectedMmsi, selectedEmbarcation, selectedGfwId]);
 
   useEffect(() => {
     if (!token || !meRole) return;
@@ -299,21 +394,50 @@ export default function App() {
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     mapObj.current = map;
-    const AIS_CLICK_LAYERS = ['ais-zee-circles', 'ais-approche-circles'];
+    const POINT_CLICK_LAYERS = [
+      COUCHE_GFW,
+      COUCHE_GFW_HALO,
+      'ais-zee-circles',
+      'ais-approche-circles',
+      'all-traj-points',
+    ];
+    const zoneClic = (point: { x: number; y: number }): [[number, number], [number, number]] => [
+      [point.x - 14, point.y - 14],
+      [point.x + 14, point.y + 14],
+    ];
     map.on('click', (e) => {
-      const layers = AIS_CLICK_LAYERS.filter((l) => map.getLayer(l));
+      const layers = POINT_CLICK_LAYERS.filter((l) => map.getLayer(l));
       if (!layers.length) return;
-      const feats = map.queryRenderedFeatures(e.point, { layers });
-      const mmsi = feats[0]?.properties?.mmsi;
+      const feats = map.queryRenderedFeatures(zoneClic(e.point), { layers });
+      const gfw = feats.find((f) => f.layer.id === COUCHE_GFW || f.layer.id === COUCHE_GFW_HALO);
+      const gfwId = gfw?.properties?.id;
+      if (gfwId) {
+        setSelectedMmsi(null);
+        setSelectedEmbarcation(null);
+        setSelectedGfwId(String(gfwId));
+        return;
+      }
+      const ais = feats.find((f) => f.layer.id === 'ais-zee-circles' || f.layer.id === 'ais-approche-circles');
+      const mmsi = ais?.properties?.mmsi;
       if (mmsi) {
+        setSelectedGfwId(null);
         setSelectedEmbarcation(null);
         setSelectedMmsi(String(mmsi));
+        closePanelOnSmallScreen();
+        return;
+      }
+      const embarcationId = feats.find((f) => f.layer.id === 'all-traj-points')?.properties?.embarcation_id;
+      if (embarcationId) {
+        setSelectedGfwId(null);
+        setSelectedMmsi(null);
+        setSelectedEmbarcation(String(embarcationId));
+        closePanelOnSmallScreen();
       }
     });
     map.on('mousemove', (e) => {
-      const layers = AIS_CLICK_LAYERS.filter((l) => map.getLayer(l));
+      const layers = POINT_CLICK_LAYERS.filter((l) => map.getLayer(l));
       if (!layers.length) return;
-      const hit = map.queryRenderedFeatures(e.point, { layers }).length > 0;
+      const hit = map.queryRenderedFeatures(zoneClic(e.point), { layers }).length > 0;
       map.getCanvas().style.cursor = hit ? 'pointer' : '';
     });
     map.once('load', () => {
@@ -365,10 +489,10 @@ export default function App() {
       for (const id of [aisSrc, appSrc, appRouteSrc]) {
         if (map.getSource(id)) map.removeSource(id);
       }
-      const approches = aisLive?.approches ?? [];
+      const approches = approchesVisibles;
 
       const paintAis = () => {
-        if (!aisOverlay || (!aisVessels.length && !approches.length)) {
+        if (!aisOverlay || (!aisVisibles.length && !approches.length)) {
           clearMarkers(aisMarkers.current);
           return;
         }
@@ -426,24 +550,24 @@ export default function App() {
             },
           });
         }
-        if (!aisVessels.length) {
+        if (!aisVisibles.length) {
           placeAisMarkers(
             map,
-            approches.map((v) => ({
-              lng: v.position.coordinates[0],
-              lat: v.position.coordinates[1],
-              approche: true,
-              mmsi: v.mmsi,
-              name: v.nom,
-              kind: silhouetteForType(v.type_label, v.ship_type),
-              headingDeg: v.heading_deg ?? v.cog_deg ?? null,
-              speedKn: v.sog_kn ?? null,
-              lengthM: v.longueur_m ?? null,
-              flagCode: v.pavillon_code ?? null,
-              label: `entrée prévue ${v.entree_prevue_h != null ? `dans ${Math.round(v.entree_prevue_h)} h` : ''}`,
-            })),
+            approches.map((v) =>
+              pointAis(v, {
+                approche: true,
+                label: `entrée prévue ${v.entree_prevue_h != null ? `dans ${Math.round(v.entree_prevue_h)} h` : ''}`,
+              }),
+            ),
             aisMarkers.current,
-            { onSelect: setSelectedMmsi },
+            {
+              onSelect: (mmsi) => {
+                setSelectedGfwId(null);
+                setSelectedEmbarcation(null);
+                setSelectedMmsi(mmsi);
+                closePanelOnSmallScreen();
+              },
+            },
           );
           return;
         }
@@ -451,7 +575,7 @@ export default function App() {
           type: 'geojson',
           data: {
             type: 'FeatureCollection',
-            features: aisVessels.map((v) => ({
+            features: aisVisibles.map((v) => ({
               type: 'Feature',
               properties: {
                 nom: v.nom,
@@ -492,38 +616,23 @@ export default function App() {
         placeAisMarkers(
           map,
           [
-            ...aisVessels.map((v) => ({
-              lng: v.position.coordinates[0],
-              lat: v.position.coordinates[1],
-              demo: v.demo,
-              mmsi: v.mmsi,
-              name: v.nom,
-              kind: silhouetteForType(v.type_label, v.ship_type),
-              statut: v.statut_nav,
-              headingDeg: v.heading_deg ?? v.cog_deg ?? null,
-              speedKn: v.sog_kn ?? null,
-              lengthM: v.longueur_m ?? null,
-              flagCode: v.pavillon_code ?? null,
-              label: v.demo
-                ? 'démonstration'
-                : `${aisStatutLabel(v.statut_nav)}${v.port_proche ? ` · ${v.port_proche}` : ''}`,
-            })),
-            ...approches.map((v) => ({
-              lng: v.position.coordinates[0],
-              lat: v.position.coordinates[1],
-              approche: true,
-              mmsi: v.mmsi,
-              name: v.nom,
-              kind: silhouetteForType(v.type_label, v.ship_type),
-              headingDeg: v.heading_deg ?? v.cog_deg ?? null,
-              speedKn: v.sog_kn ?? null,
-              lengthM: v.longueur_m ?? null,
-              flagCode: v.pavillon_code ?? null,
-              label: `entrée prévue ${v.entree_prevue_h != null ? `dans ${Math.round(v.entree_prevue_h)} h` : ''}`,
-            })),
+            ...aisVisibles.map((v) => pointAis(v)),
+            ...approches.map((v) =>
+              pointAis(v, {
+                approche: true,
+                label: `entrée prévue ${v.entree_prevue_h != null ? `dans ${Math.round(v.entree_prevue_h)} h` : ''}`,
+              }),
+            ),
           ],
           aisMarkers.current,
-          { onSelect: setSelectedMmsi },
+          {
+            onSelect: (mmsi) => {
+              setSelectedGfwId(null);
+              setSelectedEmbarcation(null);
+              setSelectedMmsi(mmsi);
+              closePanelOnSmallScreen();
+            },
+          },
         );
       };
 
@@ -538,20 +647,14 @@ export default function App() {
         if (liveMode && liveVisible.length) {
           placeShipMarkers(
             map,
-            liveVisible.map((v) => ({
-              lng: v.position.coordinates[0],
-              lat: v.position.coordinates[1],
-              id: v.embarcation_id,
-              kind: vesselKind(v.type),
-              statut: v.statut,
-              label: v.nom,
-              alert: v.statut === 'silence',
-            })),
+            liveVisible.map(pointFlotte),
             shipMarkers.current,
             {
               onSelect: (id) => {
+                setSelectedGfwId(null);
                 setSelectedMmsi(null);
                 setSelectedEmbarcation(id);
+                closePanelOnSmallScreen();
               },
             },
           );
@@ -604,7 +707,7 @@ export default function App() {
             const end = coords[coords.length - 1];
             features.push({
               type: 'Feature',
-              properties: { id: seg.id, color, isEnd: true },
+              properties: { id: seg.id, embarcation_id: seg.embarcation_id, color, isEnd: true },
               geometry: { type: 'Point', coordinates: end },
             });
             ends.push({
@@ -655,11 +758,11 @@ export default function App() {
             source: sourceId,
             filter: ['==', ['geometry-type'], 'Point'],
             paint: {
-              'circle-radius': 3,
+              'circle-radius': 6,
               'circle-color': ['get', 'color'],
               'circle-stroke-width': 1.5,
               'circle-stroke-color': '#ffffff',
-              'circle-opacity': 0.35,
+              'circle-opacity': 0.85,
             },
           });
         }
@@ -667,21 +770,15 @@ export default function App() {
         placeShipMarkers(
           map,
           preferLive
-            ? liveVisible.map((v) => ({
-                lng: v.position.coordinates[0],
-                lat: v.position.coordinates[1],
-                id: v.embarcation_id,
-                kind: vesselKind(v.type),
-                statut: v.statut,
-                label: v.nom,
-                alert: v.statut === 'silence',
-              }))
+            ? liveVisible.map(pointFlotte)
             : ends.slice(0, 24),
           shipMarkers.current,
           {
             onSelect: (id) => {
+              setSelectedGfwId(null);
               setSelectedMmsi(null);
               setSelectedEmbarcation(id);
+              closePanelOnSmallScreen();
             },
           },
         );
@@ -707,6 +804,11 @@ export default function App() {
       if (showZonesOverlay || page === 'surveillance') {
         syncZonesOnMap(map, zones, { visible: true });
       }
+      syncGfwOnMap(
+        map,
+        gfwOverlay && gfwEvenements ? gfwEvenements.evenements : null,
+        selectedGfwId,
+      );
     };
 
     if (map.isStyleLoaded()) draw();
@@ -716,7 +818,23 @@ export default function App() {
       flowAnim.current?.stop();
       flowAnim.current = null;
     };
-  }, [visible, liveVisible, liveMode, aisOverlay, aisVessels, aisLive, onMap, page, selectedId, zones, showZonesOverlay]);
+  }, [
+    visible,
+    liveVisible,
+    liveMode,
+    aisOverlay,
+    aisVisibles,
+    approchesVisibles,
+    aisLive,
+    onMap,
+    page,
+    selectedId,
+    zones,
+    showZonesOverlay,
+    gfwOverlay,
+    gfwEvenements,
+    selectedGfwId,
+  ]);
 
   // Trace du navire AIS sélectionné
   useEffect(() => {
@@ -966,6 +1084,26 @@ export default function App() {
     }
   }
 
+  async function loadGfw(accessToken: string) {
+    if (!peutLireGfw(meRole)) return;
+    setGfwChargement(true);
+    setGfwErreur(null);
+    try {
+      const etat = await getGfwEtat(accessToken);
+      setGfwEtat(etat);
+      if (!etat.active) {
+        setGfwEvenements(null);
+        return;
+      }
+      setGfwEvenements(await getGfwEvenements(accessToken));
+    } catch (err) {
+      setGfwEvenements(null);
+      setGfwErreur(err instanceof Error ? err.message : 'Source indisponible');
+    } finally {
+      setGfwChargement(false);
+    }
+  }
+
   async function ensureZones(accessToken: string) {
     if (zones.length) return;
     try {
@@ -986,6 +1124,7 @@ export default function App() {
       await loadTrajectories(jeton);
       await loadLive(jeton);
       await loadAis(jeton, true);
+      await loadGfw(jeton);
       await ensureZones(jeton);
       void loadPresence(jeton);
       void loadMeteo(jeton);
@@ -1091,6 +1230,12 @@ export default function App() {
       window.clearInterval(id);
     };
   }, [token, onMap, aisOverlay]);
+
+  useEffect(() => {
+    if (!token || !onMap || !peutLireGfw(meRole)) return;
+    void loadGfw(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, onMap, meRole]);
 
   function navigate(id: NavId) {
     setError(null);
@@ -1219,6 +1364,10 @@ export default function App() {
   if (verifMatch) {
     return <VerifPage type={verifMatch[1] as 'licence' | 'quittance'} numero={decodeURIComponent(verifMatch[2])} />;
   }
+  const profilMatch = /^\/profil\/([^/]+)$/.exec(window.location.pathname);
+  if (profilMatch) {
+    return <ProfilPublicPage jeton={decodeURIComponent(profilMatch[1])} />;
+  }
 
   if (!token) {
     return (
@@ -1278,6 +1427,7 @@ export default function App() {
               token={token}
               peutVoirRegistre={canAccessPage(meRole, 'acteurs')}
               onOuvrirEmbarcation={(v) => {
+                setSelectedGfwId(null);
                 setSelectedMmsi(null);
                 setBoatFilter('');
                 setSelectedEmbarcation(v.embarcation_id);
@@ -1289,6 +1439,7 @@ export default function App() {
                 );
               }}
               onOuvrirNavire={(v) => {
+                setSelectedGfwId(null);
                 setSelectedEmbarcation(null);
                 setSelectedMmsi(v.mmsi);
                 void goMap('navires').then(() =>
@@ -1371,6 +1522,7 @@ export default function App() {
                 onError={setError}
                 colorFor={colorFor}
                 isSuperAdmin={meRole === 'admin'}
+                role={meRole}
                 initialTab={
                   page === 'search'
                     ? 'licences'
@@ -1435,6 +1587,16 @@ export default function App() {
                   }
                 />
               ) : null}
+              {token ? (
+                <GfwFiche
+                  token={token}
+                  evenement={gfwEvenements?.evenements.find((e) => e.id === selectedGfwId) ?? null}
+                  avertissement={gfwEvenements?.avertissement}
+                  attribution={gfwEvenements?.attribution ?? gfwEtat?.attribution}
+                  onClose={() => setSelectedGfwId(null)}
+                  onLocate={(lng, lat) => mapObj.current?.flyTo({ center: [lng, lat], zoom: 8 })}
+                />
+              ) : null}
 
               <MapToolbar
                 items={[
@@ -1454,6 +1616,19 @@ export default function App() {
                 fullscreen={mapStage.fullscreen}
                 canFullscreen={mapStage.canFullscreen}
                 onFullscreen={mapStage.toggleFullscreen}
+                extra={
+                  <button
+                    type="button"
+                    className={`map-bar-btn${filtreAControler ? ' is-on' : ''}`}
+                    aria-pressed={filtreAControler}
+                    title="Afficher uniquement les navires à contrôler. Une présomption, pas une infraction."
+                    onClick={() => setFiltreAControler((on) => !on)}
+                  >
+                    <IconShield size={16} />
+                    <span>À contrôler</span>
+                    {nbAControler > 0 ? <span className="map-bar-count">{nbAControler}</span> : null}
+                  </button>
+                }
               />
 
               {loading ? (
@@ -1523,6 +1698,18 @@ export default function App() {
                     <label className="toggle-row">
                       <input
                         type="checkbox"
+                        checked={filtreAControler}
+                        onChange={(e) => setFiltreAControler(e.target.checked)}
+                      />
+                      À contrôler seulement
+                      <HelpTip title="Navire à contrôler" side="right">
+                        Présomption calculée d’après le registre, les zones et l’âge du signal.
+                        Ce n’est pas une infraction : la qualification revient à l’agent.
+                      </HelpTip>
+                    </label>
+                    <label className="toggle-row">
+                      <input
+                        type="checkbox"
                         checked={meteoOverlay}
                         onChange={(e) => setMeteoOverlay(e.target.checked)}
                       />
@@ -1561,6 +1748,28 @@ export default function App() {
                     </div>
                   ) : null}
                   <MapLegend />
+                  {peutLireGfw(meRole) ? (
+                    <GfwPanel
+                      etat={gfwEtat}
+                      evenements={gfwEvenements}
+                      erreur={gfwErreur}
+                      chargement={gfwChargement}
+                      overlay={gfwOverlay}
+                      onOverlay={setGfwOverlay}
+                      onRefresh={() => {
+                        if (token) void loadGfw(token);
+                      }}
+                      selection={selectedGfwId}
+                      onSelect={(id) => {
+                        setSelectedMmsi(null);
+                        setSelectedEmbarcation(null);
+                        setSelectedGfwId(id);
+                        const ev = gfwEvenements?.evenements.find((e) => e.id === id);
+                        if (ev) mapObj.current?.flyTo({ center: [ev.longitude, ev.latitude], zoom: 8 });
+                        closePanelOnSmallScreen();
+                      }}
+                    />
+                  ) : null}
                 </MapPanel>
               ) : null}
 
@@ -1570,116 +1779,138 @@ export default function App() {
                   subtitle={status || 'Chargement des données…'}
                   onClose={() => setMapPanel(null)}
                 >
-                  <label className="filter-label">
-                    Embarcation
-                    <select
-                      value={boatFilter}
-                      onChange={(e) => {
-                        setBoatFilter(e.target.value);
-                        setSelectedId(null);
-                      }}
-                    >
-                      <option value="">Toutes</option>
-                      {boats.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.nom} · {b.trips}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {liveMode ? (
-                    <CompactList
-                      items={liveVisible}
-                      getKey={(v) => v.embarcation_id}
-                      initial={8}
-                      empty={
+                  <section className="navires-section" aria-label="Flotte GPS">
+                    <h3 className="navires-section-title">
+                      Flotte GPS
+                      {liveMode
+                        ? ` · ${liveVisible.length}${filtreAControler ? ' à contrôler' : ''}`
+                        : ` · ${boatFilter ? segments.filter((s) => s.embarcation_id === boatFilter).length : segments.length} trajets`}
+                    </h3>
+                    <label className="filter-label">
+                      Embarcation
+                      <select
+                        value={boatFilter}
+                        onChange={(e) => {
+                          setBoatFilter(e.target.value);
+                          setSelectedId(null);
+                        }}
+                      >
+                        <option value="">Toutes</option>
+                        {boats.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.nom} · {b.trips}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {liveMode ? (
+                      liveVisible.length === 0 ? (
                         <p className="empty-list">
-                          Aucune position GPS récente. Les embarcations apparaissent dès qu’un
-                          relevé est transmis par l’application mobile.
+                          {filtreAControler
+                            ? 'Aucun navire à contrôler parmi les positions GPS récentes.'
+                            : 'Aucune position GPS récente. Les embarcations apparaissent dès qu’un relevé est transmis par l’application mobile.'}
                         </p>
-                      }
-                      renderItem={(v) => {
-                        const kind = vesselKind(v.type);
-                        const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
-                        return (
-                          <button
-                            type="button"
-                            className={`traj-item traj-item--vessel traj-item--${kind}`}
-                            style={{ borderLeftColor: colorFor(v.embarcation_id) }}
-                            title={`${v.nom} · ${v.statut} · ${formatAge(v.age_seconds)}`}
-                            onClick={() => {
-                              setBoatFilter(v.embarcation_id);
-                              setSelectedMmsi(null);
-                              setSelectedEmbarcation(v.embarcation_id);
-                              closePanelOnSmallScreen();
-                            }}
-                          >
-                            <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
-                              <VesselIcon size={18} />
-                            </span>
-                            <span className="traj-item-body">
-                              <span className="traj-title">{v.nom}</span>
-                              <span className="traj-meta">
-                                {secteurLabel(v.secteur)} · {v.statut} · {formatAge(v.age_seconds)}
+                      ) : (
+                        <div className="table-defile table-defile--panel">
+                          <table className="ds-table empilable">
+                            <thead>
+                              <tr>
+                                <th scope="col">Embarcation</th>
+                                <th scope="col">Régularité</th>
+                                <th scope="col">Âge</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {liveVisible.map((v) => (
+                                <tr
+                                  key={v.embarcation_id}
+                                  className="is-clickable"
+                                  onClick={() => {
+                                    setBoatFilter(v.embarcation_id);
+                                    setSelectedMmsi(null);
+                                    setSelectedEmbarcation(v.embarcation_id);
+                                    closePanelOnSmallScreen();
+                                  }}
+                                >
+                                  <td data-label="Embarcation">
+                                    <button type="button" className="ligne-bouton">
+                                      {v.nom}
+                                    </button>
+                                    <span className="cellule-note">
+                                      {secteurLabel(v.secteur)}
+                                      {v.perimee ? ' · position périmée' : ''}
+                                    </span>
+                                  </td>
+                                  <td data-label="Régularité">
+                                    <span className={classePastilleRegularite(v.regularite)}>
+                                      {libelleRegularite(v.regularite, v.regularite_libelle)}
+                                    </span>
+                                  </td>
+                                  <td data-label="Âge" className="cellule-serree">
+                                    {v.age_libelle ?? formatAge(v.age_seconds)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    ) : (
+                      <CompactList
+                        items={
+                          boatFilter
+                            ? segments.filter((s) => s.embarcation_id === boatFilter)
+                            : segments
+                        }
+                        getKey={(s) => s.id}
+                        initial={8}
+                        empty={
+                          <p className="empty-list">
+                            Aucune trajectoire enregistrée. Les sorties s’affichent dès que des
+                            relevés GPS sont consolidés.
+                          </p>
+                        }
+                        renderItem={(s) => {
+                          const on = selectedId === s.id;
+                          const kind = vesselKind(s.type);
+                          const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
+                          return (
+                            <button
+                              type="button"
+                              className={`traj-item traj-item--vessel traj-item--${kind}${on ? ' on' : ''}`}
+                              style={{ borderLeftColor: colorFor(s.id) }}
+                              title={`${s.embarcation_nom} · sortie ${s.index}`}
+                              onClick={() => setSelectedId(on ? null : s.id)}
+                            >
+                              <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
+                                <VesselIcon size={18} />
                               </span>
-                            </span>
-                          </button>
-                        );
-                      }}
-                    />
-                  ) : (
-                    <CompactList
-                      items={
-                        boatFilter
-                          ? segments.filter((s) => s.embarcation_id === boatFilter)
-                          : segments
-                      }
-                      getKey={(s) => s.id}
-                      initial={8}
-                      empty={
-                        <p className="empty-list">
-                          Aucune trajectoire enregistrée. Les sorties s’affichent dès que des
-                          relevés GPS sont consolidés.
-                        </p>
-                      }
-                      renderItem={(s) => {
-                        const on = selectedId === s.id;
-                        const kind = vesselKind(s.type);
-                        const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
-                        return (
-                          <button
-                            type="button"
-                            className={`traj-item traj-item--vessel traj-item--${kind}${on ? ' on' : ''}`}
-                            style={{ borderLeftColor: colorFor(s.id) }}
-                            title={`${s.embarcation_nom} · sortie ${s.index}`}
-                            onClick={() => setSelectedId(on ? null : s.id)}
-                          >
-                            <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
-                              <VesselIcon size={18} />
-                            </span>
-                            <span className="traj-item-body">
-                              <span className="traj-title">
-                                {s.embarcation_nom}
-                                <em> · {s.index}</em>
+                              <span className="traj-item-body">
+                                <span className="traj-title">
+                                  {s.embarcation_nom}
+                                  <em> · {s.index}</em>
+                                </span>
+                                <span className="traj-meta">
+                                  {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
+                                </span>
                               </span>
-                              <span className="traj-meta">
-                                {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      }}
-                    />
-                  )}
+                            </button>
+                          );
+                        }}
+                      />
+                    )}
+                  </section>
                   {aisOverlay ? (
                     <AisPanel
                       live={aisLive}
-                      vessels={aisVessels}
+                      vessels={aisVisibles}
                       note={aisNote}
+                      filtreAControler={filtreAControler}
                       onRefresh={() => {
                         if (token) void loadAis(token, true);
                       }}
                       onSelect={(mmsi) => {
+                        setSelectedGfwId(null);
                         setSelectedEmbarcation(null);
                         setSelectedMmsi(mmsi);
                         closePanelOnSmallScreen();
@@ -1755,7 +1986,7 @@ export default function App() {
                   {error}
                 </p>
               ) : null}
-              <AlertesPage token={token} onError={setError} />
+              <AlertesPage token={token} role={meRole} onError={setError} />
             </>
           ) : null}
 

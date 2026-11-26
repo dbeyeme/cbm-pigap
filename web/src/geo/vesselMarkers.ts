@@ -79,8 +79,23 @@ function pictoNavire(): string {
     ${VAGUES}`;
 }
 
+/** Losange (à contrôler) ou carré (à vérifier), distincts de l'anneau de fraîcheur. */
+function marqueRegularite(regularite?: string): string {
+  if (regularite === 'alerte') {
+    return `<path d="M9 3.6 13.4 8 9 12.4 4.6 8Z" fill="#c81e1e" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>`;
+  }
+  if (regularite === 'a_verifier') {
+    return `<rect x="4.6" y="4.2" width="8.8" height="8.8" rx="1" fill="#b45309" stroke="#fff" stroke-width="1.5"/>`;
+  }
+  return '';
+}
+
 /** Médaillon d'une embarcation suivie : 44 × 54, pointe sur la position. */
-export function svgMedaillon(kind: FleetKind, statut: FleetStatut): string {
+export function svgMedaillon(
+  kind: FleetKind,
+  statut: FleetStatut,
+  regularite?: string,
+): string {
   const e = ETATS[statut];
   const tirets = e.tirets ? ` stroke-dasharray="${e.tirets}"` : '';
   const repere =
@@ -96,6 +111,7 @@ export function svgMedaillon(kind: FleetKind, statut: FleetStatut): string {
     <circle cx="22" cy="22" r="17.4" fill="none" stroke="${e.couleur}" stroke-width="3"${tirets}/>
     ${kind === 'navire' ? pictoNavire() : pictoPirogue()}
     ${repere}
+    ${marqueRegularite(regularite)}
   </svg>`;
 }
 

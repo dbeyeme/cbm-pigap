@@ -10,12 +10,24 @@ import {
   refuseDemandeLicence,
   refreshNotifications,
 } from '../api';
-import CompactList from '../components/CompactList';
 import { useToast } from '../components/ToastProvider';
 import { friendlyApiError } from '../lib/apiErrors';
-import { MODULE_VISUALS } from '../media';
-import { IconCheckCircle, IconFilter, IconTrash, IconXCircle } from '../components/Icons';
-import Illustration from '../components/Illustration';
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconCheckCircle,
+  IconFilter,
+  IconTrash,
+  IconXCircle,
+} from '../components/Icons';
+
+const PAR_PAGE = 10;
+
+const STATUT_LIBELLE: Record<string, { label: string; ton: 'ok' | 'warn' | 'danger' | 'neutre' }> = {
+  en_attente: { label: 'En attente', ton: 'warn' },
+  approuvee: { label: 'Approuvée', ton: 'ok' },
+  refusee: { label: 'Refusée', ton: 'danger' },
+};
 
 type Props = {
   token: string;
@@ -41,6 +53,7 @@ export default function DemandesPage({ token, onError }: Props) {
   const [licence, setLicence] = useState('');
   const [password, setPassword] = useState('');
   const [motif, setMotif] = useState('');
+  const [pageListe, setPageListe] = useState(0);
 
   const fail = useCallback(
     (err: unknown, title: string) => {
@@ -57,6 +70,7 @@ export default function DemandesPage({ token, onError }: Props) {
       q: q || undefined,
     });
     setRows(list);
+    setPageListe(0);
     const pending = list.filter((d) => d.statut === 'en_attente').length;
     setStatus(
       statut === 'en_attente' || !statut
@@ -182,73 +196,114 @@ export default function DemandesPage({ token, onError }: Props) {
     }
   }
 
+  const nbPages = Math.max(1, Math.ceil(rows.length / PAR_PAGE));
+  const visibles = rows.slice(pageListe * PAR_PAGE, pageListe * PAR_PAGE + PAR_PAGE);
+
   return (
-    <section className="stage stage-wide">
-      <header className="stage-head page-head-with-icon glass-block team-hero">
-        <img src={MODULE_VISUALS.licences.src} alt="" className="page-module-icon" />
-        <div>
-          <p className="eyebrow">Front office → Back-office</p>
-          <h1>Demandes de licence</h1>
-          <p>Traitez les inscriptions déposées sur le site public (personnes et organisations).</p>
-          <p className="status-line">{status}</p>
-        </div>
-      </header>
+    <section className={`file-demandes${selected ? ' has-fiche' : ''}`}>
+      <div className="registre-liste">
+        <h2>File d’attente</h2>
+        {status ? <p className="status-line">{status}</p> : null}
+        <p className="file-demandes-hint">Cliquez une ligne pour l’instruire.</p>
+        <form className="registre-recherche" onSubmit={onFilter} role="search">
+          <label>
+            <span className="sr-only">Statut</span>
+            <select value={statut} onChange={(e) => setStatut(e.target.value)} aria-label="Statut">
+              <option value="">Tous les états</option>
+              <option value="en_attente">En attente</option>
+              <option value="approuvee">Approuvées</option>
+              <option value="refusee">Refusées</option>
+            </select>
+          </label>
+          <label>
+            <span className="sr-only">Recherche</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, organisation…" />
+          </label>
+          <button type="submit" disabled={loading}>
+            <IconFilter size={16} /> Filtrer
+          </button>
+        </form>
 
-      <div className="split-body team-split">
-        <aside className="glass-block team-side">
-          <h2>File d’attente</h2>
-          <form className="stack-form" onSubmit={onFilter}>
-            <label>
-              Statut
-              <select value={statut} onChange={(e) => setStatut(e.target.value)}>
-                <option value="">Tous</option>
-                <option value="en_attente">En attente</option>
-                <option value="approuvee">Approuvées</option>
-                <option value="refusee">Refusées</option>
-              </select>
-            </label>
-            <label>
-              Recherche
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, org…" />
-            </label>
-            <button type="submit" disabled={loading}><IconFilter size={16} /> Filtrer</button>
-          </form>
-
-          <CompactList
-            items={rows}
-            getKey={(d) => d.id}
-            initial={10}
-            empty={<p className="empty-list">Aucune demande.</p>}
-            renderItem={(d) => (
-              <button
-                type="button"
-                className={`team-user-card${selected?.id === d.id ? ' on' : ''}${d.statut === 'en_attente' ? ' pending-pulse' : ''}`}
-                onClick={() => setSelected(d)}
-              >
-                <span className="team-avatar">
-                  {(d.org_nom || d.nom || '?').slice(0, 1).toUpperCase()}
+        {rows.length === 0 ? (
+          <p className="empty-list">Aucune demande.</p>
+        ) : (
+          <>
+            <div className="file-demandes-table">
+              <table className="ds-table empilable">
+                <thead>
+                  <tr>
+                    <th scope="col">Demandeur</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">État</th>
+                    <th scope="col">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibles.map((d) => {
+                    const nom =
+                      d.type_demande === 'personne_morale'
+                        ? d.org_nom
+                        : `${d.prenom ?? ''} ${d.nom ?? ''}`.trim();
+                    const etat = STATUT_LIBELLE[d.statut] ?? { label: d.statut, ton: 'neutre' as const };
+                    const on = selected?.id === d.id;
+                    return (
+                      <tr
+                        key={d.id}
+                        className={`is-clickable${on ? ' is-selected' : ''}`}
+                        onClick={() => setSelected(on ? null : d)}
+                      >
+                        <td data-label="Demandeur">
+                          <button type="button" className="ligne-bouton" aria-pressed={on}>
+                            {nom || 'Sans nom'}
+                          </button>
+                        </td>
+                        <td data-label="Type" className="cellule-serree">
+                          {d.type_demande === 'personne_morale' ? 'Organisation' : 'Pêcheur'}
+                        </td>
+                        <td data-label="État">
+                          <span className={`etat-pastille etat-pastille--${etat.ton}`}>{etat.label}</span>
+                        </td>
+                        <td data-label="Date" className="cellule-serree">
+                          {new Date(d.date_creation).toLocaleDateString('fr-FR')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="pagination">
+              <span>
+                {rows.length} demande{rows.length > 1 ? 's' : ''}
+                {nbPages > 1 ? ` · page ${pageListe + 1} sur ${nbPages}` : ''}
+              </span>
+              {nbPages > 1 ? (
+                <span className="pagination-actions">
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={pageListe === 0}
+                    onClick={() => setPageListe((n) => n - 1)}
+                  >
+                    <IconArrowLeft size={14} /> Précédente
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={pageListe >= nbPages - 1}
+                    onClick={() => setPageListe((n) => n + 1)}
+                  >
+                    Suivante <IconArrowRight size={14} />
+                  </button>
                 </span>
-                <span className="team-user-text">
-                  <span className="traj-title">
-                    {d.type_demande === 'personne_morale'
-                      ? d.org_nom
-                      : `${d.prenom ?? ''} ${d.nom ?? ''}`.trim()}
-                  </span>
-                  <span className="traj-meta">
-                    {d.type_demande === 'personne_morale' ? 'Organisation' : 'Pêcheur'} ·{' '}
-                    {d.statut.replace('_', ' ')}
-                  </span>
-                </span>
-              </button>
-            )}
-          />
-        </aside>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
 
-        <div className="glass-block team-panel">
-          {!selected ? (
-            <div className="abo-empty"><Illustration name="demande" size={96} /><p>Sélectionnez une demande dans la file d’attente pour l’instruire.</p></div>
-          ) : (
-            <>
+      {selected ? (
+        <div className="registre-fiche">
               <h2>Détail</h2>
               <p className="team-panel-lede">
                 {selected.type_demande === 'personne_morale' ? 'Organisation' : 'Pêcheur'} ·{' '}
@@ -429,12 +484,12 @@ export default function DemandesPage({ token, onError }: Props) {
                   </form>
                 </>
               ) : (
-                <p className="status-line">Demande déjà traitée ({selected.statut}).</p>
+                <p className="status-line">
+                  Demande déjà traitée ({STATUT_LIBELLE[selected.statut]?.label ?? selected.statut}).
+                </p>
               )}
-            </>
-          )}
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

@@ -235,6 +235,19 @@ class Position(Base):
         nullable=True,
         index=True,
     )
+    # Identifiant donné par le téléphone à ce relevé (demande S2) : un renvoi après une
+    # coupure de réseau est reconnu au lieu d'être enregistré deux fois
+    identifiant_client: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "uq_positions_embarcation_identifiant_client",
+            "embarcation_id",
+            "identifiant_client",
+            unique=True,
+            postgresql_where=text("identifiant_client IS NOT NULL"),
+        ),
+    )
 
     embarcation: Mapped[Embarcation] = relationship(back_populates="positions")
 
@@ -324,7 +337,12 @@ class Capture(Base):
     quantite_kg: Mapped[float] = mapped_column(Float, nullable=False)
     methode: Mapped[str | None] = mapped_column(String(128), nullable=True)
     position_capture = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=True)
+    # Origine du lieu de pêche (demande S7) : « gps » (relevé du téléphone) ou « saisie »
+    # (point choisi par le pêcheur) ; vide pour les déclarations plus anciennes
+    origine_lieu: Mapped[str | None] = mapped_column(String(16), nullable=True)
     point_debarquement: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Prix de vente déclaré au kilo, facultatif (lot 6, Proposé)
+    prix_fcfa_kg: Mapped[int | None] = mapped_column(Integer, nullable=True)
     date_capture: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
@@ -392,8 +410,77 @@ class Alerte(Base):
         nullable=False,
         default=StatutAlerte.nouvelle,
     )
+    # Lot 9 : état de traitement (codes du paramétrage `alertes_traitement.json`). Le
+    # statut historique ci-dessus en est déduit, pour les écrans et compteurs existants.
+    # Posé à la création depuis le paramétrage (`alertes/traitement.py`) ; la valeur
+    # par défaut de la base ne sert que si le paramétrage est illisible.
+    etat_traitement: Mapped[str | None] = mapped_column(
+        String(32), nullable=False, server_default=text("'a_traiter'"), index=True
+    )
 
     embarcation: Mapped[Embarcation | None] = relationship(back_populates="alertes")
+
+
+class JetonRenouvellement(Base):
+    """Jeton de renouvellement de session de l'application mobile (demande S1).
+
+    Seule l'empreinte du jeton est conservée, jamais sa valeur. Une famille réunit
+    les jetons successifs d'une même connexion : la réutilisation d'un jeton déjà
+    employé ferme toute la famille.
+    """
+
+    __tablename__ = "jetons_renouvellement"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    famille: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    empreinte: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    # Pour un pêcheur : empreinte du téléphone rattaché à la connexion
+    appareil_empreinte: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cree_a: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expire_a: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    utilise_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoque_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AlerteJournal(Base):
+    """Journal de traçabilité du traitement d'une alerte (lot 9).
+
+    Une ligne par changement d'état : auteur, date, état avant et après,
+    commentaire. Jamais modifiée ni supprimée : la base refuse toute mise à jour
+    et toute suppression de cette table (déclencheur posé par la migration).
+    """
+
+    __tablename__ = "alertes_journal"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alerte_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("alertes.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    etat_avant: Mapped[str] = mapped_column(String(32), nullable=False)
+    etat_apres: Mapped[str] = mapped_column(String(32), nullable=False)
+    commentaire: Mapped[str] = mapped_column(Text, nullable=False)
+    # Auteur : référence du compte et, figés au moment de l'action, son nom et son rôle
+    auteur_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    auteur_nom: Mapped[str] = mapped_column(String(255), nullable=False)
+    auteur_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    # « traitement » (nouveau point d'accès) ou « ancien_ecran » (PATCH /alertes/{id})
+    origine: Mapped[str] = mapped_column(String(32), nullable=False)
+    horodatage: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
 
 
 class DemandeLicence(Base):

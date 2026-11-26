@@ -27,7 +27,7 @@ type Props = {
 const REGULARITE: Record<string, { label: string; ton: Ton }> = {
   conforme: { label: 'Aucun constat', ton: 'ok' },
   a_verifier: { label: 'À vérifier', ton: 'warn' },
-  alerte: { label: 'Alerte', ton: 'danger' },
+  alerte: { label: 'Navire à contrôler', ton: 'danger' },
 };
 
 type OngletId = 'synthese' | 'registre' | 'suivi';

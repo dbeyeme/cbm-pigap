@@ -1,5 +1,5 @@
 import maplibregl from 'maplibre-gl';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   bboxToPolygon,
@@ -10,9 +10,12 @@ import {
   listZones,
   updateZone,
   ZoneReglementee,
+  type MaillesActivite,
 } from '../api';
-import CompactList from '../components/CompactList';
+import ActiviteHeuresPanel from '../components/ActiviteHeuresPanel';
 import MapToolbar, { MapPanel } from '../components/MapToolbar';
+import Modal from '../components/Modal';
+import { COUCHE_ACTIVITE, syncActiviteOnMap, type ClasseActivite } from '../geo/activiteLayer';
 import { syncGabonBoundariesOnMap } from '../geo/gabonBoundary';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
 import {
@@ -22,19 +25,29 @@ import {
   syncPreviewBbox,
   syncZonesOnMap,
   zoneColor,
+  zonesExtent,
 } from '../geo/zoneMap';
 import { useMapStage } from '../hooks/useMapStage';
 import {
   IconDownload,
   IconEdit,
   IconEye,
+  IconHotspot,
   IconMap,
   IconRadar,
   IconRefresh,
   IconSave,
   IconTrash,
   IconUpload,
+  IconXCircle,
 } from '../components/Icons';
+
+const ZONE_TYPE_LABEL: Record<ZoneReglementee['type'], string> = {
+  interdite: 'Interdite',
+  protegee: 'Protégée',
+  sensible: 'Sensible',
+  autorisee: 'Autorisée',
+};
 
 function escapeHtml(value: string): string {
   return value
@@ -124,8 +137,12 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
   const popup = useRef<maplibregl.Popup | null>(null);
 
   const mapStage = useMapStage<HTMLElement>();
-  /** Panneau des zones : ouvert à l'arrivée (outils de dessin), refermable pour dégager la carte. */
-  const [panel, setPanel] = useState<'zones' | null>('zones');
+  /** Panneau : ouvert à l'arrivée (outils de dessin), refermable pour dégager la carte. */
+  const [panel, setPanel] = useState<'zones' | 'heures' | null>('zones');
+  const [heuresOverlay, setHeuresOverlay] = useState(false);
+  const [mailles, setMailles] = useState<MaillesActivite | null>(null);
+  const [classesHeures, setClassesHeures] = useState<ClasseActivite[]>([]);
+  const [mailleId, setMailleId] = useState<string | null>(null);
 
   const [zones, setZones] = useState<ZoneReglementee[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -142,6 +159,7 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
 
   const [detectResult, setDetectResult] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [zoneModalOpen, setZoneModalOpen] = useState(false);
 
   const overlapIds = useMemo(() => findOverlappingIds(zones), [zones]);
   const visibleZones = useMemo(
@@ -158,6 +176,10 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
       maxLat: Math.max(cornerA.lat, cornerB.lat),
     };
   }, [cornerA, cornerB]);
+
+  useEffect(() => {
+    if (draftBbox && mode === 'dessiner') setZoneModalOpen(true);
+  }, [draftBbox, mode]);
 
   async function loadZones() {
     const list = await listZones(token);
@@ -196,7 +218,8 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
     mapObj.current = map;
     map.once('load', () => {
       map.fitBounds(GABON_MAP_VIEW.fitBounds, { padding: 40, maxZoom: 7.2 });
-      void syncGabonBoundariesOnMap(map);
+      // Contour terre discret seulement : la ZEE pleine brouille les secteurs ciblés.
+      void syncGabonBoundariesOnMap(map, { mode: 'context' });
     });
     popup.current = new maplibregl.Popup({
       closeButton: true,
@@ -211,6 +234,7 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
       });
       const feat = features[0];
       const modeNow = (map.getCanvas().dataset.mode as Mode) || 'voir';
+      const heuresOn = map.getCanvas().dataset.heures === '1';
 
       if (modeNow === 'dessiner') {
         const lon = e.lngLat.lng;
@@ -225,6 +249,15 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
           );
         }
         return;
+      }
+
+      if (heuresOn && map.getLayer(COUCHE_ACTIVITE)) {
+        const maille = map.queryRenderedFeatures(e.point, { layers: [COUCHE_ACTIVITE] })[0];
+        const mid = maille?.properties?.id;
+        if (mid) {
+          window.dispatchEvent(new CustomEvent('pigap-maille-select', { detail: { id: String(mid) } }));
+          return;
+        }
       }
 
       if (feat?.properties?.id) {
@@ -314,13 +347,20 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
       const { lon, lat } = (ev as CustomEvent).detail as { lon: number; lat: number };
       void runDetect(lon, lat);
     };
+    const onMaille = (ev: Event) => {
+      const id = (ev as CustomEvent).detail?.id as string;
+      setMailleId(id);
+      setPanel('heures');
+    };
     window.addEventListener('pigap-zone-corner', onCorner);
     window.addEventListener('pigap-zone-select', onSelect);
     window.addEventListener('pigap-zone-detect', onDetect);
+    window.addEventListener('pigap-maille-select', onMaille);
     return () => {
       window.removeEventListener('pigap-zone-corner', onCorner);
       window.removeEventListener('pigap-zone-select', onSelect);
       window.removeEventListener('pigap-zone-detect', onDetect);
+      window.removeEventListener('pigap-maille-select', onMaille);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -331,14 +371,51 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
     const draw = () => {
       syncZonesOnMap(map, visibleZones, { selectedId, visible: true });
       syncPreviewBbox(map, draftBbox);
+      // Cadrage auto seulement si les zones forment un secteur lisible
+      // (évite un zoom national qui rend les polygones invisibles).
       if (!didFit.current && visibleZones.length) {
-        fitMapToZones(map, visibleZones);
+        const ext = zonesExtent(visibleZones);
+        const spanOk =
+          ext != null && ext.maxLon - ext.minLon <= 1.6 && ext.maxLat - ext.minLat <= 1.6;
+        if (spanOk) fitMapToZones(map, visibleZones);
         didFit.current = true;
       }
     };
     if (map.isStyleLoaded()) draw();
     else map.once('load', draw);
   }, [visibleZones, selectedId, draftBbox]);
+
+  const onCarteHeures = useCallback((data: MaillesActivite | null, classes: ClasseActivite[]) => {
+    setMailles(data);
+    setClassesHeures(classes);
+  }, []);
+
+  useEffect(() => {
+    const map = mapObj.current;
+    if (!map) return;
+    map.getCanvas().dataset.heures = heuresOverlay ? '1' : '';
+    const draw = () => syncActiviteOnMap(map, heuresOverlay ? mailles : null, classesHeures, mailleId);
+    if (map.isStyleLoaded()) draw();
+    else map.once('load', draw);
+  }, [heuresOverlay, mailles, classesHeures, mailleId]);
+
+  useEffect(() => {
+    const map = mapObj.current;
+    if (!map || !heuresOverlay || !map.getLayer(COUCHE_ACTIVITE)) return;
+    const enter = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    const leave = () => {
+      const m = map.getCanvas().dataset.mode;
+      map.getCanvas().style.cursor = m === 'dessiner' || m === 'tester' ? 'crosshair' : '';
+    };
+    map.on('mouseenter', COUCHE_ACTIVITE, enter);
+    map.on('mouseleave', COUCHE_ACTIVITE, leave);
+    return () => {
+      map.off('mouseenter', COUCHE_ACTIVITE, enter);
+      map.off('mouseleave', COUCHE_ACTIVITE, leave);
+    };
+  }, [heuresOverlay, mailles]);
 
   useEffect(() => {
     const map = mapObj.current;
@@ -385,11 +462,11 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
   async function onConfirmDraw(e: FormEvent) {
     e.preventDefault();
     if (!draftBbox) {
-      onError('Clique deux coins sur la carte pour dessiner la zone');
+      onError('Cliquez deux coins sur la carte pour dessiner la zone');
       return;
     }
     if (!nom.trim()) {
-      onError('Donne un nom à la zone');
+      onError('Donnez un nom à la zone');
       return;
     }
     const w = draftBbox.maxLon - draftBbox.minLon;
@@ -427,6 +504,7 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
       setFlash(`« ${created.nom} » créée`);
       setSelectedId(created.id);
       setMode('voir');
+      setZoneModalOpen(false);
       onStatus('Zone créée');
       await loadZones();
     } catch (err) {
@@ -487,7 +565,8 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
     cornerAMarker.current?.remove();
     cornerAMarker.current = null;
     if (mapObj.current) delete mapObj.current.getCanvas().dataset.cornerA;
-    setFlash('Clique le premier coin sur la carte');
+    setZoneModalOpen(false);
+    setFlash('Cliquez le premier coin sur la carte');
   }
 
   function applyPreset(preset: (typeof ZONE_PRESETS)[number]) {
@@ -593,6 +672,14 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
       <div className="map-wrap">
         <div ref={mapRef} className="map" />
         <p className={`map-hint mode-${mode}`}>{hint}</p>
+        <aside className="zones-map-key" aria-label="Légende de la carte">
+          <span>
+            <i className="zones-map-key-swatch" style={{ background: '#059669' }} /> Zone réglementée
+          </span>
+          <span>
+            <i className="zones-map-key-line" /> Contour Gabon (repère)
+          </span>
+        </aside>
       </div>
 
       <MapToolbar
@@ -604,9 +691,18 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
             count: zones.length,
             hint: 'Liste, dessin et test des zones réglementées',
           },
+          {
+            id: 'heures',
+            label: 'Heures',
+            icon: IconHotspot,
+            hint: 'Heures d’activité par maille, captures et rapport de zone',
+          },
         ]}
         active={panel}
-        onToggle={setPanel}
+        onToggle={(id) => {
+          setPanel(id);
+          if (id === 'heures') setHeuresOverlay(true);
+        }}
         fullscreen={mapStage.fullscreen}
         canFullscreen={mapStage.canFullscreen}
         onFullscreen={mapStage.toggleFullscreen}
@@ -689,42 +785,34 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
         {flash ? <p className="zones-flash">{flash}</p> : null}
 
         {mode === 'dessiner' ? (
-          <form className="login-form compact-form zones-panel" onSubmit={onConfirmDraw}>
+          <div className="zones-panel">
             <p className="step-chip">
-              {draftBbox ? 'Rectangle prêt' : cornerA ? '1 coin · encore 1 clic' : '2 clics sur la carte'}
+              {draftBbox
+                ? 'Rectangle prêt — renseignez le nom et le type'
+                : cornerA
+                  ? 'Premier coin posé · encore un clic'
+                  : 'Deux clics sur la carte pour tracer le rectangle'}
             </p>
-            <label>
-              Nom de la zone
-              <input
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                placeholder="Ex. Interdiction Estuaire nord"
-                required
-              />
-            </label>
-            <label>
-              Type
-              <select
-                value={typeZone}
-                onChange={(e) => setTypeZone(e.target.value as ZoneReglementee['type'])}
-              >
-                <option value="interdite">Interdite</option>
-                <option value="protegee">Protégée</option>
-                <option value="sensible">Sensible</option>
-                <option value="autorisee">Autorisée (limite de pêche)</option>
-              </select>
-            </label>
             <div className="zone-actions">
-              <button type="submit" disabled={loading || !draftBbox}><IconSave size={16} /> {loading ? 'Création…' : 'Enregistrer la zone'}</button>
-              <button type="button" className="ghost compact" onClick={resetDraw}><IconRefresh size={16} /> Recommencer</button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!draftBbox}
+                onClick={() => setZoneModalOpen(true)}
+              >
+                <IconSave size={16} /> Renseigner la zone
+              </button>
+              <button type="button" className="ghost compact" onClick={resetDraw}>
+                <IconRefresh size={16} /> Recommencer
+              </button>
             </div>
-          </form>
+          </div>
         ) : null}
 
         {mode === 'tester' ? (
           <div className="zones-panel">
             <p className="side-meta">
-              Clique sur la carte (dans ou hors d’un polygone). La détection utilise PostGIS
+              Cliquez sur la carte (dans ou hors d’un polygone). La détection utilise PostGIS
               ST_Intersects.
             </p>
             {detectResult ? (
@@ -756,75 +844,88 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
             </label>
           </div>
 
-          <CompactList
-            items={visibleZones}
-            getKey={(z) => z.id}
-            initial={5}
-            empty={
-              zones.length === 0 ? (
-                <p className="empty-zones">
-                  Aucune zone. Passe en <strong>Dessiner</strong>, clique deux coins, enregistre.
-                </p>
-              ) : null
-            }
-            renderItem={(z) => {
-              const on = selectedId === z.id;
-              const stacked = overlapIds.has(z.id);
-              return (
-                <div
-                  className={`traj-item zone-card ${on ? 'on' : ''} ${!z.actif ? 'inactive' : ''}`}
-                  style={{ borderLeftColor: zoneColor(z.type) }}
-                >
-                  <button
-                    type="button"
-                    className="zone-select"
-                    onClick={() => {
-                      setSelectedId(on ? null : z.id);
-                      setMode('voir');
-                    }}
-                  >
-                    <span className="traj-title">{z.nom}</span>
-                    <span className="traj-meta">
-                      <span className="type-pill" style={{ background: zoneColor(z.type) }}>
-                        {z.type}
-                      </span>
-                      {z.actif ? 'active' : 'inactive'}
-                      {stacked ? ' · superposée' : ''}
-                    </span>
-                  </button>
-                  <div className="zone-actions">
-                    <button
-                      type="button"
-                      className="ghost compact"
+          {visibleZones.length === 0 ? (
+            <p className="empty-zones">
+              Aucune zone. Passez en <strong>Dessiner</strong>, cliquez deux coins, enregistrez.
+            </p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Zone</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">État</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleZones.map((z) => {
+                  const on = selectedId === z.id;
+                  const stacked = overlapIds.has(z.id);
+                  return (
+                    <tr
+                      key={z.id}
+                      className={`is-clickable${on ? ' is-selected' : ''}${!z.actif ? ' is-inactive' : ''}`}
                       onClick={() => {
-                        setSelectedId(z.id);
-                        const map = mapObj.current;
-                        if (map) fitMapToZone(map, z);
+                        setSelectedId(on ? null : z.id);
+                        setMode('voir');
                       }}
                     >
-                      Centrer
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost compact"
-                      onClick={() => void onToggleActif(z)}
-                      disabled={loading}
-                    >
-                      {z.actif ? 'Désactiver' : 'Activer'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost compact danger-ghost"
-                      onClick={() => void onDeleteZone(z.id)}
-                      disabled={loading}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              );
-            }}
-          />
+                      <td data-label="Zone">
+                        <button type="button" className="ligne-bouton">
+                          {z.nom}
+                          {stacked ? ' · superposée' : ''}
+                        </button>
+                      </td>
+                      <td data-label="Type">
+                        <span className="zone-type-cell">
+                          <i
+                            className="zone-type-swatch"
+                            style={{ background: zoneColor(z.type) }}
+                            aria-hidden
+                          />
+                          {ZONE_TYPE_LABEL[z.type]}
+                        </span>
+                      </td>
+                      <td data-label="État">{z.actif ? 'Active' : 'Inactive'}</td>
+                      <td data-label="Actions">
+                        <div className="zone-actions" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="ghost compact"
+                            onClick={() => {
+                              setSelectedId(z.id);
+                              const map = mapObj.current;
+                              if (map) fitMapToZone(map, z);
+                            }}
+                          >
+                            Centrer
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost compact"
+                            onClick={() => void onToggleActif(z)}
+                            disabled={loading}
+                          >
+                            {z.actif ? 'Désactiver' : 'Activer'}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost compact danger-ghost"
+                            aria-label={`Supprimer ${z.nom}`}
+                            onClick={() => void onDeleteZone(z.id)}
+                            disabled={loading}
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <button type="button" className="ghost" onClick={() => setShowImport((v) => !v)}>
@@ -847,6 +948,70 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
         </div>
       </MapPanel>
       ) : null}
+
+      {panel === 'heures' ? (
+        <MapPanel
+          title="Heures d’activité"
+          subtitle="Temps passé en mer, hors des ports, à partir des positions suivies."
+          onClose={() => setPanel(null)}
+        >
+          <ActiviteHeuresPanel
+            token={token}
+            overlay={heuresOverlay}
+            onOverlay={setHeuresOverlay}
+            zoneId={selectedId}
+            zoneNom={zones.find((z) => z.id === selectedId)?.nom ?? null}
+            selectionMaille={mailleId}
+            onSelectionMaille={setMailleId}
+            onCarte={onCarteHeures}
+            onError={onError}
+          />
+        </MapPanel>
+      ) : null}
+
+      <Modal
+        open={zoneModalOpen}
+        title="Enregistrer la zone"
+        onClose={() => setZoneModalOpen(false)}
+        illustration="zones"
+        footer={
+          <div className="row-actions">
+            <button type="button" className="ghost" onClick={() => setZoneModalOpen(false)}>
+              <IconXCircle size={16} /> Annuler
+            </button>
+            <button type="submit" form="form-zone" className="btn-primary" disabled={loading || !draftBbox}>
+              <IconSave size={16} /> {loading ? 'Création…' : 'Enregistrer la zone'}
+            </button>
+          </div>
+        }
+      >
+        <p className="form-hint">
+          Le rectangle est posé sur la carte. Nommez la zone et choisissez son type réglementaire.
+        </p>
+        <form id="form-zone" className="stack-form form-grille" onSubmit={onConfirmDraw}>
+          <label className="form-grille-large">
+            Nom de la zone
+            <input
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Ex. Interdiction Estuaire nord"
+              required
+            />
+          </label>
+          <label className="form-grille-large">
+            Type
+            <select
+              value={typeZone}
+              onChange={(e) => setTypeZone(e.target.value as ZoneReglementee['type'])}
+            >
+              <option value="interdite">Interdite</option>
+              <option value="protegee">Protégée</option>
+              <option value="sensible">Sensible</option>
+              <option value="autorisee">Autorisée (limite de pêche)</option>
+            </select>
+          </label>
+        </form>
+      </Modal>
     </section>
   );
 }

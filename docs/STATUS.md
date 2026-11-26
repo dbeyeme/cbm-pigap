@@ -10,12 +10,12 @@
 | **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
-| **Branche active** | `feature/m7-alertes` |
-| **Dernière mise à jour** | 2026-11-25 |
+| **Branche active** | `fix/lot-0-fonds-de-carte` |
+| **Dernière mise à jour** | 2026-11-26 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
-| **Chantier en cours** | Évolutions de novembre 2026, lots 0 à 10 : [`chantier-evolutions-2026-11.md`](chantier-evolutions-2026-11.md) · commités le 2026-11-25 sur `fix/lot-0-fonds-de-carte` : lots 0, 0 bis, 1 (trois tranches), 2, 5 et 10 côté serveur, 3 côté mobile, base de test dédiée (ADR-013) · branche non fusionnée dans `main` |
-| **Note récente** | 2026-11-25 : lots commités ; portail mis en ligne ; serveur en attente de mise en ligne par le porteur ; APK 0.2.0 non publiée (comptes de démonstration et lot 10, décision demandée) · Lot 1 en cours (2026-11-25), deux tranches présentes en code : marqueurs en médaillons et regroupements, carte stable, fiches synthétiques à onglets, recherche avec suggestions et critères, aides contextuelles, page Alertes en tableau, menu replié libellé · Lot 0 bis (2026-11-24) : carte plein cadre avec panneaux refermables, bannières et arrière-plans à partir des images du porteur, correctifs d'affichage sur téléphone ; lecture de l'API Global Fishing Watch (ADR-011 proposé, usage non commercial seulement) · Lot 0 (2026-11-24) : fond de carte sans clé et polices (ADR-010), garde-fou à la construction, comptes de démonstration retirés de la fenêtre de connexion publique · Correctif Android GPS sans clé Google Maps, APK 0.1.1 (2026-10-04) · Mobile allégé (2026-10-02) : APK Android, écran de bienvenue, numéro Mobile Money modifiable par le pêcheur, parcours captures par étapes, tuiles chiffrées, icônes, composants `ui/` · Rapport PêcheGabon Hub exploité (2026-10-01) : référentiel espèces et engins, redevances et quittances, contrôles et QR de licence, alertes métier, indicateurs d'effort · écarts TDR corrigés · paiement depuis le numéro de l'acteur |
+| **Chantier en cours** | Évolutions de novembre 2026 : lots 1–5, 9 et 10 portail/serveur présents ; lots 6 partiel (prix) ; 7 et 8 reportés (validation métier / ADR). Correctifs d'affichage carte (flotte GPS masquée, ZEE vs zones, fiche/panneau). |
+| **Note récente** | 2026-11-26 (avant 8 h) : correctifs d'affichage Navires/Zones vérifiés en local (flotte GPS · 100 visible) ; lots portail 1, 2, 4, 5, 9 et prix (6 partiel) prêts à commit/déploiement ; lots 7 (commandes) et 8 (multi-zones) non démarrés faute de validation · 2026-11-25 : lots commités sur `fix/lot-0-fonds-de-carte` ; portail Vercel ; serveur Railway à jour à redéployer |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

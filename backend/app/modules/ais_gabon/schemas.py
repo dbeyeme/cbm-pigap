@@ -45,6 +45,12 @@ class AisVesselRead(BaseModel):
     position_estimee: PointGeoJSON | None = Field(
         None, description="Position extrapolée à l'instant présent si le navire faisait route"
     )
+    # Lot 4 : âge et régularité dans le flux, sans ouvrir une fiche par navire
+    age_libelle: str | None = Field(None, description="Âge en clair (« il y a 3 h »)")
+    regularite: str | None = Field(None, description="conforme | a_verifier | alerte")
+    regularite_libelle: str | None = Field(None, description="« Navire à contrôler » pour alerte")
+    motifs: list[str] = Field(default_factory=list)
+    embarcation_id: str | None = Field(None, description="Embarcation du registre rapprochée")
 
 
 class AisTrackPoint(BaseModel):

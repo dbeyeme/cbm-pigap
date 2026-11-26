@@ -19,9 +19,9 @@ import {
   type Quittance,
   type SyntheseRedevances,
 } from '../api';
-import CompactList from '../components/CompactList';
 import HelpTip from '../components/HelpTip';
 import KpiCard from '../components/KpiCard';
+import StatusPill from '../components/StatusPill';
 import { IconCard, IconDownload, IconReceipt, IconRefresh, IconXCircle } from '../components/Icons';
 
 type Props = {
@@ -125,7 +125,7 @@ export default function RedevancesPage({ token, onError }: Props) {
 
   const pecheurLabel = (id: string | null) => {
     const p = pecheurs.find((x) => x.id === id);
-    return p ? `${p.prenom} ${p.nom} · ${p.numero_licence}` : '—';
+    return p ? `${p.prenom} ${p.nom} · ${p.numero_licence}` : 'Non renseigné';
   };
 
   const live = config?.mode === 'live';
@@ -272,99 +272,119 @@ export default function RedevancesPage({ token, onError }: Props) {
               <input value={msisdn} onChange={(e) => setMsisdn(e.target.value)} placeholder="077xxxxxx" />
             </label>
           ) : null}
-          <CompactList
-            items={quittances}
-            getKey={(q) => q.id}
-            initial={6}
-            empty={<p className="empty-list">Aucune quittance émise.</p>}
-            renderItem={(q) => {
-              const st = STATUT[q.statut] ?? { label: q.statut, tone: 'muted' };
-              const paiement = q.paiement;
-              return (
-                <div className="traj-item redev-item" style={{ borderLeftColor: st.tone === 'ok' ? '#10B981' : st.tone === 'warn' ? '#D97706' : '#94A3B8' }}>
-                  <span className="traj-title">
-                    {q.numero} · {fcfa(q.montant_fcfa)}{' '}
-                    <span className={`vessel-reg vessel-reg--${st.tone === 'warn' ? 'warn' : st.tone === 'ok' ? 'ok' : 'muted'}`}>{st.label}</span>
-                  </span>
-                  <span className="traj-meta">
-                    {q.titulaire ?? pecheurLabel(q.pecheur_id)} · {q.nb_captures} capture(s) · émise le{' '}
-                    {fmtDate(q.date_creation)}
-                    {q.date_paiement ? ` · payée le ${fmtDate(q.date_paiement)}` : ''}
-                  </span>
-                  {paiement && paiement.statut === 'en_attente' ? (
-                    <span className="traj-meta">
-                      Paiement {paiement.operateur} en attente · {paiement.msisdn ?? '—'}
-                    </span>
-                  ) : null}
-                  <div className="zone-actions" style={{ marginTop: 8 }}>
-                    {q.statut === 'en_attente' && (!paiement || paiement.statut !== 'en_attente') ? (
-                      <button
-                        type="button"
-                        className="compact"
-                        disabled={busy !== null}
-                        onClick={() =>
-                          void run(`payer-${q.id}`, async () => {
-                            const r = await payerQuittance(token, q.id, {
-                              operateur: live ? 'airtel_money' : 'demo',
-                              msisdn: tiers && msisdn.trim() ? msisdn.trim() : undefined,
-                              numero_tiers_autorise: tiers,
-                            });
-                            setStatus(
-                              live
-                                ? `Dépôt initié vers ${r.paiement.msisdn} : validation du code PIN attendue`
-                                : `Paiement démonstration initié (${r.paiement.reference_interne})`,
-                            );
-                          })
-                        }
-                      >
-                        <IconCard size={14} /> {live ? 'Payer par Mobile Money' : 'Initier le paiement (démo)'}
-                      </button>
-                    ) : null}
-                    {q.statut === 'en_attente' && paiement && paiement.statut === 'en_attente' && !live ? (
-                      <button
-                        type="button"
-                        className="compact"
-                        disabled={busy !== null}
-                        onClick={() =>
-                          void run(`confirmer-${q.id}`, async () => {
-                            await confirmerQuittanceDemo(token, paiement.id);
-                            setStatus(`Quittance ${q.numero} payée (démonstration)`);
-                          })
-                        }
-                      >
-                        Confirmer le paiement (démo)
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="ghost compact"
-                      disabled={busy !== null}
-                      onClick={() =>
-                        void run(`pdf-${q.id}`, () => downloadQuittancePdf(token, q.id, q.numero))
-                      }
-                    >
-                      <IconDownload size={14} /> PDF
-                    </button>
-                    {q.statut === 'en_attente' ? (
-                      <button
-                        type="button"
-                        className="ghost compact"
-                        disabled={busy !== null}
-                        onClick={() =>
-                          void run(`annuler-${q.id}`, async () => {
-                            await annulerQuittance(token, q.id);
-                            setStatus(`Quittance ${q.numero} annulée, captures libérées`);
-                          })
-                        }
-                      >
-                        <IconXCircle size={14} /> Annuler
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            }}
-          />
+          {quittances.length === 0 ? (
+            <p className="empty-list">Aucune quittance émise.</p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Numéro</th>
+                  <th scope="col">Titulaire</th>
+                  <th scope="col">Montant</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col">Captures</th>
+                  <th scope="col">Émise</th>
+                  <th scope="col">Paiement</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quittances.map((q) => {
+                  const st = STATUT[q.statut] ?? { label: q.statut, tone: 'muted' };
+                  const paiement = q.paiement;
+                  const pillTone = st.tone === 'ok' ? 'ok' : st.tone === 'warn' ? 'warn' : 'neutral';
+                  return (
+                    <tr key={q.id}>
+                      <td data-label="Numéro">{q.numero}</td>
+                      <td data-label="Titulaire">{q.titulaire ?? pecheurLabel(q.pecheur_id)}</td>
+                      <td data-label="Montant">{fcfa(q.montant_fcfa)}</td>
+                      <td data-label="Statut">
+                        <StatusPill label={st.label} tone={pillTone} />
+                      </td>
+                      <td data-label="Captures">{q.nb_captures}</td>
+                      <td data-label="Émise" className="cellule-serree">
+                        {fmtDate(q.date_creation)}
+                      </td>
+                      <td data-label="Paiement">
+                        {paiement && paiement.statut === 'en_attente'
+                          ? `Paiement ${paiement.operateur} en attente (${paiement.msisdn ?? 'Non renseigné'})`
+                          : q.date_paiement
+                            ? `Payée le ${fmtDate(q.date_paiement)}`
+                            : 'Aucun'}
+                      </td>
+                      <td data-label="Actions">
+                        <div className="zone-actions">
+                          {q.statut === 'en_attente' && (!paiement || paiement.statut !== 'en_attente') ? (
+                            <button
+                              type="button"
+                              className="compact"
+                              disabled={busy !== null}
+                              onClick={() =>
+                                void run(`payer-${q.id}`, async () => {
+                                  const r = await payerQuittance(token, q.id, {
+                                    operateur: live ? 'airtel_money' : 'demo',
+                                    msisdn: tiers && msisdn.trim() ? msisdn.trim() : undefined,
+                                    numero_tiers_autorise: tiers,
+                                  });
+                                  setStatus(
+                                    live
+                                      ? `Dépôt initié vers ${r.paiement.msisdn} : validation du code PIN attendue`
+                                      : `Paiement démonstration initié (${r.paiement.reference_interne})`,
+                                  );
+                                })
+                              }
+                            >
+                              <IconCard size={14} /> {live ? 'Payer par Mobile Money' : 'Initier le paiement (démo)'}
+                            </button>
+                          ) : null}
+                          {q.statut === 'en_attente' && paiement && paiement.statut === 'en_attente' && !live ? (
+                            <button
+                              type="button"
+                              className="compact"
+                              disabled={busy !== null}
+                              onClick={() =>
+                                void run(`confirmer-${q.id}`, async () => {
+                                  await confirmerQuittanceDemo(token, paiement.id);
+                                  setStatus(`Quittance ${q.numero} payée (démonstration)`);
+                                })
+                              }
+                            >
+                              Confirmer le paiement (démo)
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="ghost compact"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              void run(`pdf-${q.id}`, () => downloadQuittancePdf(token, q.id, q.numero))
+                            }
+                          >
+                            <IconDownload size={14} /> PDF
+                          </button>
+                          {q.statut === 'en_attente' ? (
+                            <button
+                              type="button"
+                              className="ghost compact"
+                              disabled={busy !== null}
+                              onClick={() =>
+                                void run(`annuler-${q.id}`, async () => {
+                                  await annulerQuittance(token, q.id);
+                                  setStatus(`Quittance ${q.numero} annulée, captures libérées`);
+                                })
+                              }
+                            >
+                              <IconXCircle size={14} /> Annuler
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </section>
       </div>
 

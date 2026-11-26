@@ -51,6 +51,8 @@ app.add_middleware(
     allow_credentials=not _wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Total des listes paginées (alertes, lot 9), lisible par le portail
+    expose_headers=["X-Total-Count"],
 )
 
 

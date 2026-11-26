@@ -10,6 +10,7 @@ import {
 import { GlassField } from "../components/GlassField";
 import { GlassPanel } from "../components/GlassPanel";
 import { GlowButton } from "../components/GlowButton";
+import { IdentiteSheet } from "../components/IdentiteSheet";
 import {
   HelpTip,
   IconBadge,
@@ -53,6 +54,8 @@ export function SearchScreen({ token, onBack, onControle }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  /** Fiche d'identité du pêcheur du dossier, ouverte au-dessus du dossier. */
+  const [ficheOuverte, setFicheOuverte] = useState(false);
 
   async function onSearch() {
     setLoading(true);
@@ -240,6 +243,11 @@ export function SearchScreen({ token, onBack, onControle }: Props) {
                   label={totalPoints > 1 ? "relevés GPS" : "relevé GPS"}
                 />
               </StatRow>
+              <GlowButton
+                label="Fiche d’identité"
+                icon="document-text-outline"
+                onPress={() => setFicheOuverte(true)}
+              />
             </GlassPanel>
 
             <SectionTitle icon="boat-outline" text="Bateaux" />
@@ -309,6 +317,15 @@ export function SearchScreen({ token, onBack, onControle }: Props) {
           </>
         )}
       </ScrollView>
+      {dossier ? (
+        <IdentiteSheet
+          visible={ficheOuverte}
+          onClose={() => setFicheOuverte(false)}
+          token={token}
+          source={{ kind: "pecheur", pecheurId: dossier.pecheur_id }}
+          titre={`${dossier.prenom} ${dossier.nom}`}
+        />
+      ) : null}
     </View>
   );
 }

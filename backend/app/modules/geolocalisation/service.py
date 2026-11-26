@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import structlog
 from geoalchemy2.functions import ST_AsGeoJSON
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,8 @@ from app.modules.geolocalisation.schemas import (
     TrajectorySegmentRead,
 )
 from app.schemas.common import PointGeoJSON
+
+logger = structlog.get_logger(__name__)
 
 
 async def _get_embarcation(db: AsyncSession, embarcation_id: UUID) -> Embarcation:
@@ -436,13 +439,35 @@ async def list_live_vessels(
         )
         .order_by(Position.horodatage.desc())
     )
-    out: list[LiveVesselRead] = []
+    from app.modules.geolocalisation.regles_carte import age_libelle, regle_carte
+    from app.modules.geolocalisation.regularite import regularite_embarcations
+
+    retenus = []
     for pos, geo in result.all():
         read = _to_read(pos, geo)
         lon, lat = read.position.coordinates
-        if not is_on_water(lon, lat):
-            continue
-        emb = emb_by_id[pos.embarcation_id]
+        if is_on_water(lon, lat):
+            retenus.append((emb_by_id[pos.embarcation_id], read))
+    # Régularité de toutes les embarcations affichées, en quelques requêtes (lot 4).
+    # Calcul impossible (paramétrage illisible, base) : la carte s'affiche sans couleur
+    # de régularité plutôt que de tomber entière, et l'anomalie est journalisée.
+    carte = None
+    regularites: list = [None] * len(retenus)
+    try:
+        carte, _alertes, _entete = regle_carte()
+        regularites = await regularite_embarcations(
+            db,
+            [emb for emb, _ in retenus],
+            [read.position.coordinates for _, read in retenus],
+            now,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("carte_regularite_indisponible", cause=type(exc).__name__)
+        carte = None
+        await db.rollback()
+    out: list[LiveVesselRead] = []
+    for (emb, read), reg in zip(retenus, regularites, strict=True):
+        lon, lat = read.position.coordinates
         age = max(0, int((now - read.horodatage.astimezone(UTC)).total_seconds()))
         out.append(
             LiveVesselRead(
@@ -456,6 +481,11 @@ async def list_live_vessels(
                 age_seconds=age,
                 statut=_live_statut(age),
                 secteur=_classify_secteur(lon, lat),
+                age_libelle=age_libelle(age),
+                perimee=bool(carte and age > carte.positions_age_perimee_minutes * 60),
+                regularite=reg.code if reg and carte else None,
+                regularite_libelle=carte.libelle(reg.code) if reg and carte else None,
+                motifs=reg.motifs if reg and carte else [],
             )
         )
     out.sort(key=lambda v: v.horodatage, reverse=True)

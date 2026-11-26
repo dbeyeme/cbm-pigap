@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import not_found
-from app.db.enums import TypeZone
+from app.db.enums import StatutAlerte, TypeZone
 from app.db.models import (
     Alerte,
     Capture,
@@ -197,7 +197,18 @@ async def fiche_embarcation(
         )
         for a in ares.scalars().all()
     ]
-    nouvelles = sum(1 for a in alertes if a.statut == "nouvelle")
+    # Toutes les alertes à traiter, pas seulement les cinq dernières : même décompte que
+    # le flux de la carte (lot 4)
+    nouvelles = int(
+        (
+            await db.execute(
+                select(func.count(Alerte.id)).where(
+                    Alerte.embarcation_id == emb.id, Alerte.statut == StatutAlerte.nouvelle
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
     if nouvelles:
         niveau = max(niveau, 1)
         motifs.append(f"{nouvelles} alerte{'s' if nouvelles > 1 else ''} à traiter")

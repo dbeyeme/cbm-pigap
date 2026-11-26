@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 
 import type { UtilisateurMe } from '../api';
 import { GlowButton } from '../components/GlowButton';
+import { IdentiteSheet } from '../components/IdentiteSheet';
 import { QrCode } from '../components/QrCode';
 import { AppIcon, HelpTip, IconBadge, Notice, PhotoBanner, type InfoPoint } from '../components/ui';
 import { friendlyApiError, isNetworkError, isSessionExpired } from '../lib/apiErrors';
@@ -43,6 +44,8 @@ export function CarteProScreen({ token, user, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Fiche d'identité complète (registre et suivi), lue sur le serveur. */
+  const [ficheOuverte, setFicheOuverte] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -174,6 +177,7 @@ export function CarteProScreen({ token, user, onBack }: Props) {
         {error ? <Notice tone="error" text={error} /> : null}
 
         <View style={styles.actions}>
+          <GlowButton label="Ma fiche complète" icon="document-text-outline" onPress={() => setFicheOuverte(true)} />
           <GlowButton
             label={loading ? 'Mise à jour…' : 'Mettre à jour'}
             icon="refresh-outline"
@@ -183,6 +187,13 @@ export function CarteProScreen({ token, user, onBack }: Props) {
           />
         </View>
       </ScrollView>
+      <IdentiteSheet
+        visible={ficheOuverte}
+        onClose={() => setFicheOuverte(false)}
+        token={token}
+        source={{ kind: 'moi' }}
+        titre={user.nom}
+      />
     </View>
   );
 }
@@ -243,5 +254,5 @@ const styles = StyleSheet.create({
   updated: { fontFamily: fonts.body, fontSize: 14, color: colors.inkSoft, textAlign: 'center' },
   empty: { alignItems: 'center', gap: 12, paddingVertical: space.xl },
   emptyText: { fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.inkMuted },
-  actions: { marginTop: space.md },
+  actions: { marginTop: space.md, gap: 10 },
 });

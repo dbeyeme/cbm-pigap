@@ -21,6 +21,8 @@ type ToolbarProps<T extends string> = {
   fullscreen: boolean;
   canFullscreen: boolean;
   onFullscreen: () => void;
+  /** Groupe supplémentaire (filtre « à contrôler », etc.). */
+  extra?: ReactNode;
 };
 
 /**
@@ -34,6 +36,7 @@ export default function MapToolbar<T extends string>({
   fullscreen,
   canFullscreen,
   onFullscreen,
+  extra,
 }: ToolbarProps<T>) {
   return (
     <div className="map-bar" role="toolbar" aria-label="Outils de la carte">
@@ -59,6 +62,7 @@ export default function MapToolbar<T extends string>({
           );
         })}
       </div>
+      {extra ? <div className="map-bar-group">{extra}</div> : null}
       {canFullscreen ? (
         <div className="map-bar-group map-bar-group--fullscreen">
           <button

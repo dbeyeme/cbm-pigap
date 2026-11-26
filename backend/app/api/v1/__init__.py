@@ -20,6 +20,7 @@ from app.modules.meteo_marine.router import router as meteo_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.pecheurs.router import router as pecheurs_router
 from app.modules.predictions.router import router as predictions_router
+from app.modules.prix.router import router as prix_router
 from app.modules.profils.router import public_router as profils_public_router
 from app.modules.profils.router import router as profils_router
 from app.modules.quotas.router import router as quotas_router
@@ -46,6 +47,7 @@ api_router.include_router(quotas_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(documents_router)
 api_router.include_router(predictions_router)
+api_router.include_router(prix_router)
 api_router.include_router(alertes_router)
 api_router.include_router(referentiels_router)
 api_router.include_router(redevances_router)

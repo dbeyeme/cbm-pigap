@@ -30,18 +30,13 @@ from typing import Any
 
 import httpx
 import structlog
-from geoalchemy2 import WKTElement
-from geoalchemy2.functions import ST_Intersects
 from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
-from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.datafiles import data_path
-from app.db.models import Embarcation, Organisation, Pecheur, ZoneReglementee
 from app.modules.ais_gabon import ingest as ingest_mod
-from app.modules.ais_gabon.flags import PAVILLONS_LIBRE_IMMATRICULATION
 from app.modules.ais_gabon.fleet import FleetStore
 from app.modules.ais_gabon.ports import load_ports
 from app.modules.ais_gabon.schemas import (
@@ -528,11 +523,21 @@ def load_snapshot() -> list[AisVesselRead]:
         data = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
+    try:
+        from app.modules.geolocalisation.regles_carte import regle_carte
+
+        age_max_h = regle_carte()[0].ais_age_max_heures
+    except Exception:  # noqa: BLE001 — paramétrage illisible : rien n'est rechargé
+        logger.warning("ais_snapshot_regle_indisponible")
+        return []
+    limite = datetime.now(UTC).timestamp() - age_max_h * 3600
     out: list[AisVesselRead] = []
     for f in data.get("features") or []:
         if isinstance(f, dict):
             v = _parse_openwaters_feature(f)
-            if v:
+            # Lot 4 : une observation ancienne (par exemple du 2026-09-20) n'est pas
+            # présentée comme une position actuelle après un redémarrage
+            if v and v.horodatage.timestamp() >= limite:
                 out.append(v.model_copy(update={"provider": "snapshot", "demo": False}))
     return out
 
@@ -761,6 +766,23 @@ def _build_note(vessels: list[AisVesselRead], parts: list[str]) -> str:
     return " · ".join(segments)
 
 
+def _age_max_observation():
+    """Âge maximal d'une observation affichée (paramétrage de la carte, lot 4).
+
+    Paramétrage illisible : rien à imposer ici, la purge garde sa durée historique et
+    l'anomalie est inscrite au journal du serveur.
+    """
+    from datetime import timedelta
+
+    from app.modules.geolocalisation.regles_carte import regle_carte
+
+    try:
+        return timedelta(hours=regle_carte()[0].ais_age_max_heures)
+    except Exception:  # noqa: BLE001
+        logger.warning("ais_age_max_indisponible")
+        return None
+
+
 async def refresh_ais_cache(*, force: bool = False) -> AisLiveResponse:
     global _cache_fetched_at, _cache_response, _last_snapshot_at, _snapshot_loaded
 
@@ -803,7 +825,11 @@ async def refresh_ais_cache(*, force: bool = False) -> AisLiveResponse:
         except Exception as exc:  # noqa: BLE001
             parts.append(f"Open Waters indisponible ({type(exc).__name__})")
 
-        fleet.purge(now)
+        retires = fleet.purge(now, age_max=_age_max_observation())
+        if retires:
+            age = _age_max_observation()
+            heures = int(age.total_seconds() // 3600) if age is not None else 24
+            parts.append(f"{retires} observation(s) de plus de {heures} h retirée(s)")
         tous = [v for v in fleet.snapshot(now) if not v.demo]
         vessels = [v for v in tous if v.dans_eaux_gabon]
         approches = sorted(
@@ -867,103 +893,114 @@ async def list_ais_ports() -> AisPortsResponse:
 # --------------------------------------------------------------------------- #
 
 
+async def _etats_ou_rien(db: AsyncSession, vessels: list[AisVesselRead]):
+    """États de régularité, ou rien si le calcul est impossible (paramétrage ou base).
+
+    La carte reste affichée sans couleur de régularité plutôt que de tomber entière ;
+    l'anomalie est inscrite au journal du serveur.
+    """
+    from app.modules.ais_gabon.regularite import etats_navires
+    from app.modules.geolocalisation.regles_carte import regle_carte
+
+    try:
+        carte, _alertes, _entete = regle_carte()
+        return carte, await etats_navires(db, vessels)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ais_regularite_indisponible", cause=type(exc).__name__)
+        try:
+            await db.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        return None, None
+
+
+def _avec_etat(vessel: AisVesselRead, carte, etat) -> AisVesselRead:
+    from app.modules.geolocalisation.regles_carte import age_libelle
+
+    mise_a_jour: dict[str, Any] = {"age_libelle": age_libelle(vessel.age_s)}
+    if carte is not None and etat is not None:
+        mise_a_jour.update(
+            regularite=etat.regularite.code,
+            regularite_libelle=carte.libelle(etat.regularite.code),
+            motifs=list(etat.regularite.motifs),
+            embarcation_id=str(etat.registre.embarcation.id) if etat.registre else None,
+        )
+    return vessel.model_copy(update=mise_a_jour)
+
+
 async def get_vessel_detail(db: AsyncSession, mmsi: str) -> AisVesselDetail | None:
+    """Fiche navire : même calcul de régularité que le flux de la carte (lot 4)."""
     found = fleet.get(mmsi)
     if found is None:
         return None
     vessel, track = found
-    lon, lat = vessel.position.coordinates
-    motifs: list[str] = []
-    niveau = 0  # 0 conforme · 1 à vérifier · 2 alerte
-
-    # Zones réglementées touchées (PostGIS)
-    zones: list[AisZoneTouchee] = []
-    try:
-        point = WKTElement(f"POINT({lon} {lat})", srid=4326)
-        rows = await db.execute(
-            select(ZoneReglementee)
-            .where(ZoneReglementee.actif.is_(True))
-            .where(ST_Intersects(ZoneReglementee.geometrie, point))
+    age_max = _age_max_observation()
+    if age_max is not None and vessel.age_s > age_max.total_seconds():
+        return None  # observation trop ancienne : le navire n'est plus suivi
+    carte, etats = await _etats_ou_rien(db, [vessel])
+    if etats is None:
+        return AisVesselDetail(
+            vessel=_avec_etat(vessel, None, None),
+            track=track,
+            regularite="a_verifier",
+            motifs=["Contrôle de régularité indisponible pour le moment"],
         )
-        today = datetime.now(UTC).date()
-        for z in rows.scalars().all():
-            if z.periode_debut and today < z.periode_debut:
-                continue
-            if z.periode_fin and today > z.periode_fin:
-                continue
-            zones.append(AisZoneTouchee(id=str(z.id), nom=z.nom, type=z.type.value))
-            if z.type.value == "interdite":
-                niveau = 2
-                motifs.append(f"Position relevée dans la zone interdite « {z.nom} »")
-            elif z.type.value == "protegee":
-                niveau = max(niveau, 1)
-                motifs.append(f"Position dans la zone protégée « {z.nom} »")
-    except Exception as exc:  # noqa: BLE001 — base indisponible : fiche partielle
-        logger.warning("ais_detail_zones_failed", error=str(exc))
-
-    # Correspondance avec le registre PIGAP (nom, indicatif, MMSI)
-    registre: AisRegistreCorrespondance | None = None
-    try:
-        candidats = (
-            [vessel.nom.strip()] if vessel.nom and not vessel.nom.startswith("MMSI ") else []
+    (etat,) = etats
+    registre = None
+    if etat.registre is not None:
+        emb, pecheur = etat.registre.embarcation, etat.registre.pecheur
+        org = etat.registre.organisation
+        registre = AisRegistreCorrespondance(
+            embarcation_id=str(emb.id),
+            embarcation_nom=emb.nom,
+            immatriculation=emb.immatriculation,
+            pecheur_nom=f"{pecheur.prenom} {pecheur.nom}",
+            numero_licence=pecheur.numero_licence,
+            statut_pecheur=pecheur.statut.value,
+            organisation=org.nom if org else None,
+            methode=etat.registre.methode,
         )
-        conds = [func.lower(Embarcation.nom) == c.lower() for c in candidats]
-        immats = [x for x in (vessel.callsign, vessel.mmsi) if x]
-        if immats:
-            conds.append(Embarcation.immatriculation.in_(immats))
-        if conds:
-            rows = await db.execute(
-                select(Embarcation, Pecheur, Organisation)
-                .join(Pecheur, Pecheur.id == Embarcation.pecheur_id)
-                .outerjoin(Organisation, Organisation.id == Pecheur.organisation_id)
-                .where(or_(*conds))
-                .limit(1)
-            )
-            hit = rows.first()
-            if hit is not None:
-                emb, pecheur, org = hit
-                methode = "immatriculation" if emb.immatriculation in immats else "nom"
-                registre = AisRegistreCorrespondance(
-                    embarcation_id=str(emb.id),
-                    embarcation_nom=emb.nom,
-                    immatriculation=emb.immatriculation,
-                    pecheur_nom=f"{pecheur.prenom} {pecheur.nom}",
-                    numero_licence=pecheur.numero_licence,
-                    statut_pecheur=pecheur.statut.value,
-                    organisation=org.nom if org else None,
-                    methode=methode,
-                )
-                if pecheur.statut.value != "actif":
-                    niveau = 2
-                    motifs.append(
-                        f"Licence {pecheur.numero_licence} : pêcheur {pecheur.statut.value}"
-                    )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("ais_detail_registre_failed", error=str(exc))
-
-    est_pecheur = vessel.statut_nav == "en_peche" or (vessel.type_label or "") == "Navire de pêche"
-    if registre is None and est_pecheur and vessel.dans_eaux_gabon:
-        niveau = max(niveau, 1)
-        motifs.append("Navire de pêche absent du registre PIGAP : licence à vérifier")
-    if vessel.statut_nav == "en_peche" and vessel.dans_eaux_gabon:
-        motifs.append("Statut AIS « en pêche » dans les eaux gabonaises")
-    libre = bool(vessel.pavillon_code and vessel.pavillon_code in PAVILLONS_LIBRE_IMMATRICULATION)
-    if libre:
-        motifs.append(f"Pavillon de libre immatriculation ({vessel.pavillon})")
-    if not vessel.pavillon:
-        motifs.append("Pavillon indéterminé (MMSI hors table)")
-    if vessel.age_s > 3600:
-        motifs.append("Aucun message AIS depuis plus d'une heure")
-
     return AisVesselDetail(
-        vessel=vessel,
+        vessel=_avec_etat(vessel, carte, etat),
         track=track,
-        zones_reglementees=zones,
+        zones_reglementees=[AisZoneTouchee(id=z.id, nom=z.nom, type=z.type) for z in etat.zones],
         registre=registre,
-        regularite=("conforme", "a_verifier", "alerte")[niveau],
-        motifs=motifs,
-        libre_immatriculation=libre,
+        regularite=etat.regularite.code,
+        motifs=etat.regularite.motifs,
+        libre_immatriculation=etat.libre_immatriculation,
     )
+
+
+# Flux enrichi gardé tant que l'état de flotte dont il dérive n'a pas changé
+_flux_enrichi: tuple[datetime, AisLiveResponse] | None = None
+
+
+async def enrichir_flux(db: AsyncSession, live: AisLiveResponse) -> AisLiveResponse:
+    """Flux de la carte : régularité et âge de chaque navire (lot 4).
+
+    Deux requêtes pour tous les navires, au plus une fois par état de flotte ; les
+    observations trop anciennes sont déjà retirées par l'entretien de la flotte.
+    """
+    global _flux_enrichi
+
+    if (
+        _flux_enrichi is not None
+        and live.fetched_at is not None
+        and _flux_enrichi[0] == live.fetched_at
+    ):
+        return _flux_enrichi[1]
+    reels = [v for v in live.vessels + live.approches if not v.demo]
+    carte, etats = await _etats_ou_rien(db, reels)
+    par_mmsi = dict(zip((v.mmsi for v in reels), etats, strict=True)) if etats else {}
+    enrichi = live.model_copy(
+        update={
+            "vessels": [_avec_etat(v, carte, par_mmsi.get(v.mmsi)) for v in live.vessels],
+            "approches": [_avec_etat(v, carte, par_mmsi.get(v.mmsi)) for v in live.approches],
+        }
+    )
+    if etats is not None and live.fetched_at is not None:
+        _flux_enrichi = (live.fetched_at, enrichi)
+    return enrichi
 
 
 # --------------------------------------------------------------------------- #
@@ -975,9 +1012,13 @@ _maint_task: asyncio.Task | None = None
 
 
 async def _maintenance_loop() -> None:
+    from app.modules.ais_gabon.surveillance import evaluer_en_tache_de_fond
+
     while True:
         try:
-            await refresh_ais_cache(force=True)
+            live = await refresh_ais_cache(force=True)
+            # Lot 4 : alertes automatiques « navire à contrôler » (paramétrage carte_suivi)
+            await evaluer_en_tache_de_fond(list(live.vessels))
         except Exception as exc:  # noqa: BLE001
             logger.warning("ais_maintenance_failed", error=str(exc))
         await asyncio.sleep(max(15, settings.ais_poll_seconds))

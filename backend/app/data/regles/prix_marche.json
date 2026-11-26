@@ -1,0 +1,48 @@
+{
+  "version": "2026-11-26",
+  "statut": "Proposé",
+  "valideurs": ["Christian", "DGPA"],
+  "note": "Prix de vente, courbes, carnet des déclarations et estimation de valeur (lot 6). Le prix à la déclaration est facultatif, comme les tarifs du profil (décision du 2026-11-24). La formule de rentabilité et la liste des charges d'une sortie restent à valider : elles ne sont pas calculées. Modifier ce fichier change le comportement sans toucher au code.",
+  "saisie": {
+    "prix_facultatif": true,
+    "prix_max_fcfa_kg": 10000000,
+    "unite": "kg"
+  },
+  "diffusion": {
+    "anonymat_min_declarations": 5,
+    "anonymat_min_pecheurs": 3
+  },
+  "carnet": {
+    "fuseau": "Africa/Libreville"
+  },
+  "explications": {
+    "prix_facultatif": "Le pêcheur peut déclarer un prix de vente au kilo ; il n'y est pas obligé. Aligné sur les tarifs facultatifs du profil.",
+    "prix_max_fcfa_kg": "Garde-fou de saisie, en francs CFA par kilo, identique à celui des tarifs du profil.",
+    "unite": "La quantité d'une capture est déjà en kilos : le prix saisi l'est au kilo.",
+    "anonymat_min_declarations": "Une moyenne de prix n'est affichée que si au moins ce nombre de déclarations portent un prix, pour la période et l'espèce.",
+    "anonymat_min_pecheurs": "Une moyenne de prix n'est affichée que si au moins ce nombre de pêcheurs distincts ont déclaré un prix, pour la période et l'espèce.",
+    "fuseau": "Jour civil du carnet des déclarations (une ligne par embarcation et par jour)."
+  },
+  "regles": {
+    "prix_declaration": {
+      "enonce": "Le prix de vente au kilo peut être saisi à la déclaration de capture ; il n'est pas exigé.",
+      "statut": "Proposé",
+      "valideurs": ["Christian"]
+    },
+    "diffusion_anonyme": {
+      "enonce": "Les courbes de prix agrègent les déclarations par espèce et par période ; une moyenne n'est montrée que si les seuils d'anonymat sont atteints. Sinon, seul le prix moyen de référence 2024 est rappelé.",
+      "statut": "Proposé",
+      "valideurs": ["Christian", "DGPA"]
+    },
+    "carnet_declarations": {
+      "enonce": "Le carnet regroupe les captures déclarées par embarcation et par jour civil. Ce n'est pas un carnet de sortie avec départ et retour (reportés, lot 3).",
+      "statut": "Proposé",
+      "valideurs": ["Christian"]
+    },
+    "valeur_estimee": {
+      "enonce": "La valeur d'une déclaration est le prix saisi multiplié par la quantité ; à défaut, le prix moyen de référence 2024. Les charges et le seuil de rentabilité ne sont pas calculés tant que la formule n'est pas validée.",
+      "statut": "Proposé",
+      "valideurs": ["Christian", "expert halieutique"]
+    }
+  }
+}

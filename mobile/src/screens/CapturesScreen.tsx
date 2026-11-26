@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Embarcation, listTrackedEmbarcations, type UtilisateurMe } from '../api';
+import {
+  Embarcation,
+  getCarnetDeclarations,
+  getCourbesPrix,
+  listTrackedEmbarcations,
+  type CarnetRead,
+  type CourbesPrixRead,
+  type UtilisateurMe,
+} from '../api';
 import type { MobileMode } from '../auth/roles';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
@@ -27,7 +35,9 @@ import { friendlyApiError } from '../lib/apiErrors';
 import {
   formatCoordonnees,
   formatDateHeure,
+  formatFcfa,
   formatHeure,
+  formatJour,
   formatNombre,
   parsePosition,
   pluriel,
@@ -72,7 +82,7 @@ type Props = {
   onBack: () => void;
 };
 
-type View_ = 'nouvelle' | 'historique';
+type View_ = 'nouvelle' | 'historique' | 'carnet';
 
 const STEPS: ReadonlyArray<Step> = [
   { label: 'Bateau', icon: 'boat-outline' },
@@ -102,6 +112,7 @@ const HELP_CAPTURES: ReadonlyArray<InfoPoint> = [
   { icon: 'cloud-upload-outline', text: 'Elle part toute seule dès que le réseau revient. L’onglet Historique montre ce qui reste à envoyer.' },
   { icon: 'location-outline', text: 'Le lieu de pêche est facultatif : vous pouvez le corriger ou le retirer avant d’enregistrer.' },
   { icon: 'shield-outline', text: 'Une espèce protégée se déclare aussi : elle est signalée aux services des pêches.' },
+  { icon: 'cash-outline', text: 'Le prix de vente au kilo est facultatif. Il sert aux courbes de marché, jamais à vous imposer un tarif.' },
 ];
 
 const HELP_LIEU: ReadonlyArray<InfoPoint> = [
@@ -151,6 +162,7 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
   const [espece, setEspece] = useState<string>(ESPECES_MVP[0]);
   const [methode, setMethode] = useState<string>(METHODES_MVP[0]);
   const [quantite, setQuantite] = useState('5');
+  const [prixKg, setPrixKg] = useState('');
   const [debarquement, setDebarquement] = useState('Owendo');
   const [dateCapture, setDateCapture] = useState(localInputNow);
   /** Tant que le pêcheur n'a pas touché à la date, elle suit l'heure du téléphone. */
@@ -171,6 +183,9 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
   const [latText, setLatText] = useState('');
   const [hemisphere, setHemisphere] = useState<Hemisphere>('N');
   const [lonText, setLonText] = useState('');
+  const [carnet, setCarnet] = useState<CarnetRead | null>(null);
+  const [courbes, setCourbes] = useState<CourbesPrixRead | null>(null);
+  const [carnetErreur, setCarnetErreur] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -181,6 +196,51 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
       // stockage local indisponible : la liste garde son dernier état
     }
   }, [userId]);
+
+  useEffect(() => {
+    if (view !== 'carnet') return;
+    let cancelled = false;
+    const pecheurIdAgent =
+      user.role === 'pecheur'
+        ? undefined
+        : (boats.find((b) => b.id === boatId)?.pecheur_id ?? boats[0]?.pecheur_id);
+    void (async () => {
+      setCarnetErreur(null);
+      const fin = new Date();
+      const debut = new Date();
+      debut.setUTCFullYear(debut.getUTCFullYear() - 1);
+      const bornes = { debut: debut.toISOString(), fin: fin.toISOString() };
+      try {
+        const carnetReq =
+          user.role === 'pecheur'
+            ? getCarnetDeclarations(token, bornes)
+            : pecheurIdAgent
+              ? getCarnetDeclarations(token, { ...bornes, pecheur_id: pecheurIdAgent })
+              : null;
+        if (!carnetReq) {
+          const c = await getCourbesPrix(token, { ...bornes, grain: 'semaine' });
+          if (!cancelled) {
+            setCarnet(null);
+            setCourbes(c);
+          }
+          return;
+        }
+        const [k, c] = await Promise.all([
+          carnetReq,
+          getCourbesPrix(token, { ...bornes, grain: 'semaine' }),
+        ]);
+        if (!cancelled) {
+          setCarnet(k);
+          setCourbes(c);
+        }
+      } catch (err) {
+        if (!cancelled) setCarnetErreur(friendlyApiError(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, token, user.role, boats, boatId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +461,18 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
       setError('Date illisible. Exemple : 2026-11-24T14:30.');
       return;
     }
+    const prixTexte = prixKg.trim().replace(/\s/g, '').replace(',', '.');
+    let prix_fcfa_kg: number | null = null;
+    if (prixTexte) {
+      const n = Number(prixTexte);
+      if (!Number.isInteger(n) || n < 1) {
+        setError(
+          'Le prix au kilo est un entier en francs CFA. Laissez vide si vous ne le connaissez pas.',
+        );
+        return;
+      }
+      prix_fcfa_kg = n;
+    }
 
     setBusy(true);
     try {
@@ -414,8 +486,10 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
         methode,
         point_debarquement: debarquement.trim(),
         date_capture: parsedDate.toISOString(),
+        prix_fcfa_kg,
         position: lieu ? lieu.position : null,
       });
+      setPrixKg('');
       await refresh();
       setStatus('Enregistré sur le téléphone. Envoi automatique dès que le réseau le permet.');
       setDateEdited(false);
@@ -475,6 +549,7 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
           options={[
             { id: 'nouvelle', label: 'Nouvelle', icon: 'add-circle-outline' },
             { id: 'historique', label: 'Historique', icon: 'list-outline', badge: counts.pending },
+            { id: 'carnet', label: 'Carnet', icon: 'book-outline' },
           ]}
         />
       </View>
@@ -736,6 +811,14 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
                     placeholder="Ex. 5"
                   />
                   <GlassField
+                    label="Prix de vente au kilo (FCFA), facultatif"
+                    icon="cash-outline"
+                    value={prixKg}
+                    onChangeText={setPrixKg}
+                    keyboardType="number-pad"
+                    placeholder="Laissé vide si inconnu"
+                  />
+                  <GlassField
                     label="Lieu de débarquement"
                     icon="flag-outline"
                     value={debarquement}
@@ -788,7 +871,7 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
               )}
             </GlassPanel>
           </>
-        ) : (
+        ) : view === 'historique' ? (
           <>
             <StatRow style={styles.historyStats}>
               <StatTile
@@ -848,7 +931,7 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
                 const synced = item.sync_status === 'synced';
                 const refused = item.sync_status === 'rejected';
                 const waiting = item.sync_status === 'pending' && Boolean(item.last_error);
-                const details = `${enginNom(item.methode)} · ${item.point_debarquement} · ${formatDateHeure(item.date_capture)}${item.position ? ' · lieu joint' : ''}`;
+                const details = `${enginNom(item.methode)} · ${item.point_debarquement} · ${formatDateHeure(item.date_capture)}${item.prix_fcfa_kg != null ? ` · ${formatFcfa(item.prix_fcfa_kg)}/kg` : ''}${item.position ? ' · lieu joint' : ''}`;
                 return (
                   <ListRow
                     key={item.id}
@@ -880,6 +963,62 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
                 );
               })
             )}
+          </>
+        ) : (
+          <>
+            {carnetErreur ? <Notice tone="error" text={carnetErreur} /> : null}
+            {!carnet && !carnetErreur && user.role !== 'pecheur' && boats.length === 0 ? (
+              <Notice
+                tone="muted"
+                icon="book-outline"
+                text="Le carnet nominatif s’affiche pour le pêcheur du bateau. Aucun bateau n’est encore connu de ce téléphone."
+              />
+            ) : null}
+            {carnet ? (
+              <>
+                <StatRow style={styles.historyStats}>
+                  <StatTile
+                    icon="scale-outline"
+                    value={`${formatNombre(carnet.volume_kg, carnet.volume_kg % 1 ? 1 : 0)} kg`}
+                    label="déclarés"
+                  />
+                  <StatTile
+                    icon="book-outline"
+                    value={formatFcfa(carnet.valeur_estimee_fcfa)}
+                    label="valeur estimée"
+                  />
+                </StatRow>
+                <Notice tone="muted" text={carnet.note_rentabilite} />
+                {carnet.jours.length === 0 ? (
+                  <Notice
+                    tone="muted"
+                    icon="book-outline"
+                    text="Aucune déclaration sur les douze derniers mois."
+                  />
+                ) : (
+                  carnet.jours.map((j) => (
+                    <ListRow
+                      key={`${j.jour}-${j.embarcation_id ?? j.immatriculation}`}
+                      icon="boat-outline"
+                      title={`${formatJour(j.jour)} · ${j.embarcation_nom}`}
+                      meta={`${formatNombre(j.rendement_kg, j.rendement_kg % 1 ? 1 : 0)} kg · ${formatFcfa(j.valeur_estimee_fcfa)} · charges non renseignées`}
+                    />
+                  ))
+                )}
+              </>
+            ) : !carnetErreur && (user.role === 'pecheur' || boats.length > 0) ? (
+              <Notice tone="muted" text="Chargement du carnet…" />
+            ) : null}
+            {courbes ? (
+              <Notice
+                tone="muted"
+                text={
+                  courbes.points.some((p) => p.espece == null && !p.masque && p.prix_moyen_fcfa_kg != null)
+                    ? `Prix moyen observé (toutes espèces) : ${formatFcfa(courbes.points.find((p) => p.espece == null && !p.masque)?.prix_moyen_fcfa_kg ?? 0)} au kilo, si au moins ${courbes.anonymat_min_pecheurs} pêcheurs ont déclaré.`
+                    : `Les courbes de prix restent masquées tant que moins de ${courbes.anonymat_min_declarations} déclarations ou ${courbes.anonymat_min_pecheurs} pêcheurs n’ont pas saisi un prix.`
+                }
+              />
+            ) : null}
           </>
         )}
       </ScrollView>

@@ -31,6 +31,7 @@ class JeuxSource(_Strict):
     peche_apparente: str = Field(..., min_length=1)
     detections_radar: str = Field(..., min_length=1)
     identite_navires: str = Field(..., min_length=1)
+    evenements_peche: str = Field(..., min_length=1)
 
 
 class RetardsSource(_Strict):

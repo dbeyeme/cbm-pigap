@@ -15,6 +15,21 @@ const LIGNES: Array<{ svg: string; titre: string; detail: string }> = [
   },
   { svg: svgSilhouette('peche', 'en_route', 35, 22, 8), titre: 'Silhouette orientée', detail: 'Navire AIS en route : cap et vitesse' },
   { svg: svgSilhouette('cargo', 'a_quai', 0, 22), titre: 'Cercle en tirets', detail: 'Navire AIS à quai ou au mouillage' },
+  {
+    svg: svgMedaillon('pirogue', 'actif', 'alerte'),
+    titre: 'Losange',
+    detail: 'Navire à contrôler : présomption, pas une infraction',
+  },
+  {
+    svg: svgMedaillon('pirogue', 'actif', 'a_verifier'),
+    titre: 'Carré',
+    detail: 'À vérifier',
+  },
+  {
+    svg: '<svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="#6d28d9" stroke="#fff" stroke-width="2"/></svg>',
+    titre: 'Point violet',
+    detail: 'Épisode de pêche apparente (essai Global Fishing Watch) : cliquer pour la fiche',
+  },
 ];
 
 export default function MapLegend() {

@@ -12,10 +12,29 @@ from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import not_found
+from app.core.errors import ApiError, not_found
 from app.db.enums import NiveauGravite, StatutAlerte, TypeAlerte, TypeZone
-from app.db.models import Alerte, Capture, Embarcation, Pecheur, Position, ZoneReglementee
-from app.modules.alertes.schemas import AlerteRead, AlerteUpdateStatut
+from app.db.models import (
+    Alerte,
+    Capture,
+    Embarcation,
+    Pecheur,
+    Position,
+    Utilisateur,
+    ZoneReglementee,
+)
+from app.modules.alertes import traitement
+from app.modules.alertes.schemas import (
+    AlerteDetailRead,
+    AlerteRead,
+    AlerteTraitement,
+    AlerteUpdateStatut,
+    DescriptionAlerte,
+    EtatPossible,
+    EtatRead,
+    EtatsRead,
+    JournalRead,
+)
 from app.modules.geolocalisation.geo import point_to_wkt
 from app.schemas.common import PointGeoJSON
 
@@ -24,36 +43,222 @@ def to_read(row: Alerte) -> AlerteRead:
     return AlerteRead.model_validate(row)
 
 
+# --------------------------------------------------------------------------- #
+# Lot 9 : liste filtrée et paginée, description, traitement, journal
+# --------------------------------------------------------------------------- #
+
+
+async def _embarcations(db: AsyncSession, rows: list[Alerte]) -> dict[UUID, Embarcation]:
+    ids = {r.embarcation_id for r in rows if r.embarcation_id is not None}
+    if not ids:
+        return {}
+    result = await db.execute(select(Embarcation).where(Embarcation.id.in_(ids)))
+    return {e.id: e for e in result.scalars().all()}
+
+
+def _lecture(row: Alerte, embarcation: Embarcation | None, regle, descriptions) -> AlerteRead:
+    etat = regle.etat(row.etat_traitement)
+    return AlerteRead.model_validate(row).model_copy(
+        update={
+            "etat_libelle": regle.libelle(row.etat_traitement),
+            "ouverte": etat.ouvert if etat is not None else None,
+            "description": DescriptionAlerte.model_validate(
+                traitement.decrire(row, embarcation, regle, descriptions)
+            ),
+        }
+    )
+
+
+def _refus_filtre(message: str) -> ApiError:
+    return ApiError(422, message, "FILTRE_INVALIDE")
+
+
 async def list_alertes(
     db: AsyncSession,
     *,
     type_alerte: TypeAlerte | None = None,
     statut: StatutAlerte | None = None,
     embarcation_id: UUID | None = None,
-    limit: int = 100,
-) -> list[AlerteRead]:
-    stmt = select(Alerte).order_by(Alerte.horodatage.desc()).limit(min(limit, 500))
+    limit: int | None = None,
+    offset: int = 0,
+    etats: list[str] | None = None,
+    gravites: list[NiveauGravite] | None = None,
+    regle_code: str | None = None,
+    depuis: datetime | None = None,
+    jusqu_a: datetime | None = None,
+) -> tuple[list[AlerteRead], int]:
+    """Alertes de la plus récente à la plus ancienne, filtrées, avec le total avant pagination."""
+    regle, descriptions, _ = traitement.regle_traitement()
+    limite = regle.liste_limite_defaut if limit is None else limit
+    if limite > regle.liste_limite_max:
+        raise _refus_filtre(f"Une page compte au plus {regle.liste_limite_max} alertes.")
+    for etat in etats or []:
+        if regle.etat(etat) is None:
+            raise _refus_filtre(f"État inconnu : « {etat} ».")
+    # Une date sans fuseau est lue en temps universel
+    if depuis is not None and depuis.tzinfo is None:
+        depuis = depuis.replace(tzinfo=UTC)
+    if jusqu_a is not None and jusqu_a.tzinfo is None:
+        jusqu_a = jusqu_a.replace(tzinfo=UTC)
+    if depuis is not None and jusqu_a is not None and depuis >= jusqu_a:
+        raise _refus_filtre("La date de début doit précéder la date de fin.")
+
+    filtres = []
     if type_alerte is not None:
-        stmt = stmt.where(Alerte.type == type_alerte)
+        filtres.append(Alerte.type == type_alerte)
     if statut is not None:
-        stmt = stmt.where(Alerte.statut == statut)
+        filtres.append(Alerte.statut == statut)
     if embarcation_id is not None:
-        stmt = stmt.where(Alerte.embarcation_id == embarcation_id)
-    rows = (await db.execute(stmt)).scalars().all()
-    return [to_read(r) for r in rows]
+        filtres.append(Alerte.embarcation_id == embarcation_id)
+    if etats:
+        filtres.append(Alerte.etat_traitement.in_(etats))
+    if gravites:
+        filtres.append(Alerte.niveau_gravite.in_(gravites))
+    if regle_code:
+        filtres.append(Alerte.declencheur["regle"].as_string() == regle_code)
+    if depuis is not None:
+        filtres.append(Alerte.horodatage >= depuis)
+    if jusqu_a is not None:
+        filtres.append(Alerte.horodatage < jusqu_a)
+
+    total = int((await db.execute(select(func.count(Alerte.id)).where(*filtres))).scalar_one() or 0)
+    rows = list(
+        (
+            await db.execute(
+                select(Alerte)
+                .where(*filtres)
+                .order_by(Alerte.horodatage.desc(), Alerte.id)
+                .limit(limite)
+                .offset(offset)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    bateaux = await _embarcations(db, rows)
+    return [_lecture(r, bateaux.get(r.embarcation_id), regle, descriptions) for r in rows], total
 
 
-async def update_statut(db: AsyncSession, alerte_id: UUID, data: AlerteUpdateStatut) -> AlerteRead:
+async def detail_alerte(db: AsyncSession, alerte_id: UUID) -> AlerteDetailRead:
+    regle, descriptions, _ = traitement.regle_traitement()
     row = await db.get(Alerte, alerte_id)
     if row is None:
         raise not_found("Alerte introuvable", "ALERTE_NOT_FOUND")
-    row.statut = data.statut
+    bateau = await db.get(Embarcation, row.embarcation_id) if row.embarcation_id else None
+    lecture = _lecture(row, bateau, regle, descriptions)
+    lignes = await traitement.journal(db, row.id)
+    return AlerteDetailRead(
+        **lecture.model_dump(),
+        journal=[
+            JournalRead(
+                id=ligne.id,
+                horodatage=ligne.horodatage,
+                etat_avant=ligne.etat_avant,
+                etat_avant_libelle=regle.libelle(ligne.etat_avant),
+                etat_apres=ligne.etat_apres,
+                etat_apres_libelle=regle.libelle(ligne.etat_apres),
+                commentaire=ligne.commentaire,
+                auteur_nom=ligne.auteur_nom,
+                auteur_role=ligne.auteur_role,
+                origine=ligne.origine,
+            )
+            for ligne in lignes
+        ],
+        transitions_possibles=[
+            EtatPossible(code=c, libelle=regle.libelle(c))
+            for c in regle.suivants(row.etat_traitement)
+        ],
+    )
+
+
+async def traiter(
+    db: AsyncSession, alerte_id: UUID, data: AlerteTraitement, auteur: Utilisateur
+) -> AlerteDetailRead:
+    """Changement d'état : transition permise, commentaire exigé, journal inscrit."""
+    regle, _descriptions, _ = traitement.regle_traitement()
+    alerte = await traitement.alerte_verrouillee(db, alerte_id)
+    commentaire = traitement.commentaire_valide(data.commentaire, regle)
+    traitement.changer_etat(
+        db,
+        alerte,
+        arrivee=data.etat,
+        commentaire=commentaire,
+        auteur=auteur,
+        origine="traitement",
+        regle=regle,
+        controler=True,
+    )
     await db.commit()
-    await db.refresh(row)
     from app.modules.notifications.hub import hub
 
-    await hub.publish({"kind": "alerte_statut", "id": str(row.id)})
-    return to_read(row)
+    await hub.publish({"kind": "alerte_statut", "id": str(alerte_id)})
+    return await detail_alerte(db, alerte_id)
+
+
+async def update_statut(
+    db: AsyncSession, alerte_id: UUID, data: AlerteUpdateStatut, auteur: Utilisateur
+) -> AlerteRead:
+    """Ancien point d'accès (statut historique), gardé pour le portail existant.
+
+    Le statut est traduit en état de traitement par le paramétrage, et le
+    changement est inscrit au journal comme tout autre.
+    """
+    regle, descriptions, _ = traitement.regle_traitement()
+    alerte = await traitement.alerte_verrouillee(db, alerte_id)
+    arrivee = regle.ancien_ecran.statut_vers_etat.get(data.statut)
+    if arrivee is None:
+        raise ApiError(422, "Statut non reconnu.", "ETAT_INCONNU")
+    actuel = regle.etat(alerte.etat_traitement)
+    # Déjà dans un état qui correspond à ce statut (« prise en charge » pour « nouvelle »,
+    # par exemple) : rien ne change, rien n'est inscrit.
+    deja = actuel is not None and actuel.statut_historique == data.statut
+    if not deja:
+        texte = (data.commentaire or "").strip()
+        commentaire = (
+            traitement.commentaire_valide(texte, regle)
+            if texte
+            else regle.ancien_ecran.commentaire_par_defaut
+        )
+        traitement.changer_etat(
+            db,
+            alerte,
+            arrivee=arrivee,
+            commentaire=commentaire,
+            auteur=auteur,
+            origine="ancien_ecran",
+            regle=regle,
+            controler=regle.ancien_ecran.controle_des_transitions,
+        )
+        await db.commit()
+        from app.modules.notifications.hub import hub
+
+        await hub.publish({"kind": "alerte_statut", "id": str(alerte.id)})
+    await db.refresh(alerte)
+    bateau = await db.get(Embarcation, alerte.embarcation_id) if alerte.embarcation_id else None
+    return _lecture(alerte, bateau, regle, descriptions)
+
+
+def etats() -> EtatsRead:
+    regle, _descriptions, entete = traitement.regle_traitement()
+    return EtatsRead(
+        etats=[
+            EtatRead(
+                code=e.code,
+                libelle=e.libelle,
+                ouvert=e.ouvert,
+                statut_historique=e.statut_historique,
+                transitions=[
+                    EtatPossible(code=c, libelle=regle.libelle(c))
+                    for c in regle.transitions.get(e.code, [])
+                ],
+            )
+            for e in regle.etats
+        ],
+        etat_initial=regle.etat_initial,
+        commentaire_min_caracteres=regle.commentaire_min_caracteres,
+        commentaire_max_caracteres=regle.commentaire_max_caracteres,
+        statut_regles=entete["statut"],
+    )
 
 
 async def _has_similar(

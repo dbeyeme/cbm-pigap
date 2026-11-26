@@ -39,6 +39,7 @@ function capture(id: string, espece = 'thon', position: [number, number] | null 
     methode: 'ligne_main',
     point_debarquement: 'Owendo',
     date_capture: '2026-11-24T08:33:00.000Z',
+    prix_fcfa_kg: null,
     position,
     sync_status: 'pending',
     created_at: '2026-11-24T08:33:00.000Z',
@@ -62,8 +63,32 @@ describe('syncPendingCaptures', () => {
     const sent = send.mock.calls[0][1];
     expect(sent[0].position_capture).toEqual({ type: 'Point', coordinates: [9.05, 0.42] });
     expect('position_capture' in sent[1]).toBe(false);
+    expect('prix_fcfa_kg' in sent[0]).toBe(false);
+    expect('prix_fcfa_kg' in sent[1]).toBe(false);
     expect(mockSynced).toEqual(['a', 'b']);
     expect(report).toMatchObject({ accepted: 2, rejected: 0, deferred: 0, stopped: null });
+  });
+
+  it('envoie le prix au kilo seulement s’il a été saisi', async () => {
+    mockPending = [capture('sans'), { ...capture('avec'), prix_fcfa_kg: 600 }];
+    send.mockResolvedValue({ accepts: ['sans', 'avec'], duplicates: [], rejects: [] });
+    await syncPendingCaptures('jeton', 'u1');
+    const sent = send.mock.calls[0][1];
+    expect('prix_fcfa_kg' in sent[0]).toBe(false);
+    expect(sent[1].prix_fcfa_kg).toBe(600);
+  });
+
+  it('écarte pour de bon une déclaration dont le prix est refusé', async () => {
+    mockPending = [{ ...capture('a'), prix_fcfa_kg: 10_000_001 }];
+    send.mockResolvedValue({
+      accepts: [],
+      duplicates: [],
+      rejects: [{ id: 'a', detail: 'Prix trop élevé', code: 'PRIX_TROP_ELEVE' }],
+    });
+    const report = await syncPendingCaptures('jeton', 'u1');
+    expect(mockRejected).toEqual(['a']);
+    expect(mockErrors).toEqual([]);
+    expect(report.rejected).toBe(1);
   });
 
   it('isole la déclaration mal formée et envoie les autres', async () => {

@@ -6,6 +6,11 @@ import Modal from './Modal';
 import { useToast } from './ToastProvider';
 import { IconArrowLeft, IconArrowRight, IconBuilding, IconCheck, IconClose, IconUsers } from './Icons';
 import { NATIONALITES } from '../api';
+import ComplementsFields, {
+  complementsPayload,
+  complementsVides,
+  type ComplementsSaisie,
+} from './ComplementsFields';
 import EquipementsFields, {
   emptyEquipements,
   equipementsPayload,
@@ -68,6 +73,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
   const [nationalite, setNationalite] = useState('gabon');
   const [embLongueur, setEmbLongueur] = useState('');
   const [embEquip, setEmbEquip] = useState<Equipements>(emptyEquipements());
+  const [embComp, setEmbComp] = useState<ComplementsSaisie>(complementsVides());
   const [message, setMessage] = useState('');
   const [pieces, setPieces] = useState<PieceDraft[]>([]);
   const [pickType, setPickType] = useState('piece_identite');
@@ -91,6 +97,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
     setZone('Estuaire');
     setEmbNom('');
     setEmbImmat('');
+    setEmbComp(complementsVides());
     setMessage('');
     setPieces([]);
     setPickType('piece_identite');
@@ -145,6 +152,10 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
         if (embLongueur.trim()) fd.set('embarcation_longueur', embLongueur.replace(',', '.'));
         const equip = equipementsPayload(embEquip);
         if (equip) fd.set('embarcation_equipements', JSON.stringify(equip));
+        const complements = complementsPayload(embComp);
+        if (Object.keys(complements).length) {
+          fd.set('embarcation_complements', JSON.stringify(complements));
+        }
       } else {
         fd.set('org_nom', orgNom);
         fd.set('org_type', orgType);
@@ -378,6 +389,9 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
                     longueur={embLongueur}
                     onLongueur={setEmbLongueur}
                   />
+                  <div className="span-2">
+                    <ComplementsFields value={embComp} onChange={setEmbComp} />
+                  </div>
                 </>
               ) : null}
               <label className="span-2">

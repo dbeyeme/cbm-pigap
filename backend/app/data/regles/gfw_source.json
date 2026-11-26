@@ -12,7 +12,8 @@
     "jeux": {
       "peche_apparente": "public-global-fishing-effort:latest",
       "detections_radar": "public-global-sar-presence:latest",
-      "identite_navires": "public-global-vessel-identity:latest"
+      "identite_navires": "public-global-vessel-identity:latest",
+      "evenements_peche": "public-global-fishing-events:latest"
     },
     "retard_publication_heures": {
       "peche_apparente": 96,
@@ -30,7 +31,7 @@
   },
   "explications": {
     "zone": "Zone interrogée : identifiant de la ZEE du Gabon dans le jeu de zones de l'éditeur (vérifié le 2026-11-24).",
-    "jeux": "Jeux de données de l'éditeur : heures de pêche apparente, détections radar, identité des navires.",
+    "jeux": "Jeux de données de l'éditeur : heures de pêche apparente, détections radar, identité des navires, évènements de pêche apparente (points cliquables sur la carte).",
     "retard_publication_heures": "Retard annoncé par l'éditeur : 96 heures pour la pêche apparente, 5 jours pour le radar. Sert à calculer la date de fraîcheur renvoyée avec chaque réponse.",
     "attribution": "Mention exigée par l'éditeur sur chaque écran qui affiche ces données, avec son lien.",
     "periode_defaut_jours": "Période retenue quand la demande ne précise aucune date ; elle se termine à la date de fraîcheur.",

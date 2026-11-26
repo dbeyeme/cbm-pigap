@@ -140,6 +140,14 @@ def _step_minutes(prev: tuple[float, float] | None, curr: tuple[float, float]) -
     return max(_MIN_STEP_MIN, min(_MAX_STEP_MIN, int(round(dist / _KM_PER_MIN))))
 
 
+def _sans_journal():
+    """Alertes sans traitement inscrit : le journal (lot 9) ne se supprime jamais."""
+    from app.db.models import Alerte, AlerteJournal
+    from sqlalchemy import exists, select
+
+    return ~exists(select(AlerteJournal.id).where(AlerteJournal.alerte_id == Alerte.id))
+
+
 async def ensure_staff(session) -> None:
     for email, nom, role, phone, pwd in [
         ("admin@example.com", "Admin Démo", RoleUtilisateur.admin, "+24106000000", "AdminPass123!"),
@@ -301,7 +309,9 @@ async def purge_legacy_noise(session, keep_boats: list[Embarcation]) -> None:
         await session.delete(z)
         print(f"  purge zone test : {z.nom}")
 
-    r = await session.execute(delete(Alerte).where(Alerte.type == TypeAlerte.zone_interdite))
+    r = await session.execute(
+        delete(Alerte).where(Alerte.type == TypeAlerte.zone_interdite, _sans_journal())
+    )
     print(f"  purge alertes zone_interdite : {r.rowcount or 0}")
 
 

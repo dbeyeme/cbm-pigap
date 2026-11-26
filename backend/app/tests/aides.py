@@ -178,6 +178,7 @@ async def inserer_capture(
     espece: str,
     quantite_kg: float,
     quand: datetime,
+    prix_fcfa_kg: int | None = None,
 ) -> None:
     """Capture fictive écrite directement en base, sans évaluation des règles d'alerte
     (une espèce protégée déclarée par l'API créerait une alerte critique)."""
@@ -191,6 +192,7 @@ async def inserer_capture(
                 methode="filet",
                 point_debarquement="Débarcadère fictif",
                 date_capture=quand,
+                prix_fcfa_kg=prix_fcfa_kg,
                 synchronise_a=quand,
             )
         )

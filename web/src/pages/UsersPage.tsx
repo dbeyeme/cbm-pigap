@@ -8,10 +8,9 @@ import {
   StaffUser,
   updateStaff,
 } from '../api';
-import CompactList from '../components/CompactList';
 import Modal from '../components/Modal';
 import PageBanner from '../components/PageBanner';
-import { IconFilter, IconPlus, IconTrash } from '../components/Icons';
+import { IconFilter, IconPlus, IconSave, IconTrash, IconXCircle } from '../components/Icons';
 
 type Props = {
   token: string;
@@ -59,6 +58,15 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
   }, [token, refresh, onError]);
 
   const [panelOpen, setPanelOpen] = useState(false);
+
+  function resetForm() {
+    setSelected(null);
+    setNom('');
+    setRole('agent_controle');
+    setEmail('');
+    setTelephone('');
+    setMotDePasse('');
+  }
 
   function fillForm(u: StaffUser | null) {
     setPanelOpen(true);
@@ -119,7 +127,7 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
         });
         setStatus('Compte créé');
       }
-      fillForm(null);
+      resetForm();
       setPanelOpen(false);
       await refresh(q, roleFilter);
     } catch (err) {
@@ -140,7 +148,7 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
     onError(null);
     try {
       await deleteStaff(token, selected.id);
-      fillForm(null);
+      resetForm();
       setPanelOpen(false);
       setStatus('Compte supprimé');
       await refresh(q, roleFilter);
@@ -208,105 +216,134 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
             </div>
           </form>
 
-          <CompactList
-            items={users}
-            getKey={(u) => u.id}
-            initial={8}
-            empty={<p className="empty-list">Aucun compte pour l’instant.</p>}
-            renderItem={(u) => {
-              const isAdmin = u.role === 'admin';
-              const on = selected?.id === u.id;
-              return (
-                <button
-                  type="button"
-                  className={`team-user-card${on ? ' on' : ''}`}
-                  onClick={() => fillForm(u)}
-                >
-                  <span className={`team-avatar${isAdmin ? ' admin' : ''}`}>
-                    {u.nom.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="team-user-text">
-                    <span className="traj-title">{u.nom}</span>
-                    <span className="traj-meta">
-                      {ROLE_LABEL[isAdmin ? 'admin' : 'agent_controle']}
-                      {u.email ? ` · ${u.email}` : u.telephone ? ` · ${u.telephone}` : ''}
-                    </span>
-                  </span>
-                  <span className={`team-role-pill${isAdmin ? ' admin' : ''}`}>
-                    {isAdmin ? 'Admin' : 'Agent'}
-                  </span>
-                </button>
-              );
-            }}
-          />
+          {users.length === 0 ? (
+            <p className="empty-list">Aucun compte pour l’instant.</p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Rôle</th>
+                  <th>Contact</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr
+                    key={u.id}
+                    className={`is-clickable${selected?.id === u.id ? ' is-selected' : ''}`}
+                    onClick={() => fillForm(u)}
+                  >
+                    <td data-label="Nom">
+                      <button type="button" className="ligne-bouton">
+                        {u.nom}
+                      </button>
+                    </td>
+                    <td data-label="Rôle">{ROLE_LABEL[u.role === 'admin' ? 'admin' : 'agent_controle']}</td>
+                    <td data-label="Contact">{u.email || u.telephone || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </aside>
 
       </div>
       <Modal
         open={panelOpen}
         title={selected ? `Modifier — ${selected.nom}` : 'Nouveau compte'}
-        onClose={() => setPanelOpen(false)}
+        onClose={() => {
+          resetForm();
+          setPanelOpen(false);
+        }}
         illustration="equipe"
+        wide
+        footer={
+          <div className="row-actions">
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                resetForm();
+                setPanelOpen(false);
+              }}
+            >
+              <IconXCircle size={16} /> Annuler
+            </button>
+            {selected ? (
+              <button
+                type="button"
+                className="ghost danger-ghost"
+                disabled={loading || selected.id === currentUserId}
+                onClick={() => void onDelete()}
+              >
+                <IconTrash size={16} /> Supprimer
+              </button>
+            ) : null}
+            <button type="submit" form="form-compte" className="btn-primary" disabled={loading}>
+              {selected ? (
+                <>
+                  <IconSave size={16} /> Enregistrer
+                </>
+              ) : (
+                <>
+                  <IconPlus size={16} /> Créer le compte
+                </>
+              )}
+            </button>
+          </div>
+        }
       >
         <p className="team-panel-lede">
-            {selected
-              ? 'Modifiez les informations puis enregistrez. Laissez le mot de passe vide pour ne pas le changer.'
-              : 'Remplissez le formulaire pour créer un agent ou un administrateur.'}
-          </p>
-          <form className="stack-form" onSubmit={onSubmit}>
-            <label>
-              Nom complet
-              <input required value={nom} onChange={(e) => setNom(e.target.value)} />
-            </label>
-            <label>
-              Rôle
-              <select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
-                <option value="agent_controle">Agent de contrôle</option>
-                <option value="admin">Administrateur</option>
-              </select>
-            </label>
-            <label>
-              E-mail
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="agent@exemple.ga"
-              />
-            </label>
-            <label>
-              Téléphone
-              <input
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
-                placeholder="+241…"
-              />
-            </label>
-            <label>
-              Mot de passe{selected ? ' (optionnel)' : ''}
-              <input
-                type="password"
-                value={motDePasse}
-                onChange={(e) => setMotDePasse(e.target.value)}
-                minLength={selected ? undefined : 8}
-                required={!selected}
-                autoComplete="new-password"
-                placeholder={selected ? 'Laisser vide pour conserver' : 'Min. 8 caractères'}
-              />
-            </label>
-            <div className="row-actions">
-              <button type="submit" className="btn-primary" disabled={loading}><IconPlus size={16} /> {selected ? 'Enregistrer' : 'Créer le compte'}</button>
-              {selected ? (
-                <button
-                  type="button"
-                  className="ghost danger-ghost"
-                  disabled={loading || selected.id === currentUserId}
-                  onClick={() =>
-              void onDelete()}
-                ><IconTrash size={16} /> Supprimer</button>
-              ) : null}
-            </div>
-          </form>
+          {selected
+            ? 'Modifiez les informations puis enregistrez. Laissez le mot de passe vide pour ne pas le changer.'
+            : 'Remplissez le formulaire pour créer un agent ou un administrateur.'}
+        </p>
+        <form id="form-compte" className="stack-form form-grille" onSubmit={onSubmit}>
+          <label>
+            Nom complet
+            <input required value={nom} onChange={(e) => setNom(e.target.value)} autoComplete="name" />
+          </label>
+          <label>
+            Rôle
+            <select value={role} onChange={(e) => setRole(e.target.value as StaffRole)}>
+              <option value="agent_controle">Agent de contrôle</option>
+              <option value="admin">Administrateur</option>
+            </select>
+          </label>
+          <label>
+            E-mail
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="agent@exemple.ga"
+              autoComplete="off"
+            />
+          </label>
+          <label>
+            Téléphone
+            <input
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+              placeholder="+241…"
+              inputMode="tel"
+              autoComplete="off"
+            />
+          </label>
+          <label className="form-grille-large">
+            Mot de passe{selected ? ' (optionnel)' : ''}
+            <input
+              type="password"
+              value={motDePasse}
+              onChange={(e) => setMotDePasse(e.target.value)}
+              minLength={selected ? undefined : 8}
+              required={!selected}
+              autoComplete="new-password"
+              placeholder={selected ? 'Laisser vide pour conserver' : 'Min. 8 caractères'}
+            />
+          </label>
+        </form>
       </Modal>
     </section>
   );

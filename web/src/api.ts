@@ -19,7 +19,7 @@ export type Embarcation = {
   puissance_moteur_cv?: number | null;
   site_attache?: string | null;
   strate?: string | null;
-};
+} & ComplementsEmbarcation;
 
 export type Pecheur = {
   id: string;
@@ -59,7 +59,7 @@ export type EmbarcationCreate = {
   longueur?: number | null;
   /** Équipements utilisés (§5.1) : engins, moteur, sécurité. */
   equipements?: Record<string, unknown> | null;
-};
+} & ComplementsEmbarcation;
 
 export type PositionPoint = {
   id: string;
@@ -93,6 +93,11 @@ export type LiveVessel = {
   age_seconds: number;
   statut: 'actif' | 'recent' | 'silence' | string;
   secteur: 'cote' | 'bras_mer' | 'fleuve' | string;
+  age_libelle?: string | null;
+  perimee?: boolean;
+  regularite?: string | null;
+  regularite_libelle?: string | null;
+  motifs?: string[];
 };
 
 export type AisStatutNav =
@@ -132,6 +137,11 @@ export type AisVessel = {
   entree_prevue_h?: number | null;
   entree_prevue_position?: { type: 'Point'; coordinates: [number, number] } | null;
   position_estimee?: { type: 'Point'; coordinates: [number, number] } | null;
+  age_libelle?: string | null;
+  regularite?: string | null;
+  regularite_libelle?: string | null;
+  motifs?: string[];
+  embarcation_id?: string | null;
 };
 
 export type AisTrackPoint = {
@@ -558,6 +568,7 @@ export type CaptureRead = {
   methode: string | null;
   point_debarquement: string | null;
   date_capture: string;
+  prix_fcfa_kg?: number | null;
   synchronise_a: string | null;
   taxe_fcfa?: number | null;
   taxe_taux_kg?: number | null;
@@ -590,6 +601,7 @@ export type CaptureCreate = {
   methode: string;
   point_debarquement: string;
   date_capture: string;
+  prix_fcfa_kg?: number | null;
   id?: string;
 };
 
@@ -601,6 +613,7 @@ export type CaptureUpdate = {
   methode?: string;
   point_debarquement?: string;
   date_capture?: string;
+  prix_fcfa_kg?: number | null;
 };
 
 export function getCapturesCatalog(token: string) {
@@ -639,6 +652,90 @@ export function deleteCapture(token: string, id: string) {
   });
 }
 
+export type GrainPrix = 'jour' | 'semaine' | 'mois';
+
+export type PointCourbePrix = {
+  periode: string;
+  espece: string | null;
+  prix_moyen_fcfa_kg: number | null;
+  masque: boolean;
+  nb_declarations: number;
+  nb_pecheurs: number;
+  volume_kg: number;
+  prix_reference_2024_fcfa_kg: number | null;
+};
+
+export type CourbesPrixRead = {
+  grain: GrainPrix;
+  periode_debut: string | null;
+  periode_fin: string | null;
+  points: PointCourbePrix[];
+  anonymat_min_declarations: number;
+  anonymat_min_pecheurs: number;
+  statut_regles: string;
+  genere_a: string;
+};
+
+export type LigneCarnet = {
+  id: string;
+  espece: string;
+  espece_nom: string;
+  quantite_kg: number;
+  prix_fcfa_kg: number | null;
+  valeur_fcfa: number | null;
+  source_valeur: 'declare' | 'reference_2024' | 'indisponible';
+};
+
+export type JourneeCarnet = {
+  jour: string;
+  embarcation_id: string;
+  embarcation_nom: string;
+  immatriculation: string;
+  volume_kg: number;
+  valeur_declaree_fcfa: number;
+  valeur_estimee_fcfa: number;
+  rendement_kg: number;
+  charges_fcfa: number | null;
+  lignes: LigneCarnet[];
+};
+
+export type CarnetRead = {
+  pecheur_id: string;
+  pecheur_nom: string;
+  jours: JourneeCarnet[];
+  volume_kg: number;
+  valeur_declaree_fcfa: number;
+  valeur_estimee_fcfa: number;
+  note_rentabilite: string;
+  statut_regles: string;
+  genere_a: string;
+};
+
+export function getCourbesPrix(
+  token: string,
+  params?: { debut?: string; fin?: string; grain?: GrainPrix; espece?: string },
+) {
+  const q = new URLSearchParams();
+  if (params?.debut) q.set('debut', params.debut);
+  if (params?.fin) q.set('fin', params.fin);
+  if (params?.grain) q.set('grain', params.grain);
+  if (params?.espece) q.set('espece', params.espece);
+  const qs = q.toString();
+  return request<CourbesPrixRead>(`/api/v1/prix/courbes${qs ? `?${qs}` : ''}`, token);
+}
+
+export function getCarnetDeclarations(
+  token: string,
+  params?: { pecheur_id?: string; debut?: string; fin?: string },
+) {
+  const q = new URLSearchParams();
+  if (params?.pecheur_id) q.set('pecheur_id', params.pecheur_id);
+  if (params?.debut) q.set('debut', params.debut);
+  if (params?.fin) q.set('fin', params.fin);
+  const qs = q.toString();
+  return request<CarnetRead>(`/api/v1/prix/carnet${qs ? `?${qs}` : ''}`, token);
+}
+
 export type QuotaRead = {
   id: string;
   espece: string;
@@ -658,6 +755,16 @@ export type QuotaCreate = {
   volume_autorise_kg: number;
 };
 
+export type AlerteDescription = {
+  titre: string;
+  resume: string;
+  quand?: string | null;
+  ou?: string | null;
+  regle: { code: string | null; libelle: string };
+  embarcation?: { id: string; nom: string; immatriculation: string } | null;
+  donnees: Array<{ libelle: string; valeur: string }>;
+};
+
 export type QuotaAlerte = {
   id: string;
   type: string;
@@ -666,6 +773,44 @@ export type QuotaAlerte = {
   declencheur: Record<string, unknown>;
   horodatage: string;
   statut: string;
+  etat_traitement?: string | null;
+  etat_libelle?: string | null;
+  ouverte?: boolean | null;
+  description?: AlerteDescription | null;
+};
+
+export type AlerteJournal = {
+  id: string;
+  horodatage: string;
+  etat_avant: string;
+  etat_avant_libelle: string;
+  etat_apres: string;
+  etat_apres_libelle: string;
+  commentaire: string;
+  auteur_nom: string;
+  auteur_role: string;
+  origine: string;
+};
+
+export type AlerteEtatPossible = { code: string; libelle: string };
+
+export type AlerteDetail = QuotaAlerte & {
+  journal: AlerteJournal[];
+  transitions_possibles: AlerteEtatPossible[];
+};
+
+export type AlerteEtatRead = AlerteEtatPossible & {
+  ouvert: boolean;
+  statut_historique: string;
+  transitions: AlerteEtatPossible[];
+};
+
+export type AlertesEtatsRead = {
+  etats: AlerteEtatRead[];
+  etat_initial: string;
+  commentaire_min_caracteres: number;
+  commentaire_max_caracteres: number;
+  statut_regles: string;
 };
 
 export function listQuotas(token: string, espece?: string) {
@@ -890,14 +1035,42 @@ export function getPredictions(token: string, horizonJours: 7 | 30 = 30) {
 
 export function listAlertes(
   token: string,
-  params?: { type?: string; statut?: string; embarcation_id?: string },
+  params?: {
+    type?: string;
+    statut?: string;
+    embarcation_id?: string;
+    etat?: string[];
+    gravite?: string[];
+  },
 ) {
   const q = new URLSearchParams();
   if (params?.type) q.set('type', params.type);
   if (params?.statut) q.set('statut', params.statut);
   if (params?.embarcation_id) q.set('embarcation_id', params.embarcation_id);
+  for (const e of params?.etat ?? []) q.append('etat', e);
+  for (const g of params?.gravite ?? []) q.append('gravite', g);
   const qs = q.toString();
   return request<QuotaAlerte[]>(`/api/v1/alertes${qs ? `?${qs}` : ''}`, token);
+}
+
+export function getAlertesEtats(token: string) {
+  return request<AlertesEtatsRead>('/api/v1/alertes/etats', token);
+}
+
+export function getAlerteDetail(token: string, id: string) {
+  return request<AlerteDetail>(`/api/v1/alertes/${id}`, token);
+}
+
+export function postAlerteTraitement(
+  token: string,
+  id: string,
+  etat: string,
+  commentaire: string,
+) {
+  return request<AlerteDetail>(`/api/v1/alertes/${id}/traitements`, token, {
+    method: 'POST',
+    body: JSON.stringify({ etat, commentaire }),
+  });
 }
 
 export function patchAlerteStatut(
@@ -970,6 +1143,8 @@ export type DemandeLicenceCreate = {
   embarcation_nom?: string | null;
   embarcation_immatriculation?: string | null;
   embarcation_type?: string | null;
+  /** Informations d'inscription complémentaires de l'embarcation, toutes facultatives (lot 2). */
+  embarcation_complements?: ComplementsEmbarcation | null;
   message?: string | null;
 };
 
@@ -1406,6 +1581,12 @@ export const ALERT_RULE_LABELS: Record<string, string> = {
   espece_protegee: 'Capture déclarée d’une espèce protégée',
   declaration_manquante: 'Retour au port sans déclaration de capture',
   infraction_constatee: 'Infraction constatée lors d’un contrôle',
+  suivi_double_appareil: 'Second téléphone sur une embarcation déjà suivie',
+  navire_peche_non_enregistre: 'Navire de pêche hors registre',
+  navire_ais_zone_interdite: 'Navire AIS en zone interdite',
+  presence_zone_interdite: 'Navire AIS en zone interdite',
+  extinction_signal_ais: 'Signal AIS éteint',
+  extinction_signal: 'Signal AIS éteint',
 };
 
 export const GRAVITE_LABELS: Record<string, string> = {
@@ -1919,4 +2100,451 @@ export function verifierLicence(token: string, numero: string) {
 
 export function verifPublique(type: 'licence' | 'quittance', numero: string) {
   return request<VerifPublique>(`/api/v1/public/verif/${type}/${encodeURIComponent(numero)}`);
+}
+
+/* ——— Erreurs détaillées : statut HTTP et code métier ——— */
+
+/** Erreur d'API qui garde le statut et le code renvoyés par le serveur (message inchangé). */
+export class ApiError extends Error {
+  status: number;
+  code: string | null;
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function codeErreur(text: string): string | null {
+  try {
+    const j = JSON.parse(text) as { code?: unknown };
+    return typeof j.code === 'string' ? j.code : null;
+  } catch {
+    return null;
+  }
+}
+
+async function requestDetaille<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await res.text();
+  if (!res.ok) throw new ApiError(parseApiError(text), res.status, codeErreur(text));
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/* ——— Lot 10 : appareils rattachés à un pêcheur ——— */
+
+export type Appareil = {
+  id: string;
+  empreinte_abregee: string;
+  origine: 'android' | 'install' | string;
+  etat: 'actif' | 'libere' | string;
+  premiere_utilisation: string | null;
+  derniere_utilisation: string | null;
+  libere_le: string | null;
+  libere_par_id: string | null;
+  libere_par: string | null;
+  motif_liberation: string | null;
+};
+
+export type AppareilsPecheur = {
+  pecheur_id: string;
+  appareils_autorises: number;
+  appareils_actifs: number;
+  appareils: Appareil[];
+};
+
+export function listAppareils(token: string, pecheurId: string) {
+  return requestDetaille<AppareilsPecheur>(`/api/v1/pecheurs/${pecheurId}/appareils`, token);
+}
+
+export function libererAppareil(token: string, pecheurId: string, appareilId: string, motif: string) {
+  return requestDetaille<AppareilsPecheur>(
+    `/api/v1/pecheurs/${pecheurId}/appareils/${appareilId}/liberation`,
+    token,
+    { method: 'POST', body: JSON.stringify({ motif }) },
+  );
+}
+
+export function autoriserAppareil(token: string, pecheurId: string, motif: string) {
+  return requestDetaille<AppareilsPecheur>(`/api/v1/pecheurs/${pecheurId}/appareils/autorisation`, token, {
+    method: 'POST',
+    body: JSON.stringify({ motif }),
+  });
+}
+
+/* ——— Lot 5 : activité par zone ——— */
+
+export type MailleActivite = {
+  type: 'Feature';
+  id: string;
+  geometry: { type: 'Polygon'; coordinates: [number, number][][] };
+  properties: { heures_activite: number; nb_embarcations: number; nb_intervalles: number; sources: string[] };
+};
+
+export type RegleActivite = { version: string; statut: string; parametres: Record<string, unknown> };
+
+export type MaillesActivite = {
+  type: 'FeatureCollection';
+  features: MailleActivite[];
+  periode: { debut: string; fin: string };
+  taille_maille_deg: number;
+  totaux: { heures_activite: number; nb_embarcations: number; nb_intervalles: number; nb_mailles: number };
+  regle: RegleActivite;
+  genere_a: string;
+};
+
+export type SecteurActivite = { id: string; nom: string; type: string; lon: number; lat: number; rayon_km: number };
+
+export type FiltresActivite = {
+  debut?: string;
+  fin?: string;
+  secteur?: string;
+  zone_id?: string;
+  source?: 'mobile' | 'balise';
+};
+
+export function getActiviteMailles(token: string, f: FiltresActivite) {
+  return requestDetaille<MaillesActivite>(`/api/v1/activite/mailles${qs(f)}`, token);
+}
+
+export function listSecteursActivite(token: string) {
+  return requestDetaille<SecteurActivite[]>('/api/v1/activite/secteurs', token);
+}
+
+export type GroupeCaptures = {
+  quantite_kg: number;
+  nb_declarations: number;
+  par_espece: Array<{ espece: string; nom: string; quantite_kg: number; nb_declarations: number }>;
+};
+
+export type ZoneRapport = { genre: string; id: string; nom: string; type: string | null };
+
+export type CapturesParZone = {
+  zone: ZoneRapport;
+  periode: { debut: string; fin: string };
+  dans_la_zone: GroupeCaptures;
+  sans_position: GroupeCaptures;
+  positionnees_hors_zone: GroupeCaptures;
+  genere_a: string;
+};
+
+export type CibleZone = { zone_id?: string; secteur?: string; debut?: string; fin?: string };
+
+export function getCapturesParZone(token: string, c: CibleZone) {
+  return requestDetaille<CapturesParZone>(`/api/v1/activite/captures-par-zone${qs(c)}`, token);
+}
+
+export type RapportZone = {
+  zone: ZoneRapport;
+  periode: { debut: string; fin: string };
+  activite: { heures_activite: number; nb_embarcations_actives: number; nb_intervalles: number };
+  nb_embarcations_presentes: number;
+  embarcations: Array<{
+    embarcation_id: string;
+    nom: string;
+    immatriculation: string;
+    type: string | null;
+    nb_releves: number;
+    premier_releve: string | null;
+    dernier_releve: string | null;
+    heures_activite: number;
+    sources: string[];
+  }>;
+  captures: { dans_la_zone: GroupeCaptures; sans_position: GroupeCaptures; positionnees_hors_zone: GroupeCaptures };
+  alertes: {
+    total: number;
+    par_type: Record<string, number>;
+    par_gravite: Record<string, number>;
+    elements: Array<{ id: string; type: string; niveau_gravite: string; statut: string; horodatage: string; regle: string | null }>;
+    sans_position: number;
+  };
+  regle: RegleActivite;
+  genere_a: string;
+};
+
+export function getRapportZone(token: string, c: CibleZone) {
+  return requestDetaille<RapportZone>(`/api/v1/activite/rapport-zone${qs(c)}`, token);
+}
+
+export function downloadRapportZonePdf(token: string, c: CibleZone) {
+  return downloadAuthenticatedFile(token, `/api/v1/documents/rapport-zone${qs(c)}`, 'rapport-de-zone.pdf');
+}
+
+/* ——— Lot 5 : essai Global Fishing Watch (administrateurs) ——— */
+
+export type GfwAttribution = { mention: string; lien: string };
+
+export type GfwEtat = {
+  active: boolean;
+  jeton_configure: boolean;
+  zone: { identifiant: number; jeu: string; nom: string };
+  attribution: GfwAttribution;
+  retard_publication_heures: Record<string, number>;
+  cache_heures: number;
+  statut: string;
+  version: string;
+};
+
+export type GfwCommun = {
+  periode: { debut: string; fin: string };
+  fraicheur: {
+    donnees_jusqu_au: string | null;
+    retard_publication_heures: number;
+    recupere_a: string;
+    en_cache: boolean;
+    perime: boolean;
+    periode_incomplete: boolean;
+    resultat_partiel: boolean;
+  };
+  attribution: GfwAttribution;
+  zone: { identifiant: number; jeu: string; nom: string };
+  avertissement: string;
+};
+
+export type GfwPecheApparente = GfwCommun & {
+  total_heures: number;
+  par_mois: Array<{ mois: string; heures: number }>;
+  par_pavillon: Array<{ pavillon: string | null; heures: number }>;
+};
+
+export type GfwNavires = GfwCommun & {
+  total_heures: number;
+  nb_navires: number;
+  navires: Array<{
+    vessel_id: string;
+    nom: string | null;
+    pavillon: string | null;
+    mmsi: string | null;
+    numero_omi: string | null;
+    indicatif: string | null;
+    engin: string | null;
+    heures: number;
+    premiere_entree: string | null;
+    derniere_sortie: string | null;
+  }>;
+};
+
+export type GfwDetections = GfwCommun & {
+  total_detections: number;
+  par_mois: Array<{ mois: string; detections: number }>;
+  par_pavillon: Array<{ pavillon: string | null; detections: number }>;
+};
+
+export function getGfwEtat(token: string) {
+  return requestDetaille<GfwEtat>('/api/v1/gfw/etat', token);
+}
+
+export function getGfwPecheApparente(token: string, p: { debut?: string; fin?: string } = {}) {
+  return requestDetaille<GfwPecheApparente>(`/api/v1/gfw/peche-apparente${qs(p)}`, token);
+}
+
+export function getGfwNavires(token: string, p: { debut?: string; fin?: string } = {}) {
+  return requestDetaille<GfwNavires>(`/api/v1/gfw/navires${qs(p)}`, token);
+}
+
+export function getGfwDetections(token: string, p: { debut?: string; fin?: string } = {}) {
+  return requestDetaille<GfwDetections>(`/api/v1/gfw/detections-radar${qs(p)}`, token);
+}
+
+export type GfwEvenementPeche = {
+  id: string;
+  vessel_id: string | null;
+  nom: string | null;
+  pavillon: string | null;
+  mmsi: string | null;
+  numero_omi: string | null;
+  indicatif: string | null;
+  engin: string | null;
+  heures: number;
+  debut: string | null;
+  fin: string | null;
+  longitude: number;
+  latitude: number;
+};
+
+export type GfwEvenements = GfwCommun & {
+  total: number;
+  nb_affiches: number;
+  evenements: GfwEvenementPeche[];
+};
+
+export type GfwIdentiteNavire = {
+  vessel_id: string;
+  registre: Array<{
+    nom: string | null;
+    pavillon: string | null;
+    mmsi: string | null;
+    numero_omi: string | null;
+    indicatif: string | null;
+    engins: string[];
+    longueur_m: number | null;
+    jauge_brute: number | null;
+    du: string | null;
+    au: string | null;
+  }>;
+  emission: Array<{
+    vessel_id: string | null;
+    nom: string | null;
+    pavillon: string | null;
+    mmsi: string | null;
+    numero_omi: string | null;
+    indicatif: string | null;
+    premiere_emission: string | null;
+    derniere_emission: string | null;
+  }>;
+  proprietaires: Array<{
+    nom: string | null;
+    pavillon: string | null;
+    du: string | null;
+    au: string | null;
+    sources: string[];
+  }>;
+  autorisations: Array<{ du: string | null; au: string | null; sources: string[] }>;
+  fraicheur: { recupere_a: string; en_cache: boolean; perime: boolean };
+  attribution: GfwAttribution;
+  avertissement: string;
+};
+
+export function getGfwEvenements(token: string, p: { debut?: string; fin?: string } = {}) {
+  return requestDetaille<GfwEvenements>(`/api/v1/gfw/evenements-peche${qs(p)}`, token);
+}
+
+export function getGfwIdentite(token: string, vesselId: string) {
+  return requestDetaille<GfwIdentiteNavire>(`/api/v1/gfw/navires/${encodeURIComponent(vesselId)}`, token);
+}
+
+/* ——— Lot 2 : informations d'inscription, fiche d'identité, page de profil ——— */
+
+export type ComplementsEmbarcation = {
+  mmsi?: string | null;
+  numero_omi?: string | null;
+  indicatif_radio?: string | null;
+  jauge_brute?: number | null;
+  annee_construction?: number | null;
+  proprietaire?: string | null;
+  exploitant?: string | null;
+};
+
+export type EmbarcationRegistre = {
+  id: string;
+  nom: string;
+  immatriculation: string;
+  type: string | null;
+  longueur_m: number | null;
+  filiere: string | null;
+  type_pirogue: string | null;
+  materiau: string | null;
+  puissance_moteur_cv: number | null;
+  site_attache: string | null;
+  strate: string | null;
+  equipements: Record<string, unknown> | null;
+  balise: boolean;
+} & ComplementsEmbarcation;
+
+export type SuiviEmbarcation = {
+  embarcation_id: string;
+  nom: string;
+  immatriculation: string;
+  dernier_releve: { source: string; horodatage: string; age_secondes: number } | null;
+  periode_observee: { debut: string; fin: string } | null;
+  nb_releves: number;
+  releves_par_source: Record<string, number>;
+};
+
+export type FicheIdentite = {
+  pecheur_id: string;
+  registre: {
+    identite: { nom: string; prenom: string; nationalite: string | null; statut: string };
+    licence: {
+      numero: string;
+      date_delivrance: string | null;
+      date_expiration: string | null;
+      statut: 'valide' | 'expiree' | 'suspendue' | 'sans_date' | string;
+      validite_jours: number;
+    };
+    organisation: { id: string; nom: string; type: string | null } | null;
+    embarcations: EmbarcationRegistre[];
+  };
+  suivi: { embarcations: SuiviEmbarcation[]; nb_releves: number; genere_a: string };
+};
+
+export function getFicheIdentite(token: string, pecheurId: string) {
+  return requestDetaille<FicheIdentite>(`/api/v1/identite/pecheurs/${pecheurId}`, token);
+}
+
+export type EspeceProfil = { espece: string; nom: string };
+export type TarifProfil = { espece: string; unite: 'kg' | 'unite' | string; prix_fcfa: number; nom?: string };
+
+export type ProfilPublic = {
+  genre: 'pecheur' | 'organisation' | string;
+  nom: string;
+  localite: string | null;
+  presentation: string | null;
+  especes: EspeceProfil[];
+  tarifs_affiches: boolean;
+  tarifs: TarifProfil[];
+  mise_a_jour: string | null;
+};
+
+export type ProfilConnecte = ProfilPublic & {
+  acteur_id: string;
+  organisation?: string | null;
+  nb_embarcations?: number | null;
+};
+
+export type ProfilMoi = ProfilConnecte & {
+  especes_declarees: EspeceProfil[];
+  especes_masquees: string[];
+  tarifs_visibles: boolean;
+  mes_tarifs: TarifProfil[];
+  ouvert_au_public: boolean;
+  lien_public: string | null;
+  limites: { presentation_max_caracteres: number; tarifs_max: number; prix_max_fcfa: number; unites_tarif: string[] };
+  statut_regles: string;
+};
+
+export type ProfilMoiUpdate = {
+  presentation?: string;
+  especes_masquees?: string[];
+  tarifs?: Array<{ espece: string; unite: string; prix_fcfa: number }>;
+  tarifs_visibles?: boolean;
+  ouvert_au_public?: boolean;
+};
+
+export function getProfilMoi(token: string) {
+  return requestDetaille<ProfilMoi>('/api/v1/profils/moi', token);
+}
+
+export function patchProfilMoi(token: string, data: ProfilMoiUpdate) {
+  return requestDetaille<ProfilMoi>('/api/v1/profils/moi', token, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+/** QR code du lien public, en image SVG : renvoyé comme adresse d'objet, à libérer après usage. */
+export async function getProfilMoiQrUrl(token: string): Promise<string> {
+  const res = await fetch(`${API}/api/v1/profils/moi/qr`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(parseApiError(text), res.status, codeErreur(text));
+  }
+  return URL.createObjectURL(await res.blob());
+}
+
+export function getProfilPecheur(token: string, pecheurId: string) {
+  return requestDetaille<ProfilConnecte>(`/api/v1/profils/pecheurs/${pecheurId}`, token);
+}
+
+export function getProfilOrganisation(token: string, organisationId: string) {
+  return requestDetaille<ProfilConnecte>(`/api/v1/profils/organisations/${organisationId}`, token);
+}
+
+export function getProfilPublic(jeton: string) {
+  return requestDetaille<ProfilPublic>(`/api/v1/public/profils/${encodeURIComponent(jeton)}`);
 }

@@ -13,10 +13,10 @@ import {
   type Referentiels,
   type VerificationLicence,
 } from '../api';
-import CompactList from '../components/CompactList';
 import HelpTip from '../components/HelpTip';
 import PageBanner from '../components/PageBanner';
 import KpiCard from '../components/KpiCard';
+import StatusPill from '../components/StatusPill';
 import { IconAlert, IconCheckCircle, IconPlus, IconSearch, IconShield, IconXCircle } from '../components/Icons';
 
 type Props = {
@@ -30,6 +30,19 @@ const STATUT_MISSION: Record<string, string> = {
   cloturee: 'Clôturée',
 };
 
+const TYPE_MISSION: Record<string, string> = {
+  patrouille: 'Patrouille en mer',
+  inspection_port: 'Inspection au débarquement',
+  controle_conjoint: 'Contrôle conjoint',
+  controle_sanitaire: 'Contrôle sanitaire',
+};
+
+function missionTone(statut: string): 'info' | 'ok' | 'warn' | 'neutral' {
+  if (statut === 'en_cours') return 'info';
+  if (statut === 'cloturee') return 'ok';
+  return 'warn';
+}
+
 const STATUT_LICENCE: Record<string, { label: string; tone: 'ok' | 'warn' | 'danger' }> = {
   valide: { label: 'Licence valide', tone: 'ok' },
   sans_date: { label: 'Licence valide (date de délivrance non renseignée)', tone: 'ok' },
@@ -39,7 +52,7 @@ const STATUT_LICENCE: Record<string, { label: string; tone: 'ok' | 'warn' | 'dan
 };
 
 function fmt(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return 'Non renseigné';
   return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
@@ -355,39 +368,68 @@ export default function ControlesPage({ token, onError }: Props) {
               <IconPlus size={16} /> Créer la mission
             </button>
           </form>
-          <CompactList
-            items={missions}
-            getKey={(m) => m.id}
-            initial={5}
-            empty={<p className="empty-list">Aucune mission.</p>}
-            renderItem={(m) => (
-              <div className="traj-item" style={{ borderLeftColor: m.statut === 'en_cours' ? '#0EA5A3' : '#94A3B8' }}>
-                <span className="traj-title">
-                  {m.code} · {m.type} · {STATUT_MISSION[m.statut] ?? m.statut}
-                </span>
-                <span className="traj-meta">
-                  {m.zone_libelle ?? 'zone non précisée'} · du {new Date(m.date_debut).toLocaleDateString('fr-FR')}
-                  {m.date_fin ? ` au ${new Date(m.date_fin).toLocaleDateString('fr-FR')}` : ''} · {m.nb_controles} contrôle(s), {m.nb_infractions} infraction(s)
-                </span>
-                {m.statut !== 'cloturee' ? (
-                  <div className="zone-actions" style={{ marginTop: 6 }}>
-                    <button
-                      type="button"
-                      className="ghost compact"
-                      disabled={busy}
-                      onClick={() =>
-                        void updateMission(token, m.id, { statut: 'cloturee', date_fin: new Date().toISOString().slice(0, 10) })
-                          .then(refresh)
-                          .catch((err) => onError(err instanceof Error ? err.message : 'Clôture impossible'))
-                      }
-                    >
-                      Clôturer
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          />
+          {missions.length === 0 ? (
+            <p className="empty-list">Aucune mission.</p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Code</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col">Zone</th>
+                  <th scope="col">Dates</th>
+                  <th scope="col">Contrôles</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {missions.map((m) => (
+                  <tr key={m.id}>
+                    <td data-label="Code">{m.code}</td>
+                    <td data-label="Type">{TYPE_MISSION[m.type] ?? m.type}</td>
+                    <td data-label="Statut">
+                      <StatusPill
+                        label={STATUT_MISSION[m.statut] ?? m.statut}
+                        tone={missionTone(m.statut)}
+                      />
+                    </td>
+                    <td data-label="Zone">{m.zone_libelle ?? 'Zone non précisée'}</td>
+                    <td data-label="Dates" className="cellule-serree">
+                      du {new Date(m.date_debut).toLocaleDateString('fr-FR')}
+                      {m.date_fin ? ` au ${new Date(m.date_fin).toLocaleDateString('fr-FR')}` : ''}
+                    </td>
+                    <td data-label="Contrôles">
+                      {m.nb_controles} contrôle(s), {m.nb_infractions} infraction(s)
+                    </td>
+                    <td data-label="Actions">
+                      {m.statut !== 'cloturee' ? (
+                        <div className="zone-actions">
+                          <button
+                            type="button"
+                            className="ghost compact"
+                            disabled={busy}
+                            onClick={() =>
+                              void updateMission(token, m.id, {
+                                statut: 'cloturee',
+                                date_fin: new Date().toISOString().slice(0, 10),
+                              })
+                                .then(refresh)
+                                .catch((err) =>
+                                  onError(err instanceof Error ? err.message : 'Clôture impossible'),
+                                )
+                            }
+                          >
+                            Clôturer
+                          </button>
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
       </div>
 
@@ -399,28 +441,57 @@ export default function ControlesPage({ token, onError }: Props) {
             Infractions seulement
           </label>
         </div>
-        <CompactList
-          items={controles}
-          getKey={(c) => c.id}
-          initial={8}
-          empty={<p className="empty-list">Aucun contrôle enregistré.</p>}
-          renderItem={(c) => (
-            <div className="traj-item" style={{ borderLeftColor: c.infraction ? '#DC2626' : '#10B981' }}>
-              <span className="traj-title">
-                {fmt(c.date_controle)} · {c.embarcation_nom ?? 'embarcation inconnue'}
-                {c.immatriculation ? ` (${c.immatriculation})` : ''} · {c.infraction ? `Infraction : ${c.categorie_infraction}` : 'Conforme'}
-              </span>
-              <span className="traj-meta">
-                {c.pecheur_nom ?? '—'} · {c.numero_licence ?? c.numero_licence_saisi ?? '—'} · licence{' '}
-                {c.licence_valide === false ? 'non valide' : c.licence_valide ? 'valide' : 'non vérifiée'}
-                {c.engin_trouve ? ` · engin trouvé : ${c.engin_trouve}` : ''}
-                {c.engin_declare ? ` (déclaré : ${c.engin_declare})` : ''}
-                {c.lieu ? ` · ${c.lieu}` : ''}
-                {c.sanction ? ` · sanction : ${c.sanction}` : ''}
-              </span>
-            </div>
-          )}
-        />
+        {controles.length === 0 ? (
+          <p className="empty-list">Aucun contrôle enregistré.</p>
+        ) : (
+          <table className="ds-table empilable">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Embarcation</th>
+                <th scope="col">Pêcheur</th>
+                <th scope="col">Licence</th>
+                <th scope="col">Résultat</th>
+                <th scope="col">Lieu</th>
+                <th scope="col">Engin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {controles.map((c) => (
+                <tr key={c.id}>
+                  <td data-label="Date" className="cellule-serree">
+                    {fmt(c.date_controle)}
+                  </td>
+                  <td data-label="Embarcation">
+                    {c.embarcation_nom ?? 'Embarcation inconnue'}
+                    {c.immatriculation ? ` (${c.immatriculation})` : ''}
+                  </td>
+                  <td data-label="Pêcheur">{c.pecheur_nom ?? 'Non renseigné'}</td>
+                  <td data-label="Licence">
+                    {c.numero_licence ?? c.numero_licence_saisi ?? 'Non renseigné'}{' '}
+                    ({c.licence_valide === false ? 'non valide' : c.licence_valide ? 'valide' : 'non vérifiée'})
+                  </td>
+                  <td data-label="Résultat">
+                    <StatusPill
+                      label={
+                        c.infraction
+                          ? `Infraction : ${c.categorie_infraction ?? 'non précisée'}${c.sanction ? ` (${c.sanction})` : ''}`
+                          : 'Conforme'
+                      }
+                      tone={c.infraction ? 'danger' : 'ok'}
+                    />
+                  </td>
+                  <td data-label="Lieu">{c.lieu ?? 'Non renseigné'}</td>
+                  <td data-label="Engin">
+                    {c.engin_trouve
+                      ? `${c.engin_trouve}${c.engin_declare ? ` (déclaré : ${c.engin_declare})` : ''}`
+                      : 'Non observé'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </section>
   );

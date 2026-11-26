@@ -1,0 +1,29 @@
+{
+  "version": "2026-11-24",
+  "statut": "Proposé",
+  "valideurs": ["Christian"],
+  "note": "Carte de suivi (lot 4) : régularité affichée dans les flux de la carte, âge des positions, alertes automatiques sur les navires AIS. Vocabulaire : « navire à contrôler », jamais « pirate » ni « infraction » avant le constat d'un agent (cahier §3.1). Modifier ce fichier change le comportement sans toucher au code.",
+  "carte": {
+    "ais_age_max_heures": 24,
+    "positions_age_perimee_minutes": 60,
+    "libelles_regularite": {"conforme": "Conforme", "a_verifier": "À vérifier", "alerte": "Navire à contrôler"}
+  },
+  "alertes_ais": {
+    "navire_peche_non_enregistre": {"actif": true, "gravite": "attention"},
+    "presence_zone_interdite": {"actif": true, "gravite": "critique"},
+    "extinction_signal": {"actif": true, "gravite": "attention", "silence_minutes": 120, "vitesse_min_noeuds": 0.5, "max_alertes_par_evaluation": 5}
+  },
+  "explications": {
+    "ais_age_max_heures": "Une observation AIS plus ancienne n'est plus affichée sur la carte ni rechargée au démarrage du serveur.",
+    "positions_age_perimee_minutes": "Au-delà de cet âge, la dernière position d'une embarcation est marquée « périmée » dans le flux de la carte.",
+    "libelles_regularite": "Libellés affichés pour chaque niveau de régularité.",
+    "navire_peche_non_enregistre": "Alerte quand un navire déclaré « navire de pêche » ou « en pêche » dans les eaux gabonaises ne correspond à aucune embarcation du registre.",
+    "presence_zone_interdite": "Alerte quand un navire AIS est relevé dans une zone interdite active.",
+    "extinction_signal": "Alerte quand un navire qui faisait route dans les eaux gabonaises, hors d'un port, n'émet plus depuis la durée indiquée, sans avoir été revu ailleurs. Aucune alerte quand la source AIS elle-même ne reçoit plus rien, et au plus max_alertes_par_evaluation alertes à la fois."
+  },
+  "regles": {
+    "regularite_carte": {"enonce": "Le niveau de régularité (conforme, à vérifier, navire à contrôler) et ses motifs sont fournis avec chaque position de la carte, selon les mêmes critères que la fiche.", "statut": "Proposé", "valideurs": ["Christian"]},
+    "age_positions": {"enonce": "Chaque position porte son âge ; une observation AIS de plus de 24 heures est retirée de la carte.", "statut": "Proposé", "valideurs": ["Christian"]},
+    "alertes_ais": {"enonce": "Trois alertes automatiques sur les navires AIS : navire de pêche absent du registre dans les eaux gabonaises, présence en zone interdite, extinction prolongée du signal.", "statut": "Proposé", "valideurs": ["Christian"]}
+  }
+}

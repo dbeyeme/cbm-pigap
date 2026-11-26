@@ -57,6 +57,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PecheurHomeScreen } from './src/screens/PecheurHomeScreen';
 import { RedevancesScreen } from './src/screens/RedevancesScreen';
+import { ProfilScreen } from './src/screens/ProfilScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { TrackingScreen } from './src/screens/TrackingScreen';
 import { readTrackingRequest } from './src/tracking/state';
@@ -73,6 +74,7 @@ type Screen =
   | 'tracking'
   | 'captures'
   | 'carte'
+  | 'profil'
   | 'abonnement'
   | 'redevances';
 
@@ -387,6 +389,7 @@ export default function App() {
                     onCaptures={() => setScreen('captures')}
                     onTracking={() => setScreen('tracking')}
                     onCarte={() => setScreen('carte')}
+                    onProfil={() => setScreen('profil')}
                     onAbonnement={() => setScreen('abonnement')}
                     onRedevances={() => setScreen('redevances')}
                     onLogout={askLogout}
@@ -395,6 +398,10 @@ export default function App() {
 
                 {mode === 'pecheur' && screen === 'carte' && (
                   <CarteProScreen token={sessionToken} user={user} onBack={goHome} />
+                )}
+
+                {mode === 'pecheur' && screen === 'profil' && (
+                  <ProfilScreen token={sessionToken} user={user} onBack={goHome} />
                 )}
 
                 {mode === 'pecheur' && screen === 'redevances' && (

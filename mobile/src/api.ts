@@ -1,5 +1,7 @@
 import { API_URL } from './config';
 import { deviceId } from './device';
+import type { ComplementsEmbarcation } from './lib/inscription';
+import type { LimitesProfil, TarifSaisi } from './lib/profil';
 import {
   ApiError,
   MESSAGE_RESEAU,
@@ -169,7 +171,7 @@ export function createEmbarcation(
     type?: string;
     longueur?: number | null;
     equipements?: Record<string, unknown> | null;
-  },
+  } & Partial<ComplementsEmbarcation>,
 ) {
   return request('/api/v1/embarcations', {
     method: 'POST',
@@ -271,6 +273,7 @@ export type CaptureRead = {
   methode: string | null;
   point_debarquement: string | null;
   date_capture: string;
+  prix_fcfa_kg?: number | null;
   synchronise_a: string | null;
 };
 
@@ -290,6 +293,7 @@ export type CaptureCreatePayload = {
   point_debarquement: string;
   date_capture: string;
   position_capture?: { type: 'Point'; coordinates: [number, number] };
+  prix_fcfa_kg?: number | null;
 };
 
 export function getCapturesCatalog(token: string) {
@@ -312,6 +316,68 @@ export function syncCapturesBatch(token: string, captures: CaptureCreatePayload[
     token,
     body: JSON.stringify({ captures }),
   });
+}
+
+export type PointCourbePrix = {
+  periode: string;
+  espece: string | null;
+  prix_moyen_fcfa_kg: number | null;
+  masque: boolean;
+  nb_declarations: number;
+  nb_pecheurs: number;
+  volume_kg: number;
+  prix_reference_2024_fcfa_kg: number | null;
+};
+
+export type CourbesPrixRead = {
+  grain: 'jour' | 'semaine' | 'mois';
+  points: PointCourbePrix[];
+  anonymat_min_declarations: number;
+  anonymat_min_pecheurs: number;
+  statut_regles: string;
+};
+
+export type JourneeCarnet = {
+  jour: string;
+  embarcation_id?: string;
+  embarcation_nom: string;
+  immatriculation: string;
+  volume_kg: number;
+  valeur_estimee_fcfa: number;
+  rendement_kg: number;
+  charges_fcfa: number | null;
+};
+
+export type CarnetRead = {
+  pecheur_nom: string;
+  jours: JourneeCarnet[];
+  volume_kg: number;
+  valeur_estimee_fcfa: number;
+  note_rentabilite: string;
+};
+
+export function getCourbesPrix(
+  token: string,
+  params?: { debut?: string; fin?: string; grain?: 'jour' | 'semaine' | 'mois' },
+) {
+  const q = new URLSearchParams();
+  if (params?.debut) q.set('debut', params.debut);
+  if (params?.fin) q.set('fin', params.fin);
+  if (params?.grain) q.set('grain', params.grain);
+  const qs = q.toString();
+  return request<CourbesPrixRead>(`/api/v1/prix/courbes${qs ? `?${qs}` : ''}`, { token });
+}
+
+export function getCarnetDeclarations(
+  token: string,
+  params?: { debut?: string; fin?: string; pecheur_id?: string },
+) {
+  const q = new URLSearchParams();
+  if (params?.debut) q.set('debut', params.debut);
+  if (params?.fin) q.set('fin', params.fin);
+  if (params?.pecheur_id) q.set('pecheur_id', params.pecheur_id);
+  const qs = q.toString();
+  return request<CarnetRead>(`/api/v1/prix/carnet${qs ? `?${qs}` : ''}`, { token });
 }
 
 /* Abonnements */
@@ -587,4 +653,123 @@ export type VerificationLicence = {
 export function verifierLicence(token: string, numero: string) {
   const params = new URLSearchParams({ numero });
   return request<VerificationLicence>(`/api/v1/controles/verifier-licence?${params}`, { token });
+}
+
+/* Lot 2 : informations d'inscription, page de profil, fiche d'identité */
+
+/** Correction des informations d'une embarcation (agent) ; `null` efface une information. */
+export function updateEmbarcation(token: string, id: string, patch: Partial<ComplementsEmbarcation>) {
+  return request<Embarcation & Partial<ComplementsEmbarcation>>(
+    `/api/v1/embarcations/${encodeURIComponent(id)}`,
+    { method: 'PATCH', token, body: JSON.stringify(patch) },
+  );
+}
+
+export type EspeceProfil = { espece: string; nom: string };
+
+export type TarifProfil = TarifSaisi & { nom: string };
+
+/** Page de profil du pêcheur connecté, avec ses réglages (`/profils/moi`). */
+export type MonProfil = {
+  genre: 'pecheur' | 'organisation';
+  nom: string;
+  localite: string | null;
+  /** Texte brut, à afficher comme du texte. */
+  presentation: string | null;
+  especes: EspeceProfil[];
+  tarifs_affiches: boolean;
+  /** Tarifs tels que les autres les voient : vide tant qu'ils ne sont pas affichés. */
+  tarifs: TarifProfil[];
+  mise_a_jour: string | null;
+  acteur_id: string;
+  organisation: string | null;
+  nb_embarcations: number;
+  especes_declarees: EspeceProfil[];
+  especes_masquees: string[];
+  tarifs_visibles: boolean;
+  mes_tarifs: TarifProfil[];
+  ouvert_au_public: boolean;
+  lien_public: string | null;
+  limites: LimitesProfil;
+  statut_regles: string;
+};
+
+export type ModificationProfil = Partial<{
+  presentation: string;
+  especes_masquees: string[];
+  tarifs: TarifSaisi[];
+  tarifs_visibles: boolean;
+  ouvert_au_public: boolean;
+}>;
+
+export function getMonProfil(token: string) {
+  return request<MonProfil>('/api/v1/profils/moi', { token });
+}
+
+/** Seuls les champs envoyés changent ; `tarifs` remplace toute la liste. */
+export function updateMonProfil(token: string, patch: ModificationProfil) {
+  return request<MonProfil>('/api/v1/profils/moi', {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(patch),
+  });
+}
+
+export type EmbarcationRegistre = Partial<ComplementsEmbarcation> & {
+  id: string;
+  nom: string;
+  immatriculation: string;
+  type: string | null;
+  longueur_m: number | null;
+  filiere: string | null;
+  type_pirogue: string | null;
+  materiau: string | null;
+  puissance_moteur_cv: number | null;
+  site_attache: string | null;
+  strate: string | null;
+  equipements: Record<string, unknown> | null;
+  balise: boolean;
+};
+
+export type EmbarcationSuivi = {
+  embarcation_id: string;
+  nom: string;
+  immatriculation: string;
+  dernier_releve: { source: string; horodatage: string; age_secondes: number } | null;
+  periode_observee: { debut: string; fin: string } | null;
+  nb_releves: number;
+  releves_par_source: Record<string, number>;
+};
+
+/** Fiche d'identité à deux volets : ce que dit le registre, ce que l'embarcation émet. */
+export type FicheIdentite = {
+  pecheur_id: string;
+  registre: {
+    identite: { nom: string; prenom: string; nationalite: string | null; statut: string };
+    licence: {
+      numero: string;
+      date_delivrance: string | null;
+      date_expiration: string | null;
+      /** `valide`, `expiree`, `suspendue` ou `sans_date`. */
+      statut: string;
+      validite_jours: number;
+    };
+    organisation: { id: string; nom: string; type: string | null } | null;
+    embarcations: EmbarcationRegistre[];
+  };
+  suivi: {
+    embarcations: EmbarcationSuivi[];
+    nb_releves: number;
+    genere_a: string;
+  };
+};
+
+/** Fiche du pêcheur connecté. */
+export function getMaFiche(token: string) {
+  return request<FicheIdentite>('/api/v1/identite/moi', { token });
+}
+
+/** Fiche d'un pêcheur, dans le périmètre du compte ; chaque consultation est journalisée. */
+export function getFicheIdentite(token: string, pecheurId: string) {
+  return request<FicheIdentite>(`/api/v1/identite/pecheurs/${encodeURIComponent(pecheurId)}`, { token });
 }

@@ -18,6 +18,7 @@ from app.modules.gfw import service
 from app.modules.gfw.schemas import (
     DetectionsRadarRead,
     EtatGfw,
+    EvenementsPecheRead,
     IdentiteNavireRead,
     NaviresObservesRead,
     PecheApparenteRead,
@@ -77,6 +78,14 @@ async def detections_radar(
 ) -> DetectionsRadarRead:
     """Détections radar par satellite dans la ZEE du Gabon, par mois et par pavillon."""
     return await service.detections_radar(debut, fin)
+
+
+@router.get("/evenements-peche", response_model=EvenementsPecheRead)
+async def evenements_peche(
+    _: LecteurGfw, debut: Debut = None, fin: Fin = None
+) -> EvenementsPecheRead:
+    """Épisodes de pêche apparente dans la ZEE du Gabon, avec un lieu par point."""
+    return await service.evenements_peche(debut, fin)
 
 
 @router.get("/navires/{vessel_id}", response_model=IdentiteNavireRead)

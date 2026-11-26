@@ -13,8 +13,10 @@ import {
   getDashboardSeries,
   getPredictions,
   listPecheurs,
+  listZones,
   Pecheur,
   PredictionsRead,
+  ZoneReglementee,
 } from '../api';
 import KpiCard from '../components/KpiCard';
 import StatusPill from '../components/StatusPill';
@@ -23,7 +25,10 @@ import { IconDownload, IconRefresh, IconReport, IconUsers } from '../components/
 import { useToast } from '../components/ToastProvider';
 import { syncGabonBoundariesOnMap } from '../geo/gabonBoundary';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
+import GfwTableaux from '../components/GfwTableaux';
 import PageBanner from '../components/PageBanner';
+import PrixMarchePanel from '../components/PrixMarchePanel';
+import RapportZoneVue from '../components/RapportZoneVue';
 
 type Props = {
   token: string;
@@ -65,6 +70,8 @@ export default function RapportsPage({ token, onError }: Props) {
   const [preds, setPreds] = useState<PredictionsRead | null>(null);
   const [pecheurs, setPecheurs] = useState<Pecheur[]>([]);
   const [pecheurId, setPecheurId] = useState('');
+  const [zones, setZones] = useState<ZoneReglementee[]>([]);
+  const [zoneRapportId, setZoneRapportId] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement | null>(null);
@@ -75,17 +82,20 @@ export default function RapportsPage({ token, onError }: Props) {
     onError(null);
     try {
       const bounds = isoBounds(d, f);
-      const [dash, list, serie, pred] = await Promise.all([
+      const [dash, list, serie, pred, zlist] = await Promise.all([
         getDashboard(token, bounds),
         listPecheurs(token),
         getDashboardSeries(token, { ...bounds, grain: g }),
         getPredictions(token, 30),
+        listZones(token).catch(() => [] as ZoneReglementee[]),
       ]);
       setData(dash);
       setSeries(serie);
       setPreds(pred);
       setPecheurs(list);
       setPecheurId((prev) => prev || list[0]?.id || '');
+      setZones(zlist);
+      setZoneRapportId((prev) => prev || zlist.find((z) => z.actif)?.id || zlist[0]?.id || '');
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Rapports indisponibles');
     } finally {
@@ -349,6 +359,39 @@ export default function RapportsPage({ token, onError }: Props) {
         </article>
       </div>
 
+      <div className="ds-panel rapport-zone-page">
+        <h2>Rapport de zone</h2>
+        <p className="chart-legend-text">
+          Heures d’activité, embarcations présentes, captures et alertes d’une zone réglementée, sur
+          la période choisie ci-dessus.
+        </p>
+        <label className="dash-period-field dash-period-field--wide">
+          Zone
+          <select
+            value={zoneRapportId}
+            onChange={(e) => setZoneRapportId(e.target.value)}
+            aria-label="Zone du rapport"
+          >
+            {zones.length === 0 ? <option value="">Aucune zone</option> : null}
+            {zones.map((z) => (
+              <option key={z.id} value={z.id}>
+                {z.nom}
+                {z.actif ? '' : ' (inactive)'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <RapportZoneVue
+          token={token}
+          cible={
+            zoneRapportId ? { zone_id: zoneRapportId, debut: bounds.debut, fin: bounds.fin } : null
+          }
+          onError={onError}
+        />
+      </div>
+
+      <GfwTableaux token={token} onError={onError} />
+
       <div className="ds-kpi-row">
         <KpiCard label="Acteurs actifs" value={data?.pecheurs_actifs ?? '—'} />
         <KpiCard
@@ -368,6 +411,15 @@ export default function RapportsPage({ token, onError }: Props) {
 
       <TrendCharts series={series} showSeasonSplit />
       <AlertTrendChart series={series} />
+
+      <PrixMarchePanel
+        token={token}
+        debut={bounds.debut}
+        fin={bounds.fin}
+        grain={grain}
+        pecheurId={pecheurId}
+        onError={onError}
+      />
 
       <div className="rapports-pred-grid">
         <div className="ds-panel">

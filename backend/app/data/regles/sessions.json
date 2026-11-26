@@ -1,0 +1,18 @@
+{
+  "version": "2026-11-24",
+  "statut": "Proposé",
+  "valideurs": ["Christian"],
+  "note": "Renouvellement de session pour l'application mobile (demande S1 du lot mobile). Modifier ce fichier change le comportement sans toucher au code.",
+  "renouvellement": {
+    "roles": ["pecheur", "agent_controle"],
+    "duree_jours": 30
+  },
+  "explications": {
+    "roles": "Rôles qui peuvent demander une session longue à la connexion ; les comptes du portail gardent un jeton d'une heure.",
+    "duree_jours": "Durée de validité d'un jeton de renouvellement, recomptée à chaque renouvellement. Au-delà, une nouvelle connexion est nécessaire."
+  },
+  "regles": {
+    "session_longue": {"enonce": "L'application mobile renouvelle son jeton d'accès sans nouvelle saisie du mot de passe, pendant 30 jours sans renouvellement au plus ; chaque renouvellement remplace le jeton de renouvellement, et la réutilisation d'un jeton déjà employé ferme toute la session.", "statut": "Proposé", "valideurs": ["Christian"]},
+    "session_et_appareil": {"enonce": "Pour un pêcheur, la session reste liée au téléphone rattaché : un autre téléphone ne peut pas la renouveler, et la libération du téléphone par un agent ferme la session.", "statut": "Proposé", "valideurs": ["Christian"]}
+  }
+}

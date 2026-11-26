@@ -59,7 +59,7 @@ export function startLineFlowAnimation(
   };
 }
 
-type FleetPoint = {
+export type FleetPoint = {
   lng: number;
   lat: number;
   alert?: boolean;
@@ -67,6 +67,10 @@ type FleetPoint = {
   label?: string;
   statut?: string;
   id?: string;
+  regularite?: string;
+  regulariteLibelle?: string | null;
+  ageLibelle?: string | null;
+  perimee?: boolean;
 };
 
 type FleetState = {
@@ -80,7 +84,10 @@ type FleetState = {
 
 function signatureFlotte(points: FleetPoint[]): string {
   return points
-    .map((p) => `${p.id ?? ''}|${p.lng.toFixed(5)}|${p.lat.toFixed(5)}|${p.statut ?? ''}|${p.alert ? 1 : 0}|${p.kind ?? ''}|${p.label ?? ''}`)
+    .map(
+      (p) =>
+        `${p.id ?? ''}|${p.lng.toFixed(5)}|${p.lat.toFixed(5)}|${p.statut ?? ''}|${p.alert ? 1 : 0}|${p.kind ?? ''}|${p.label ?? ''}|${p.regularite ?? ''}|${p.ageLibelle ?? ''}|${p.perimee ? 1 : 0}`,
+    )
     .join(';');
 }
 
@@ -111,10 +118,19 @@ function statutDe(p: FleetPoint): FleetStatut {
 function createFleetMarkerElement(p: FleetPoint, selectable: boolean): HTMLDivElement {
   const statut = statutDe(p);
   const el = document.createElement('div');
-  el.className = `vm vm--fleet vm--${statut}${selectable ? ' vm--clickable' : ''}`;
+  el.className = `vm vm--fleet vm--${statut}${selectable ? ' vm--clickable' : ''}${
+    p.regularite === 'alerte' ? ' vm--ctrl' : p.regularite === 'a_verifier' ? ' vm--verif' : ''
+  }`;
   const nom = p.label ? `<span class="vm-label">${escapeHtml(p.label)}</span>` : '';
-  el.innerHTML = `${svgMedaillon(p.kind ?? 'pirogue', statut)}${nom}`;
-  el.title = [p.label, libelleStatut(statut), selectable ? 'ouvrir la fiche' : '']
+  el.innerHTML = `${svgMedaillon(p.kind ?? 'pirogue', statut, p.regularite)}${nom}`;
+  el.title = [
+    p.label,
+    libelleStatut(statut),
+    p.regulariteLibelle,
+    p.ageLibelle,
+    p.perimee ? 'position périmée' : '',
+    selectable ? 'ouvrir la fiche' : '',
+  ]
     .filter(Boolean)
     .join(' · ');
   return el;
@@ -123,14 +139,19 @@ function createFleetMarkerElement(p: FleetPoint, selectable: boolean): HTMLDivEl
 function createClusterElement(groupe: FleetPoint[]): HTMLDivElement {
   const parts: Record<FleetStatut, number> = { actif: 0, recent: 0, silence: 0, neutre: 0 };
   for (const p of groupe) parts[statutDe(p)] += 1;
+  const nCtrl = groupe.filter((p) => p.regularite === 'alerte').length;
   const el = document.createElement('div');
-  el.className = 'vm vm--cluster vm--clickable';
-  el.innerHTML = svgRegroupement(parts);
+  el.className = `vm vm--cluster vm--clickable${nCtrl ? ' vm--ctrl' : ''}`;
+  const marque = nCtrl
+    ? `<span class="vm-ctrl" title="${nCtrl} navire${nCtrl > 1 ? 's' : ''} à contrôler"></span>`
+    : '';
+  el.innerHTML = `${svgRegroupement(parts)}${marque}`;
   const detail = (['actif', 'recent', 'silence'] as const)
     .filter((s) => parts[s] > 0)
     .map((s) => `${parts[s]} ${libelleStatut(s)}`)
     .join(', ');
-  el.title = `${groupe.length} embarcations${detail ? ` : ${detail}` : ''}`;
+  const ctrl = nCtrl ? `${nCtrl} à contrôler` : '';
+  el.title = `${groupe.length} embarcations${detail ? ` : ${detail}` : ''}${ctrl ? ` · ${ctrl}` : ''}`;
   return el;
 }
 
@@ -173,7 +194,8 @@ function ouvrirListe(
     .slice(0, max)
     .map((p, i) => {
       const statut = statutDe(p);
-      const contenu = `<i class="vm-dot vm-dot--${statut}" aria-hidden="true"></i><span>${escapeHtml(p.label ?? 'Embarcation')}</span><em>${escapeHtml(libelleStatut(statut))}</em>`;
+      const suite = p.regulariteLibelle || libelleStatut(statut);
+      const contenu = `<i class="vm-dot vm-dot--${statut}" aria-hidden="true"></i><span>${escapeHtml(p.label ?? 'Embarcation')}</span><em>${escapeHtml(suite)}</em>`;
       return onSelect && p.id
         ? `<li><button type="button" class="vm-list-item" data-i="${i}">${contenu}</button></li>`
         : `<li><span class="vm-list-item">${contenu}</span></li>`;
@@ -360,7 +382,7 @@ export function silhouetteForType(typeLabel?: string | null, shipType?: string |
 const aisSignatures = new WeakMap<Marker[], { map: MapLibreMap; signature: string }>();
 const aisSelect = new WeakMap<Marker[], ((mmsi: string) => void) | undefined>();
 
-type AisPoint = {
+export type AisPoint = {
   lng: number;
   lat: number;
   label?: string;
@@ -374,13 +396,18 @@ type AisPoint = {
   lengthM?: number | null;
   flagCode?: string | null;
   name?: string;
+  regularite?: string;
+  regulariteLibelle?: string | null;
+  ageLibelle?: string | null;
 };
 
 /** Marqueur AIS : silhouette orientée, vecteur de vitesse, pastille de pavillon et nom. */
 function createAisMarkerElement(p: AisPoint, onClick?: () => void): HTMLDivElement {
   const el = document.createElement('div');
   const statut = p.approche ? 'approche' : (p.statut ?? 'inconnu');
-  el.className = `vm vm--ais vm--ais-${statut}${p.demo ? ' vm--demo' : ''}${onClick ? ' vm--clickable' : ''}`;
+  const regClass =
+    p.regularite === 'alerte' ? ' vm--ctrl' : p.regularite === 'a_verifier' ? ' vm--verif' : '';
+  el.className = `vm vm--ais vm--ais-${statut}${p.demo ? ' vm--demo' : ''}${onClick ? ' vm--clickable' : ''}${regClass}`;
   if (onClick) {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -395,11 +422,18 @@ function createAisMarkerElement(p: AisPoint, onClick?: () => void): HTMLDivEleme
     : '';
   const name = p.name ? `<span class="vm-name">${escapeHtml(p.name)}</span>` : '';
   const sub = p.label ? `<span class="vm-sub">${escapeHtml(p.label)}</span>` : '';
+  const marque =
+    p.regularite === 'alerte'
+      ? `<span class="vm-ctrl" title="${escapeHtml(p.regulariteLibelle ?? 'Navire à contrôler')}"></span>`
+      : p.regularite === 'a_verifier'
+        ? `<span class="vm-verif" title="${escapeHtml(p.regulariteLibelle ?? 'À vérifier')}"></span>`
+        : '';
   el.innerHTML = `
+    ${marque}
     ${svgSilhouette(p.kind ?? 'inconnu', statut, p.headingDeg ?? null, px, p.speedKn)}
     <span class="vm-chip">${flag}${name}${sub}</span>
   `;
-  if (p.name || p.label) el.title = [p.name, p.label].filter(Boolean).join(' · ');
+  el.title = [p.name, p.label, p.regulariteLibelle, p.ageLibelle].filter(Boolean).join(' · ');
   return el;
 }
 
@@ -412,7 +446,10 @@ export function placeAisMarkers(
   const max = opts?.max ?? 64;
   const signature = points
     .slice(0, max)
-    .map((p) => `${p.mmsi ?? ''}|${p.lng.toFixed(5)}|${p.lat.toFixed(5)}|${p.statut ?? ''}|${p.headingDeg ?? ''}|${p.speedKn ?? ''}|${p.label ?? ''}|${p.approche ? 1 : 0}`)
+    .map(
+      (p) =>
+        `${p.mmsi ?? ''}|${p.lng.toFixed(5)}|${p.lat.toFixed(5)}|${p.statut ?? ''}|${p.headingDeg ?? ''}|${p.speedKn ?? ''}|${p.label ?? ''}|${p.approche ? 1 : 0}|${p.regularite ?? ''}|${p.ageLibelle ?? ''}`,
+    )
     .join(';');
   const precedent = aisSignatures.get(store);
   aisSelect.set(store, opts?.onSelect);

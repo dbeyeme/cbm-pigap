@@ -172,11 +172,16 @@ class FleetStore:
 
     # ---- maintenance ----------------------------------------------------
 
-    def purge(self, now: datetime | None = None) -> int:
+    def purge(self, now: datetime | None = None, *, age_max: timedelta | None = None) -> int:
+        """Retire les navires trop longtemps silencieux.
+
+        `age_max` (paramétrage de la carte, lot 4) borne l'âge de toute observation ;
+        à défaut, l'ancienne durée de l'instantané (`AIS_TTL_SNAPSHOT_HOURS`) s'applique.
+        """
         now = now or datetime.now(UTC)
         ttl_moving = timedelta(minutes=settings.ais_ttl_moving_min)
         ttl_moored = timedelta(minutes=settings.ais_ttl_moored_min)
-        ttl_snapshot = timedelta(hours=settings.ais_ttl_snapshot_hours)
+        ttl_snapshot = age_max or timedelta(hours=settings.ais_ttl_snapshot_hours)
         removed = 0
         with self._lock:
             for key in list(self._entries):
@@ -187,7 +192,9 @@ class FleetStore:
                     ttl = ttl_moving
                 else:
                     ttl = ttl_moored
-                if now - e.received_at > ttl:
+                # L'âge compte depuis l'observation, pas depuis sa réception : une vieille
+                # position rechargée ou renvoyée par une source ne revit pas (lot 4)
+                if now - e.horodatage > ttl or now - e.horodatage > ttl_snapshot:
                     del self._entries[key]
                     removed += 1
             for rid in list(self.receivers):

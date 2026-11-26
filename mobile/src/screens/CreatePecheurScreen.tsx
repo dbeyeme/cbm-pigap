@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 
 import { createEmbarcation, createPecheur } from '../api';
 import { GlassField } from '../components/GlassField';
+import { AIDE_INSCRIPTION, InscriptionFields } from '../components/InscriptionFields';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
 import {
@@ -20,6 +21,14 @@ import {
 } from '../components/ui';
 import { DEMO_ACCOUNTS } from '../auth/roles';
 import { friendlyApiError } from '../lib/apiErrors';
+import {
+  SAISIE_INSCRIPTION_VIDE,
+  aDesErreurs,
+  lireInscription,
+  payloadCreation,
+  type ChampInscription,
+  type SaisieInscription,
+} from '../lib/inscription';
 import { colors, fonts, radii, space } from '../theme';
 
 const HELP_LICENCE: ReadonlyArray<InfoPoint> = [
@@ -112,6 +121,10 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
   const [moteur, setMoteur] = useState('');
   const [engins, setEngins] = useState<string[]>([]);
   const [securite, setSecurite] = useState<string[]>([]);
+  /** Informations d'inscription facultatives (MMSI, OMI…) : repliées par défaut. */
+  const [inscriptionOuverte, setInscriptionOuverte] = useState(false);
+  const [inscription, setInscription] = useState<SaisieInscription>(SAISIE_INSCRIPTION_VIDE);
+  const [erreursInscription, setErreursInscription] = useState<Partial<Record<ChampInscription, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   /** Numéro de licence du dossier enregistré, à communiquer au pêcheur. */
@@ -149,6 +162,14 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
       setLoading(false);
       return;
     }
+    const lecture = lireInscription(inscription);
+    setErreursInscription(lecture.erreurs);
+    if (aDesErreurs(lecture)) {
+      setInscriptionOuverte(true);
+      setError('Corrigez les informations d’inscription signalées.');
+      setLoading(false);
+      return;
+    }
     try {
       const pecheur = await createPecheur(token, {
         nom: nom.trim(),
@@ -164,6 +185,7 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
         type: 'pirogue',
         longueur: longueur.trim() ? Number(longueur.replace(',', '.')) : null,
         equipements: equipementsPayload({ engins, moteur, securite }),
+        ...payloadCreation(lecture.valeurs),
       });
       setSavedLicence(pecheur.numero_licence);
     } catch (err) {
@@ -280,6 +302,30 @@ export function CreatePecheurScreen({ token, onDone, onBack }: Props) {
             <SectionTitle icon="mci:lifebuoy" text="Sécurité et navigation" />
             <ChipGroup items={SECURITE} selected={securite} onChange={setSecurite} />
 
+            <View style={styles.disclosureRow}>
+              <Pressable
+                onPress={() => setInscriptionOuverte((v) => !v)}
+                style={[styles.disclosure, styles.disclosureFlex]}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: inscriptionOuverte }}
+              >
+                <Ionicons name="radio-outline" size={20} color={colors.tide} />
+                <Text style={styles.disclosureText}>Informations d’inscription (facultatives)</Text>
+                <Ionicons name={inscriptionOuverte ? 'chevron-up' : 'chevron-down'} size={20} color={colors.inkSoft} />
+              </Pressable>
+              <HelpTip title="Informations d’inscription" points={AIDE_INSCRIPTION} icon="boat-outline" />
+            </View>
+            {inscriptionOuverte ? (
+              <InscriptionFields
+                value={inscription}
+                onChange={(next) => {
+                  setInscription(next);
+                  setErreursInscription({});
+                }}
+                erreurs={erreursInscription}
+              />
+            ) : null}
+
             {error ? <Notice tone="error" text={error} style={{ marginTop: 0, marginBottom: 12 }} /> : null}
 
             <GlowButton
@@ -323,6 +369,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   disclosureText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.tide },
+  disclosureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  disclosureFlex: { flex: 1 },
   savedInner: { padding: 18, gap: 14 },
   savedHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   savedTitle: { flex: 1, fontFamily: fonts.display, fontSize: 22, color: colors.abyss },

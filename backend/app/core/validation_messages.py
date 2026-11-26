@@ -32,6 +32,7 @@ FIELD_LABELS: dict[str, str] = {
     "motif": "Motif",
     "presentation": "Présentation",
     "prix_fcfa": "Prix",
+    "prix_fcfa_kg": "Prix de vente au kilo",
     "unite": "Unité",
     "tarifs": "Tarifs",
     "tarifs_visibles": "Affichage des tarifs",

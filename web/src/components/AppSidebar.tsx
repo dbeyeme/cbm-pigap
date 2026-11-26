@@ -139,11 +139,7 @@ export default function AppSidebar({
           <span className="ds-nav-badge" aria-label={`${badge} à traiter`}>
             {formatBadge(badge)}
           </span>
-        ) : (
-          <span className="ds-nav-chevron" aria-hidden>
-            ›
-          </span>
-        )}
+        ) : null}
       </button>
     );
   }

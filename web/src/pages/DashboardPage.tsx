@@ -16,7 +16,6 @@ import {
   getBulletinMeteo,
   type BulletinMeteoMarine,
 } from '../api';
-import CompactList from '../components/CompactList';
 import KpiCard from '../components/KpiCard';
 import PageBanner from '../components/PageBanner';
 import PredictionStrip from '../components/PredictionStrip';
@@ -48,6 +47,10 @@ import {
   VesselKind,
 } from '../geo/mapEffects';
 import { GABON_MAP_VIEW, GABON_SATELLITE_STYLE } from '../geo/mapStyle';
+import {
+  classePastilleRegularite,
+  libelleRegularite,
+} from '../lib/regularite';
 import type { NavId } from '../nav';
 import BulletinStrip from '../components/BulletinStrip';
 import HelpTip from '../components/HelpTip';
@@ -106,6 +109,23 @@ function graviteTone(g: string): 'danger' | 'warn' | 'info' | 'ok' {
   if (g === 'faible') return 'ok';
   return 'info';
 }
+
+function formatAge(sec: number): string {
+  if (sec < 60) return `${sec} s`;
+  if (sec < 3600) return `${Math.round(sec / 60)} min`;
+  return `${Math.round(sec / 3600)} h`;
+}
+
+const SIGNAL_LABEL: Record<string, string> = {
+  actif: 'Actif',
+  recent: 'Récent',
+  silence: 'Sans signal',
+};
+
+const KIND_LABEL: Record<VesselKind, string> = {
+  pirogue: 'Pirogue',
+  navire: 'Navire',
+};
 
 export default function DashboardPage({ token, onError, onNavigate }: Props) {
   const period0 = defaultPeriod();
@@ -235,6 +255,10 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
           label: v.nom,
           statut: v.statut,
           alert: v.statut === 'silence',
+          regularite: v.regularite ?? undefined,
+          regulariteLibelle: v.regularite_libelle,
+          ageLibelle: v.age_libelle,
+          perimee: v.perimee,
         })),
         shipMarkers.current,
       );
@@ -417,7 +441,11 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
         <KpiCard
           label="Valeur estimée"
           value={data ? `${Math.round(data.valeur_estimee_fcfa ?? 0).toLocaleString('fr-FR')} FCFA` : '—'}
-          hint={data ? `Prix moyens 2024 · ${data.valeur_estimee_couverture_pct ?? 0} % du volume couvert` : undefined}
+          hint={
+            data
+              ? `Prix déclaré, sinon référence 2024 · ${data.valeur_estimee_couverture_pct ?? 0} % du volume couvert`
+              : undefined
+          }
           icon={<IconCard size={22} />}
         />
         <KpiCard
@@ -521,33 +549,57 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
                 <IconShip size={16} /> Signaux
               </h2>
             </div>
-            <CompactList
-              items={liveFiltered}
-              getKey={(z) => z.embarcation_id}
-              initial={8}
-              empty={<p className="empty-list">Aucun signal live sur ce secteur.</p>}
-              renderItem={(v) => {
-                const kind = vesselKind(v.type);
-                const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
-                return (
-                  <div className="dash-zone-row">
-                    <span className={`dash-entity-icon dash-entity-${kind}`} aria-hidden>
-                      <VesselIcon size={16} />
-                    </span>
-                    <div>
-                      <strong>{v.nom}</strong>
-                      <span>
-                        {v.statut} · {v.immatriculation}
-                      </span>
-                    </div>
-                    <StatusPill
-                      label={v.statut}
-                      tone={v.statut === 'actif' ? 'ok' : v.statut === 'silence' ? 'warn' : 'info'}
-                    />
-                  </div>
-                );
-              }}
-            />
+            {liveFiltered.length === 0 ? (
+              <p className="empty-list">Aucun signal live sur ce secteur.</p>
+            ) : (
+              <table className="ds-table empilable">
+                <thead>
+                  <tr>
+                    <th scope="col">Embarcation</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">État</th>
+                    <th scope="col">Régularité</th>
+                    <th scope="col">Âge</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveFiltered.slice(0, 12).map((v) => {
+                    const kind = vesselKind(v.type);
+                    return (
+                      <tr
+                        key={v.embarcation_id}
+                        className="is-clickable"
+                        onClick={() => {
+                          const map = mapObj.current;
+                          if (map) {
+                            map.flyTo({ center: v.position.coordinates, zoom: 10 });
+                          }
+                        }}
+                      >
+                        <td data-label="Embarcation">
+                          <button type="button" className="ligne-bouton">
+                            {v.nom}
+                          </button>
+                        </td>
+                        <td data-label="Type">{KIND_LABEL[kind]}</td>
+                        <td data-label="État">
+                          <StatusPill
+                            label={SIGNAL_LABEL[v.statut] ?? v.statut}
+                            tone={v.statut === 'actif' ? 'ok' : v.statut === 'silence' ? 'warn' : 'info'}
+                          />
+                        </td>
+                        <td data-label="Régularité">
+                          <span className={classePastilleRegularite(v.regularite)}>
+                            {libelleRegularite(v.regularite, v.regularite_libelle)}
+                          </span>
+                        </td>
+                        <td data-label="Âge">{v.age_libelle ?? formatAge(v.age_seconds)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
 
           <div className="ds-panel">
@@ -556,34 +608,41 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
                 <IconAlert size={16} /> Alertes
               </h2>
             </div>
-            <CompactList
-              items={data?.alertes_actives ?? []}
-              getKey={(a) => a.id}
-              initial={6}
-              empty={<p className="empty-list">Aucune alerte — situation calme.</p>}
-              renderItem={(a) => {
-                const tone = graviteTone(a.niveau_gravite);
-                return (
-                  <button
-                    type="button"
-                    className={`ds-alert-item ds-alert-${tone}`}
-                    onClick={() => onNavigate?.('alertes')}
-                  >
-                    <span className="ds-alert-icon" aria-hidden>
-                      <IconAlert size={16} />
-                    </span>
-                    <div className="ds-alert-body">
-                      <StatusPill label={graviteLabel(a.niveau_gravite)} tone={tone} />
-                      <strong>{alertTypeLabel(a.type)}</strong>
-                      <span>
-                        {alertRuleLabel(a.declencheur.espece ?? a.declencheur.regle)} ·{' '}
-                        {new Date(a.horodatage).toLocaleString('fr-FR')}
-                      </span>
-                    </div>
-                  </button>
-                );
-              }}
-            />
+            {(data?.alertes_actives ?? []).length === 0 ? (
+              <p className="empty-list">Aucune alerte — situation calme.</p>
+            ) : (
+              <table className="ds-table empilable">
+                <thead>
+                  <tr>
+                    <th scope="col">Type</th>
+                    <th scope="col">Gravité</th>
+                    <th scope="col">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data?.alertes_actives ?? []).slice(0, 8).map((a) => (
+                    <tr
+                      key={a.id}
+                      className="is-clickable"
+                      onClick={() => onNavigate?.('alertes')}
+                    >
+                      <td data-label="Type">
+                        <button type="button" className="ligne-bouton">
+                          {alertTypeLabel(a.type)}
+                        </button>
+                      </td>
+                      <td data-label="Gravité">
+                        <StatusPill
+                          label={graviteLabel(a.niveau_gravite)}
+                          tone={graviteTone(a.niveau_gravite)}
+                        />
+                      </td>
+                      <td data-label="Date">{new Date(a.horodatage).toLocaleString('fr-FR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </aside>
       </div>

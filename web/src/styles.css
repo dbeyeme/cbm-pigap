@@ -55,9 +55,9 @@
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-ui: 'Sora', 'Segoe UI', sans-serif;
   --space-page: clamp(16px, 2.5vw, 28px);
-  --hero-bg: url('/illustrations/landing-hero-gabon.png');
+  --hero-bg: url('/photos/peche-crepuscule.webp');
   --weave: none;
-  --sidebar-w: 268px;
+  --sidebar-w: 292px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-fast: 160ms;
   --dur: 280ms;
@@ -1241,6 +1241,60 @@ label {
 .map-hint.mode-tester {
   border-color: rgba(232, 184, 74, 0.45);
   color: var(--sun);
+}
+
+.zones-map-key {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(8, 16, 22, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(238, 247, 245, 0.92);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.zones-map-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zones-map-key-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  flex: 0 0 auto;
+}
+
+.zones-map-key-line {
+  width: 14px;
+  height: 0;
+  border-top: 2px solid rgba(248, 250, 252, 0.7);
+  flex: 0 0 auto;
+}
+
+.zone-type-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zone-type-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
 }
 
 .zones-side {

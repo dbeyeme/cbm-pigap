@@ -79,7 +79,9 @@ async def _assert_can_read(db: AsyncSession, user: Utilisateur, capture: Capture
     raise bad_request("Rôle non autorisé", "ROLE_FORBIDDEN")
 
 
-def _to_read(capture: Capture, geojson_raw: str | None) -> CaptureRead:
+def _to_read(
+    capture: Capture, geojson_raw: str | None, *, masquer_prix: bool = False
+) -> CaptureRead:
     point: PointGeoJSON | None = geojson_text_to_point(geojson_raw)
     return CaptureRead(
         id=capture.id,
@@ -91,6 +93,7 @@ def _to_read(capture: Capture, geojson_raw: str | None) -> CaptureRead:
         position_capture=point,
         point_debarquement=capture.point_debarquement,
         date_capture=capture.date_capture,
+        prix_fcfa_kg=None if masquer_prix else capture.prix_fcfa_kg,
         synchronise_a=capture.synchronise_a,
         taxe_fcfa=capture.taxe_fcfa,
         taxe_taux_kg=capture.taxe_taux_kg,
@@ -110,6 +113,7 @@ async def _load_read(db: AsyncSession, capture_id: UUID) -> CaptureRead:
 
 
 def _build_row(data: CaptureCreate, *, now: datetime) -> Capture:
+    from app.modules.prix.regles import valider_prix_fcfa_kg
     from app.modules.redevances.service import appliquer_taxe
 
     capture_id = data.id or uuid.uuid4()
@@ -124,6 +128,7 @@ def _build_row(data: CaptureCreate, *, now: datetime) -> Capture:
         position_capture=geom,
         point_debarquement=data.point_debarquement,
         date_capture=data.date_capture,
+        prix_fcfa_kg=valider_prix_fcfa_kg(data.prix_fcfa_kg),
         synchronise_a=now,
     )
     appliquer_taxe(row)
@@ -248,7 +253,9 @@ async def get_capture(db: AsyncSession, user: Utilisateur, capture_id: UUID) -> 
     if row is None:
         raise not_found("Capture introuvable", "CAPTURE_NOT_FOUND")
     await _assert_can_read(db, user, row[0])
-    return _to_read(row[0], row[1])
+    return _to_read(
+        row[0], row[1], masquer_prix=user.role == RoleUtilisateur.chercheur
+    )
 
 
 async def _get_capture_row(db: AsyncSession, capture_id: UUID) -> Capture:
@@ -266,7 +273,11 @@ async def update_capture(
     await _assert_can_write_capture(db, user, capture.pecheur_id, capture.embarcation_id)
 
     payload = data.model_dump(exclude_unset=True)
+    from app.modules.prix.regles import valider_prix_fcfa_kg
     from app.modules.redevances.service import appliquer_taxe, assert_modifiable
+
+    if "prix_fcfa_kg" in payload:
+        payload["prix_fcfa_kg"] = valider_prix_fcfa_kg(payload["prix_fcfa_kg"])
 
     assert_modifiable(capture, set(payload))
     new_pecheur_id = payload.get("pecheur_id", capture.pecheur_id)
@@ -336,4 +347,5 @@ async def list_captures(
 
     stmt = stmt.limit(min(limit, 500)).offset(max(offset, 0))
     result = await db.execute(stmt)
-    return [_to_read(cap, geo) for cap, geo in result.all()]
+    masquer_prix = user.role == RoleUtilisateur.chercheur
+    return [_to_read(cap, geo, masquer_prix=masquer_prix) for cap, geo in result.all()]

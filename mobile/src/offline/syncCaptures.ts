@@ -32,6 +32,9 @@ const DEFINITIVE_ITEM_CODES = new Set([
   'PECHEUR_NOT_FOUND',
   'EMBARCATION_PECHEUR_MISMATCH',
   'ROLE_FORBIDDEN',
+  'PRIX_TROP_ELEVE',
+  'PRIX_INVALIDE',
+  'PRIX_REQUIS',
 ]);
 
 export type SyncReport = {
@@ -58,6 +61,7 @@ function toPayload(c: LocalCapture): CaptureCreatePayload {
     point_debarquement: c.point_debarquement,
     date_capture: c.date_capture,
     ...(c.position ? { position_capture: { type: 'Point' as const, coordinates: c.position } } : {}),
+    ...(c.prix_fcfa_kg != null ? { prix_fcfa_kg: c.prix_fcfa_kg } : {}),
   };
 }
 

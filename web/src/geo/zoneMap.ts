@@ -16,11 +16,15 @@ export function zoneColor(type: ZoneReglementee['type']): string {
 
 const SOURCE = 'pigap-zones';
 const FILL = 'pigap-zones-fill';
+const HALO = 'pigap-zones-halo';
 const LINE = 'pigap-zones-line';
+const PIN = 'pigap-zones-pin';
 const LABEL = 'pigap-zones-label';
 const PREVIEW = 'pigap-zones-preview';
 const PREVIEW_FILL = 'pigap-zones-preview-fill';
 const PREVIEW_LINE = 'pigap-zones-preview-line';
+
+const ZONE_LAYER_IDS = [FILL, HALO, LINE, PIN, LABEL] as const;
 
 export function zoneCentroid(zone: ZoneReglementee): [number, number] | null {
   const ring = zone.geometrie?.coordinates?.[0];
@@ -127,6 +131,16 @@ export function zonesToGeoJSON(
   return { type: 'FeatureCollection', features };
 }
 
+/** Remonte les couches zones au-dessus des contours Gabon / ZEE. */
+export function raiseZoneLayers(map: maplibregl.Map): void {
+  for (const id of ZONE_LAYER_IDS) {
+    if (map.getLayer(id)) map.moveLayer(id);
+  }
+  for (const id of [PREVIEW_FILL, PREVIEW_LINE]) {
+    if (map.getLayer(id)) map.moveLayer(id);
+  }
+}
+
 function ensureLayers(map: maplibregl.Map): void {
   if (map.getSource(SOURCE)) return;
   map.addSource(SOURCE, {
@@ -143,11 +157,23 @@ function ensureLayers(map: maplibregl.Map): void {
       'fill-opacity': [
         'case',
         ['==', ['get', 'selected'], 1],
-        0.48,
+        0.55,
         ['==', ['get', 'actif'], 1],
-        0.34,
-        0.18,
+        0.4,
+        0.2,
       ],
+    },
+  });
+  // Halo clair : sépare le contour coloré du fond satellitaire / ZEE.
+  map.addLayer({
+    id: HALO,
+    type: 'line',
+    source: SOURCE,
+    filter: ['==', ['get', 'kind'], 'poly'],
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': ['case', ['==', ['get', 'selected'], 1], 6, 4],
+      'line-opacity': ['case', ['==', ['get', 'actif'], 1], 0.85, 0.4],
     },
   });
   map.addLayer({
@@ -157,8 +183,32 @@ function ensureLayers(map: maplibregl.Map): void {
     filter: ['==', ['get', 'kind'], 'poly'],
     paint: {
       'line-color': ['get', 'color'],
-      'line-width': ['case', ['==', ['get', 'selected'], 1], 3.5, 2.2],
-      'line-opacity': ['case', ['==', ['get', 'actif'], 1], 0.95, 0.55],
+      'line-width': ['case', ['==', ['get', 'selected'], 1], 3.5, 2.4],
+      'line-opacity': ['case', ['==', ['get', 'actif'], 1], 1, 0.55],
+    },
+  });
+  // Pastilles : restent lisibles au zoom national quand le polygone est trop petit.
+  map.addLayer({
+    id: PIN,
+    type: 'circle',
+    source: SOURCE,
+    filter: ['==', ['get', 'kind'], 'label'],
+    paint: {
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        5,
+        ['case', ['==', ['get', 'selected'], 1], 7, 5],
+        9,
+        ['case', ['==', ['get', 'selected'], 1], 9, 7],
+        12,
+        ['case', ['==', ['get', 'selected'], 1], 6, 4],
+      ],
+      'circle-color': ['get', 'color'],
+      'circle-opacity': ['case', ['==', ['get', 'actif'], 1], 0.95, 0.5],
+      'circle-stroke-width': ['case', ['==', ['get', 'selected'], 1], 2.5, 1.5],
+      'circle-stroke-color': '#ffffff',
     },
   });
   map.addLayer({
@@ -170,15 +220,15 @@ function ensureLayers(map: maplibregl.Map): void {
       'text-field': ['get', 'nom'],
       'text-font': MAP_FONT_REGULAR,
       'text-size': 11,
-      'text-offset': [0, 0.2],
-      'text-anchor': 'center',
+      'text-offset': [0, 1.15],
+      'text-anchor': 'top',
       'text-allow-overlap': false,
       'text-ignore-placement': false,
     },
     paint: {
       'text-color': '#ffffff',
-      'text-halo-color': 'rgba(0,26,61,0.85)',
-      'text-halo-width': 1.4,
+      'text-halo-color': 'rgba(0,26,61,0.9)',
+      'text-halo-width': 1.6,
       'text-opacity': ['case', ['==', ['get', 'actif'], 1], 1, 0.6],
     },
   });
@@ -196,11 +246,12 @@ export function syncZonesOnMap(
   const data = zonesToGeoJSON(visible ? zones : [], opts?.selectedId);
   (map.getSource(SOURCE) as maplibregl.GeoJSONSource).setData(data as never);
 
-  for (const id of [FILL, LINE, LABEL]) {
+  for (const id of ZONE_LAYER_IDS) {
     if (map.getLayer(id)) {
       map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     }
   }
+  raiseZoneLayers(map);
 }
 
 export function syncPreviewBbox(
@@ -254,15 +305,43 @@ export function syncPreviewBbox(
       },
     ],
   } as never);
+  raiseZoneLayers(map);
 }
 
 export function removeZonesFromMap(map: maplibregl.Map): void {
-  for (const id of [LABEL, LINE, FILL, PREVIEW_LINE, PREVIEW_FILL]) {
+  for (const id of [LABEL, PIN, LINE, HALO, FILL, PREVIEW_LINE, PREVIEW_FILL]) {
     if (map.getLayer(id)) map.removeLayer(id);
   }
   for (const id of [SOURCE, PREVIEW]) {
     if (map.getSource(id)) map.removeSource(id);
   }
+}
+
+/** Emprise lon/lat des zones (pour décider d’un cadrage automatique). */
+export function zonesExtent(zones: ZoneReglementee[]): {
+  minLon: number;
+  minLat: number;
+  maxLon: number;
+  maxLat: number;
+} | null {
+  let minLon = Infinity;
+  let minLat = Infinity;
+  let maxLon = -Infinity;
+  let maxLat = -Infinity;
+  let any = false;
+  for (const z of zones) {
+    const geom = sanitizePolygon(z.geometrie);
+    if (!geom) continue;
+    for (const c of geom.coordinates[0]) {
+      any = true;
+      minLon = Math.min(minLon, c[0]);
+      minLat = Math.min(minLat, c[1]);
+      maxLon = Math.max(maxLon, c[0]);
+      maxLat = Math.max(maxLat, c[1]);
+    }
+  }
+  if (!any) return null;
+  return { minLon, minLat, maxLon, maxLat };
 }
 
 export function fitMapToZones(map: maplibregl.Map, zones: ZoneReglementee[]): void {

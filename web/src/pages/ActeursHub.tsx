@@ -21,6 +21,7 @@ type Props = {
   isSuperAdmin?: boolean;
   /** Recherche à poser dans l'onglet des pêcheurs (recherche globale). */
   initialQuery?: string;
+  role?: string | null;
 };
 
 export default function ActeursHub({
@@ -32,6 +33,7 @@ export default function ActeursHub({
   initialTab = 'demandes',
   isSuperAdmin = false,
   initialQuery,
+  role = null,
 }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
 
@@ -68,6 +70,7 @@ export default function ActeursHub({
             colorFor={colorFor}
             onOpenTrajectory={onOpenTrajectory}
             initialQuery={initialQuery}
+            role={role}
           />
         ) : null}
         {tab === 'organisations' ? <OrganisationsPage token={token} onError={onError} /> : null}

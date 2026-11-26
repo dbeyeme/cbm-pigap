@@ -33,6 +33,7 @@ Rôles : autorité, agent de contrôle, administrateur.
 | GET | `/peche-apparente?debut=&fin=` | Heures par mois et par pavillon |
 | GET | `/navires?debut=&fin=` | Navires observés et heures par navire |
 | GET | `/detections-radar?debut=&fin=` | Détections par mois et par pavillon |
+| GET | `/evenements-peche?debut=&fin=` | Épisodes de pêche apparente, avec un lieu par point |
 | GET | `/navires/{vessel_id}` | Fiche d'identité : registres et identité émise |
 
 Contrat détaillé et exemples : `docs/lot-5-activite-zones-serveur.md`.

@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react';
 
 import { aisStatutLabel, type AisLiveResponse, type AisVessel } from '../api';
+import {
+  classePastilleRegularite,
+  estAControler,
+  libelleRegularite,
+} from '../lib/regularite';
 import { IconRadar, IconRefresh } from './Icons';
 
 type Props = {
@@ -9,6 +14,7 @@ type Props = {
   note: string;
   onRefresh: () => void;
   onSelect?: (mmsi: string) => void;
+  filtreAControler?: boolean;
 };
 
 function formatHours(h: number): string {
@@ -46,14 +52,23 @@ function statutTone(statut: string): string {
  * Panneau de surveillance AIS : état du flux, présence par port, liste des navires.
  * Les libellés sont destinés aux agents et autorités (aucun jargon technique).
  */
-export default function AisPanel({ live, vessels, note, onRefresh, onSelect }: Props) {
+export default function AisPanel({
+  live,
+  vessels,
+  note,
+  onRefresh,
+  onSelect,
+  filtreAControler = false,
+}: Props) {
   const [portFilter, setPortFilter] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
   const stream = live?.stream ?? null;
   const ports = live?.ports ?? [];
   const receivers = live?.recepteurs_locaux ?? 0;
-  const approches = live?.approches ?? [];
+  const approches = (live?.approches ?? []).filter(
+    (v) => !filtreAControler || estAControler(v.regularite),
+  );
   const real = useMemo(() => vessels.filter((v) => !v.demo), [vessels]);
   const demo = vessels.length > 0 && real.length === 0;
 
@@ -88,7 +103,10 @@ export default function AisPanel({ live, vessels, note, onRefresh, onSelect }: P
         <div className="ais-panel-title">
           <strong>Navires AIS</strong>
           <span>
-            {real.length} navire{real.length > 1 ? 's' : ''} suivi{real.length > 1 ? 's' : ''}
+            {real.length} dans les eaux gabonaises
+            {approches.length
+              ? ` · ${approches.length} en approche`
+              : ''}
             {demo ? ' · données de démonstration' : ''}
           </span>
         </div>
@@ -155,9 +173,13 @@ export default function AisPanel({ live, vessels, note, onRefresh, onSelect }: P
 
       {filtered.length === 0 ? (
         <p className="ais-empty">
-          {portFilter
-            ? 'Aucun navire AIS détecté dans ce port pour le moment.'
-            : 'Aucun navire AIS reçu pour les eaux gabonaises. Les réseaux communautaires ne couvrent pratiquement pas le littoral gabonais : un récepteur AIS local est nécessaire pour voir les navires au port.'}
+          {filtreAControler
+            ? 'Aucun navire AIS à contrôler dans les eaux gabonaises pour le moment.'
+            : portFilter
+              ? 'Aucun navire AIS détecté dans ce port pour le moment.'
+              : approches.length > 0
+                ? `Aucun navire AIS dans les eaux gabonaises pour l’instant. ${approches.length} navire${approches.length > 1 ? 's' : ''} en approche depuis le golfe de Guinée ${approches.length > 1 ? 'sont' : 'est'} listé${approches.length > 1 ? 's' : ''} plus bas.`
+                : 'Aucun navire AIS reçu pour les eaux gabonaises. Les réseaux communautaires ne couvrent pratiquement pas le littoral gabonais : un récepteur AIS local est nécessaire pour voir les navires au port.'}
         </p>
       ) : (
         <ul className="ais-list">
@@ -175,11 +197,14 @@ export default function AisPanel({ live, vessels, note, onRefresh, onSelect }: P
                   {v.type_label ? <em> · {v.type_label}</em> : null}
                 </span>
                 <span className="ais-row-meta">
-                  {v.pavillon ? `${v.pavillon} · ` : ''}
-                  {aisStatutLabel(v.statut_nav)}
+                  <span className={classePastilleRegularite(v.regularite)}>
+                    {libelleRegularite(v.regularite, v.regularite_libelle)}
+                  </span>
+                  {v.pavillon ? ` · ${v.pavillon}` : ''}
+                  {` · ${aisStatutLabel(v.statut_nav)}`}
                   {v.port_proche ? ` · ${v.port_proche}` : ''}
                   {v.sog_kn != null && v.sog_kn >= 0.5 ? ` · ${v.sog_kn.toFixed(1)} nd` : ''}
-                  {` · il y a ${formatAge(v.age_s)}`}
+                  {` · ${v.age_libelle ?? `il y a ${formatAge(v.age_s)}`}`}
                 </span>
               </span>
               <span className="ais-row-mmsi">MMSI {v.mmsi}</span>

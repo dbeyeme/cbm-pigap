@@ -76,6 +76,14 @@ def _kg(espece: str, day: date, today: date) -> float:
     return round(max(0.4, base * factor * wobble), 2)
 
 
+def _sans_journal():
+    """Alertes sans traitement inscrit : le journal (lot 9) ne se supprime jamais."""
+    from app.db.models import Alerte, AlerteJournal
+    from sqlalchemy import exists, select
+
+    return ~exists(select(AlerteJournal.id).where(AlerteJournal.alerte_id == Alerte.id))
+
+
 async def main() -> None:
     today = datetime.now(UTC).date()
     start = today - timedelta(days=365)
@@ -88,7 +96,9 @@ async def main() -> None:
 
         await session.execute(delete(Capture).where(Capture.point_debarquement == MARKER))
         await session.execute(
-            delete(Alerte).where(Alerte.declencheur["source"].as_string() == SEED_SOURCE)
+            delete(Alerte).where(
+                Alerte.declencheur["source"].as_string() == SEED_SOURCE, _sans_journal()
+            )
         )
         await session.flush()
 

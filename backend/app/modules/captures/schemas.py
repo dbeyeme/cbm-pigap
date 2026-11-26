@@ -62,6 +62,9 @@ class CaptureCreate(BaseModel):
     position_capture: PointGeoJSON | None = None
     point_debarquement: str = Field(..., min_length=1, max_length=255)
     date_capture: datetime
+    prix_fcfa_kg: int | None = Field(
+        None, description="Prix de vente déclaré au kilo, en francs CFA, facultatif"
+    )
 
     @field_validator("espece")
     @classmethod
@@ -97,6 +100,9 @@ class CaptureUpdate(BaseModel):
     position_capture: PointGeoJSON | None = None
     point_debarquement: str | None = Field(None, min_length=1, max_length=255)
     date_capture: datetime | None = None
+    prix_fcfa_kg: int | None = Field(
+        None, description="Prix de vente déclaré au kilo, en francs CFA, facultatif"
+    )
 
     @field_validator("espece")
     @classmethod
@@ -129,6 +135,7 @@ class CaptureRead(OrmModel):
     position_capture: PointGeoJSON | None
     point_debarquement: str | None
     date_capture: datetime
+    prix_fcfa_kg: int | None = None
     synchronise_a: datetime | None
     taxe_fcfa: float | None = None
     taxe_taux_kg: float | None = None

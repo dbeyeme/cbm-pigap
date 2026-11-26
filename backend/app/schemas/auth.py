@@ -39,6 +39,12 @@ class LoginRequest(BaseModel):
     email: EmailStr | None = None
     telephone: str | None = None
     mot_de_passe: str
+    # Application mobile : demande un jeton de renouvellement (demande S1)
+    session_longue: bool = False
+
+
+class RenouvellementRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=20, max_length=200)
 
 
 class TokenResponse(BaseModel):
@@ -49,3 +55,7 @@ class TokenResponse(BaseModel):
     # exemple après une libération faite par un agent). Faux sans en-tête d'appareil
     # et pour les autres rôles.
     appareil_rattache: bool = False
+    # Session longue (application mobile) : jeton à échanger sur /auth/renouveler
+    refresh_token: str | None = None
+    refresh_expire_a: datetime | None = None
+    expires_in: int | None = Field(None, description="Durée de validité du jeton d'accès (s)")

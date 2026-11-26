@@ -40,6 +40,8 @@ type Props = {
   onCaptures: () => void;
   onTracking: () => void;
   onCarte: () => void;
+  /** Page de profil : présentation, espèces, tarifs, ouverture au public. */
+  onProfil?: () => void;
   onAbonnement: () => void;
   onRedevances?: () => void;
   onLogout: () => void;
@@ -49,6 +51,7 @@ const HELP_POINTS: ReadonlyArray<InfoPoint> = [
   { icon: 'fish-outline', text: 'Déclarez vos captures au retour de pêche : l’application marche sans réseau.' },
   { icon: 'navigate-outline', text: 'Démarrez le suivi GPS en quittant le quai, arrêtez-le au retour.' },
   { icon: 'id-card-outline', text: 'Votre carte porte le QR de votre licence : présentez-la lors d’un contrôle.' },
+  { icon: 'storefront-outline', text: 'Votre page présente votre activité : espèces pêchées et, si vous le souhaitez, vos tarifs.' },
   { icon: 'cloud-upload-outline', text: 'Ce qui n’a pas pu partir reste sur le téléphone et s’envoie dès que le réseau revient.' },
   { icon: 'phone-portrait-outline', text: 'Ce téléphone est rattaché à votre compte pêcheur. Pour en changer, adressez-vous à un agent de contrôle.' },
 ];
@@ -69,6 +72,7 @@ export function PecheurHomeScreen({
   onCaptures,
   onTracking,
   onCarte,
+  onProfil,
   onAbonnement,
   onRedevances,
   onLogout,
@@ -230,6 +234,9 @@ export function PecheurHomeScreen({
             badge={pending.captures > 0 ? pluriel(pending.captures, 'à envoyer', 'à envoyer') : undefined}
             onPress={onCaptures}
           />
+          {onProfil ? (
+            <ActionTile icon="storefront-outline" title="Ma page" subtitle="Profil et tarifs" onPress={onProfil} />
+          ) : null}
           <ActionTile illustration={ILLU.abo} title="Abonnement" subtitle="Mobile Money" onPress={onAbonnement} />
           {onRedevances ? (
             <ActionTile icon="mci:receipt-text-outline" title="Redevances" subtitle="Taxe et quittances" onPress={onRedevances} />

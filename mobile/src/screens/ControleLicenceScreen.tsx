@@ -6,6 +6,7 @@ import { verifierLicence, type VerificationLicence } from '../api';
 import { GlassField } from '../components/GlassField';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
+import { IdentiteSheet } from '../components/IdentiteSheet';
 import {
   AppIcon,
   HelpTip,
@@ -53,6 +54,8 @@ export function ControleLicenceScreen({ token, onBack }: Props) {
   const [numero, setNumero] = useState('');
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'attente' });
   const [scanNote, setScanNote] = useState<string | null>(null);
+  /** Fiche d'identité du titulaire, ouverte au-dessus du résultat. */
+  const [ficheOuverte, setFicheOuverte] = useState(false);
   /** Empêche la caméra de relancer une vérification à chaque image du même QR. */
   const locked = useRef(false);
 
@@ -94,6 +97,7 @@ export function ControleLicenceScreen({ token, onBack }: Props) {
 
   function reset() {
     locked.current = false;
+    setFicheOuverte(false);
     setOutcome({ kind: 'attente' });
     setScanNote(null);
     setNumero('');
@@ -249,13 +253,32 @@ export function ControleLicenceScreen({ token, onBack }: Props) {
           </>
         ) : null}
 
-        {outcome.kind === 'resultat' ? <Resultat data={outcome.data} onReset={reset} /> : null}
+        {outcome.kind === 'resultat' ? (
+          <Resultat data={outcome.data} onReset={reset} onFiche={() => setFicheOuverte(true)} />
+        ) : null}
       </ScrollView>
+      {outcome.kind === 'resultat' && outcome.data.pecheur_id ? (
+        <IdentiteSheet
+          visible={ficheOuverte}
+          onClose={() => setFicheOuverte(false)}
+          token={token}
+          source={{ kind: 'pecheur', pecheurId: outcome.data.pecheur_id }}
+          titre={outcome.data.pecheur_nom ?? undefined}
+        />
+      ) : null}
     </View>
   );
 }
 
-function Resultat({ data, onReset }: { data: VerificationLicence; onReset: () => void }) {
+function Resultat({
+  data,
+  onReset,
+  onFiche,
+}: {
+  data: VerificationLicence;
+  onReset: () => void;
+  onFiche: () => void;
+}) {
   const statut = data.trouvee ? data.statut_licence : 'inconnue';
   const tone = tonStatutLicence(statut);
   const ton = tones[tone];
@@ -352,7 +375,15 @@ function Resultat({ data, onReset }: { data: VerificationLicence; onReset: () =>
       ) : null}
 
       <View style={styles.actions}>
-        <GlowButton label="Vérifier une autre licence" icon="qr-code-outline" onPress={onReset} />
+        {data.trouvee && data.pecheur_id ? (
+          <GlowButton label="Fiche d’identité" icon="document-text-outline" onPress={onFiche} />
+        ) : null}
+        <GlowButton
+          label="Vérifier une autre licence"
+          icon="qr-code-outline"
+          variant={data.trouvee && data.pecheur_id ? 'ghost' : 'primary'}
+          onPress={onReset}
+        />
       </View>
     </>
   );

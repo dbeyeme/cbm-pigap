@@ -27,6 +27,8 @@ export type LocalCapture = {
   methode: MethodeMVP | string;
   point_debarquement: string;
   date_capture: string;
+  /** Prix de vente déclaré au kilo, facultatif. */
+  prix_fcfa_kg: number | null;
   /** Lieu de pêche [longitude, latitude], si le pêcheur l'a joint. */
   position: [number, number] | null;
   sync_status: CaptureStatus;
@@ -106,6 +108,7 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       await ensureColumn(db, 'captures_local', 'utilisateur_id', 'TEXT');
       await ensureColumn(db, 'captures_local', 'position_lon', 'REAL');
       await ensureColumn(db, 'captures_local', 'position_lat', 'REAL');
+      await ensureColumn(db, 'captures_local', 'prix_fcfa_kg', 'INTEGER');
       await ensureColumn(db, 'positions_local', 'utilisateur_id', 'TEXT');
       return db;
     })().catch((err) => {
@@ -179,6 +182,10 @@ function rowToCapture(row: Record<string, unknown>): LocalCapture {
     methode: String(row.methode),
     point_debarquement: String(row.point_debarquement),
     date_capture: String(row.date_capture),
+    prix_fcfa_kg:
+      row.prix_fcfa_kg == null || row.prix_fcfa_kg === ''
+        ? null
+        : Number(row.prix_fcfa_kg),
     position:
       lon != null && lat != null && Number.isFinite(lon) && Number.isFinite(lat) ? [lon, lat] : null,
     sync_status: status === 'synced' ? 'synced' : status === 'rejected' ? 'rejected' : 'pending',
@@ -197,18 +204,20 @@ export async function enqueueCapture(input: {
   methode: string;
   point_debarquement: string;
   date_capture: string;
+  prix_fcfa_kg?: number | null;
   /** Lieu de pêche [longitude, latitude] ; absent si le pêcheur l'a retiré. */
   position?: [number, number] | null;
 }): Promise<LocalCapture> {
   const db = await getDb();
   const created_at = new Date().toISOString();
   const position = input.position ?? null;
+  const prix = input.prix_fcfa_kg ?? null;
   await db.runAsync(
     `INSERT INTO captures_local (
       id, utilisateur_id, pecheur_id, embarcation_id, espece, quantite_kg, methode,
-      point_debarquement, date_capture, position_lon, position_lat,
+      point_debarquement, date_capture, position_lon, position_lat, prix_fcfa_kg,
       sync_status, created_at, last_error
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL)`,
     [
       input.id,
       input.utilisateur_id,
@@ -221,6 +230,7 @@ export async function enqueueCapture(input: {
       input.date_capture,
       position ? position[0] : null,
       position ? position[1] : null,
+      prix,
       created_at,
     ],
   );
@@ -233,6 +243,7 @@ export async function enqueueCapture(input: {
     methode: input.methode,
     point_debarquement: input.point_debarquement,
     date_capture: input.date_capture,
+    prix_fcfa_kg: prix,
     position,
     sync_status: 'pending',
     created_at,

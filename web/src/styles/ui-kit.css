@@ -166,6 +166,7 @@ button.linkish:hover:not(:disabled) {
 .main-nav button:hover:not(:disabled):not(.nav-on),
 .zone-select:hover:not(:disabled),
 .traj-item:hover:not(:disabled),
+.gfw-navire:hover:not(:disabled),
 .module-row:hover:not(:disabled),
 .boat-card:hover:not(:disabled),
 .team-user-card:hover:not(:disabled),
@@ -338,12 +339,12 @@ summary:focus-visible {
 .ds-sidebar .ds-nav-item {
   position: relative;
   display: grid;
-  grid-template-columns: 34px 1fr auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 44px;
-  padding: 5px 10px 5px 8px;
+  min-height: 48px;
+  padding: 6px 10px 6px 8px;
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
@@ -411,21 +412,19 @@ summary:focus-visible {
 }
 
 .ds-nav-hint {
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 500;
-  color: rgba(148, 163, 184, 0.75);
-  line-height: 1.2;
-  white-space: nowrap;
+  color: rgba(203, 213, 225, 0.82);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
   transition: color var(--dur-fast) ease;
 }
 
 .ds-nav-chevron {
-  font-size: 1rem;
-  line-height: 1;
-  color: rgba(148, 163, 184, 0.35);
-  transform: translateX(-4px);
+  display: none;
   opacity: 0;
   transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) ease;
 }
@@ -655,6 +654,18 @@ summary:focus-visible {
   background: var(--row-hover);
 }
 
+.ds-table tbody tr.is-selected {
+  background: rgba(27, 108, 168, 0.09);
+}
+
+.ds-table tbody tr.is-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.ds-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
 .ds-table th {
   position: sticky;
   top: 0;
@@ -879,7 +890,10 @@ summary:focus-visible {
    -------------------------------------------------------------------------- */
 
 .ais-panel {
-  margin: 6px 0 10px;
+  position: relative;
+  z-index: 0;
+  flex: 0 0 auto;
+  margin: 12px 0 0;
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -888,7 +902,45 @@ summary:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  isolation: isolate;
   animation: ds-fade-slide var(--dur) var(--ease-out) both;
+}
+
+/* Flotte GPS : ne doit jamais être écrasée par le bloc AIS (flex-shrink). */
+.navires-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.navires-section-title {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.table-defile--panel {
+  flex: 0 0 auto;
+  min-height: 160px;
+  max-height: min(42vh, 360px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 10px;
+  background: var(--surface, #f8fafc);
+  scrollbar-width: thin;
+}
+
+.map-panel .table-defile--panel .ligne-bouton {
+  min-height: 0;
+  padding: 2px 0;
+  font-size: 0.86rem;
 }
 
 .ais-panel-head {
@@ -1917,11 +1969,13 @@ summary:focus-visible {
   }
 
   .ds-sidebar.is-collapsed:hover .ds-sidebar-brand > div,
-  .ds-sidebar.is-collapsed:hover .ds-nav-section-label,
+  .ds-sidebar.is-collapsed:hover .ds-nav-section-label {
+    display: block;
+  }
+
   .ds-sidebar.is-collapsed:hover .ds-nav-text,
-  .ds-sidebar.is-collapsed:hover .ds-nav-chevron,
   .ds-sidebar.is-collapsed:hover .ds-sys-status {
-    display: initial;
+    display: flex;
   }
 
   .ds-sidebar.is-collapsed:hover .ds-nav-text {
@@ -1938,13 +1992,14 @@ summary:focus-visible {
 
   .ds-sidebar.is-collapsed:hover .ds-sidebar-brand {
     justify-content: flex-start;
-    padding: 18px 16px 14px;
+    padding: 18px 44px 14px 16px;
   }
 
   .ds-sidebar.is-collapsed:hover .ds-nav-item {
-    grid-template-columns: 34px 1fr auto;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
     justify-items: stretch;
-    padding: 5px 10px 5px 8px;
+    min-height: 48px;
+    padding: 6px 10px 6px 8px;
   }
 
   .ds-sidebar.is-collapsed:hover .ds-nav-badge {
@@ -2621,9 +2676,10 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
   }
 
   .ds-sidebar.is-collapsed .ds-nav-item {
-    grid-template-columns: 34px 1fr auto;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
     justify-items: stretch;
-    padding: 5px 10px 5px 8px;
+    min-height: 48px;
+    padding: 6px 10px 6px 8px;
   }
 
   .vessel-drawer {
@@ -3185,11 +3241,96 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
   transform: rotate(45deg);
 }
 
-.alertes-etat--ignoree::before {
+.alertes-etat--ignoree::before,
+.alertes-etat--cloturee_non_fondee::before {
   width: 10px;
   height: 3px;
   border-radius: 2px;
   background: #64748b;
+}
+
+.alertes-etat--a_traiter::before,
+.alertes-etat--prise_en_charge::before,
+.alertes-etat--en_verification::before {
+  border-radius: 1px;
+  background: #c2410c;
+  transform: rotate(45deg);
+}
+
+.alertes-etat--cloturee_fondee::before {
+  background: #15803d;
+}
+
+.alertes-journal,
+.alertes-traitement {
+  margin: 16px 0 4px;
+  max-width: 720px;
+}
+
+.alertes-journal h3,
+.alertes-traitement h3 {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.alertes-journal ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alertes-journal li {
+  padding: 8px 0 8px 12px;
+  border-left: 3px solid var(--border);
+}
+
+.alertes-journal li strong,
+.alertes-journal li span,
+.alertes-journal li p {
+  display: block;
+}
+
+.alertes-journal li span {
+  margin: 2px 0 4px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.alertes-journal li p {
+  margin: 0;
+  font-size: 0.86rem;
+  white-space: pre-wrap;
+}
+
+.alertes-traitement {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alertes-traitement label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.alertes-traitement textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.alertes-traitement button {
+  align-self: flex-start;
 }
 
 .alertes-detail > td {
@@ -4025,6 +4166,11 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
     max-height: 62%;
   }
 
+  /* Fiche et panneau partagent le même emplacement : la fiche seule reste visible. */
+  .map-stage:has(.fiche) .map-panel {
+    display: none;
+  }
+
   /* Les boutons de zoom passent sous la barre d'outils. */
   .map-stage .maplibregl-ctrl-top-right {
     top: 100px;
@@ -4060,6 +4206,7 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
    Dessins dans geo/vesselMarkers.ts. Aucune animation en boucle, aucune
    transformation animée : seule l'apparition joue sur l'opacité. */
 .vm {
+  position: relative;
   display: block;
   line-height: 0;
   pointer-events: none;
@@ -4072,6 +4219,7 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
   filter: drop-shadow(0 3px 5px rgba(0, 26, 61, 0.38));
 }
 
+.vm--ais,
 .vm--clickable {
   pointer-events: auto;
   cursor: pointer;
@@ -4159,6 +4307,107 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
 
 .vm--demo {
   opacity: 0.72;
+}
+
+/* Lot 4 : losange (à contrôler) et carré (à vérifier), distincts de l'anneau de fraîcheur. */
+.vm-ctrl,
+.vm-verif {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1.5px solid #fff;
+  box-shadow: 0 1px 2px rgba(0, 26, 61, 0.35);
+  pointer-events: none;
+}
+
+.vm-ctrl {
+  width: 10px;
+  height: 10px;
+  background: #c81e1e;
+  transform: rotate(45deg);
+}
+
+.vm-verif {
+  width: 9px;
+  height: 9px;
+  background: #b45309;
+}
+
+.vm--ais .vm-ctrl,
+.vm--ais .vm-verif {
+  top: 6px;
+  left: 6px;
+}
+
+.vm--cluster {
+  position: relative;
+}
+
+.ais-row-meta .etat-pastille {
+  vertical-align: middle;
+}
+
+/* Panneau de carte étroit : le tableau s'empile, indépendamment de la fenêtre. */
+.map-panel .ds-table.empilable {
+  display: block;
+  width: 100%;
+  border-collapse: separate;
+}
+.map-panel .ds-table.empilable thead {
+  display: none;
+}
+.map-panel .ds-table.empilable tbody {
+  display: block;
+}
+.map-panel .ds-table.empilable tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 2px 10px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.map-panel .ds-table.empilable tr:last-child {
+  border-bottom: 0;
+}
+.map-panel .ds-table.empilable td {
+  display: block;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
+.map-panel .ds-table.empilable td:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  padding-right: 8px;
+}
+.map-panel .ds-table.empilable td:nth-child(2) {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  max-width: 11rem;
+}
+.map-panel .ds-table.empilable td:nth-child(3) {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.map-panel .ds-table.empilable .etat-pastille {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-panel .ds-table.empilable td::before {
+  content: none;
 }
 
 /* Liste d'un groupe d'embarcations au même endroit */
@@ -4995,4 +5244,593 @@ input.is-locked {
   .ds-fo-app {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   Lots 10, 5 et 2 du portail (novembre 2026) : registre, appareils, identité,
+   profils, activité par maille, rapport de zone, essai d'une source externe.
+   Aucun niveau d'empilement improvisé : seule l'échelle --z-map-* est utilisée.
+   ========================================================================== */
+
+/* Pastille d'état : la forme du repère double la couleur (rond, losange, carré). */
+.etat-pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: rgba(11, 31, 58, 0.06);
+  color: var(--muted);
+}
+.etat-pastille::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.etat-pastille--ok { background: var(--ok-soft); color: #166534; }
+.etat-pastille--warn { background: var(--warn-soft); color: #9a3412; }
+.etat-pastille--warn::before { border-radius: 1px; transform: rotate(45deg); }
+.etat-pastille--danger { background: rgba(200, 30, 30, 0.12); color: #991b1b; }
+.etat-pastille--danger::before { border-radius: 1px; }
+.etat-pastille--neutre::before { background: transparent; border: 1.5px solid currentColor; }
+.etat-pastille--ctrl {
+  background: rgba(200, 30, 30, 0.12);
+  color: #991b1b;
+}
+.etat-pastille--ctrl::before {
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+.etat-pastille--verif {
+  background: var(--warn-soft);
+  color: #9a3412;
+}
+.etat-pastille--verif::before {
+  border-radius: 1px;
+}
+
+.cellule-note {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.table-defile { width: 100%; overflow-x: auto; }
+.empreinte {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8rem;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(11, 31, 58, 0.06);
+  color: var(--deep);
+}
+.pastille-couleur {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.etat-erreur {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(200, 30, 30, 0.25);
+  border-radius: var(--radius-sm);
+  background: rgba(200, 30, 30, 0.05);
+  color: #7f1d1d;
+}
+.etat-erreur p { margin: 0; flex: 1 1 220px; }
+.form-error {
+  margin: 0;
+  padding: 9px 12px;
+  border-left: 3px solid var(--danger);
+  border-radius: 6px;
+  background: rgba(200, 30, 30, 0.06);
+  color: #7f1d1d;
+  font-size: 0.86rem;
+}
+
+/* Formulaires en deux colonnes dans les fenêtres ; une seule sur téléphone. */
+.form-grille {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.form-grille-large { grid-column: 1 / -1; }
+@media (max-width: 560px) {
+  .form-grille { grid-template-columns: minmax(0, 1fr); }
+}
+
+.complements summary { gap: 8px; }
+.complements-compte {
+  margin-left: 8px;
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--primary-deep);
+}
+.complements-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px 14px;
+  margin-top: 10px;
+}
+.complements-large { grid-column: 1 / -1; }
+
+/* Registre des pêcheurs : tableau à gauche, fiche à onglets à droite. */
+.registre {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+@media (min-width: 1100px) {
+  .registre { grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.4fr); align-items: start; }
+}
+.registre-liste,
+.registre-fiche {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.registre-recherche {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.registre-recherche label { flex: 1 1 200px; min-width: 0; margin: 0; }
+.registre-recherche input { width: 100%; }
+.registre-table td { padding: 0 10px; height: 46px; }
+.registre-table tr.is-selected { background: rgba(27, 108, 168, 0.09); }
+.registre-table tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+button.ligne-bouton {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--deep);
+  font-weight: 650;
+  text-align: left;
+  box-shadow: none;
+}
+button.ligne-bouton:hover:not(:disabled) {
+  background: transparent;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pagination-actions { display: inline-flex; gap: 6px; }
+.registre-vide { margin: 0; }
+.registre-fiche-tete h2 { margin: 0; font-size: 1.15rem; }
+.registre-fiche-tete p { margin: 4px 0 10px; color: var(--muted); font-size: 0.85rem; }
+.registre-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+}
+.registre-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.registre-corps .fiche-tuiles { border: 1px solid var(--border); border-radius: var(--radius-sm); }
+
+/* Tableaux empilés sur téléphone : chaque ligne devient un bloc libellé. */
+@media (max-width: 640px) {
+  .ds-table.registre-table,
+  .ds-table.appareils-table,
+  .ds-table.empilable { display: block; }
+  .ds-table.registre-table thead,
+  .ds-table.appareils-table thead,
+  .ds-table.empilable thead { display: none; }
+  .ds-table.registre-table tbody,
+  .ds-table.appareils-table tbody,
+  .ds-table.empilable tbody { display: block; }
+  .ds-table.registre-table tr,
+  .ds-table.appareils-table tr,
+  .ds-table.empilable tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ds-table.registre-table td,
+  .ds-table.appareils-table td,
+  .ds-table.empilable td { display: block; height: auto; padding: 0; border: 0; }
+  .ds-table.appareils-table td::before,
+  .ds-table.empilable td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .ds-table.empilable td[data-label='']::before { display: none; }
+}
+
+/* Appareils (ADR-012). */
+.appareils { display: flex; flex-direction: column; gap: 10px; }
+.appareils-entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.appareils-entete p { margin: 0; flex: 1 1 auto; font-size: 0.88rem; }
+.appareils-table tr.is-off { color: var(--muted); }
+
+/* Fiche d'identité : deux volets côte à côte dès que la place le permet. */
+.identite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+}
+.identite-volet {
+  flex: 1 1 300px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+.identite-volet--suivi { background: #f6f9fc; }
+.identite-titre {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary-deep);
+}
+.identite .fiche-detail { margin-top: 6px; }
+
+/* Page de profil (vue connectée, vue publique). */
+.profil { display: flex; flex-direction: column; gap: 14px; }
+.profil-tete { display: flex; align-items: center; gap: 12px; }
+.profil-icone {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 12px;
+  background: rgba(27, 108, 168, 0.1);
+  color: var(--primary-deep);
+}
+.profil-nom { margin: 0; font-size: 1.2rem; overflow-wrap: anywhere; }
+.profil-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.profil-presentation {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.profil-bloc h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+.profil-especes { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.profil-especes li {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  background: #f8fafc;
+}
+
+/* Essai Global Fishing Watch : panneau et mention d'attribution */
+.gfw-panel {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.gfw-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.gfw-panel-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(109, 40, 217, 0.12);
+  color: #6d28d9;
+}
+
+.gfw-panel-head strong {
+  display: block;
+  font-size: 0.88rem;
+}
+
+.gfw-panel-head span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.gfw-panel-meta,
+.gfw-panel-warn,
+.gfw-mention {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.gfw-panel-warn {
+  color: var(--deep);
+}
+
+.gfw-mention a {
+  color: var(--primary-deep);
+  font-weight: 600;
+}
+
+.gfw-panel-navires,
+.gfw-panel-liste {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.gfw-panel-navires li {
+  margin: 0;
+  padding: 0;
+}
+
+.gfw-navire,
+.gfw-navire:hover:not(:disabled) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.gfw-navire:hover:not(:disabled) {
+  background: var(--row-hover);
+  color: var(--primary-deep);
+}
+
+.gfw-navire.is-on {
+  outline: 2px solid #6d28d9;
+  outline-offset: 0;
+}
+
+.gfw-panel-navires em,
+.gfw-navire em {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.gfw-panel-liste {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.gfw-panel-liste .ais-row {
+  border-left-color: #6d28d9;
+}
+
+.gfw-panel-liste .ais-row-dot {
+  background: #6d28d9;
+}
+
+.gfw-panel-liste .ais-row.is-on {
+  outline: 2px solid #6d28d9;
+}
+
+/* Lot 5 : heures d'activité, rapport de zone, tableaux GFW */
+.activite-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.activite-plage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.activite-legend {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activite-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+
+.activite-legend i {
+  width: 16px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(11, 31, 58, 0.2);
+}
+
+.activite-maille {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.activite-maille strong { display: block; font-size: 0.86rem; }
+.activite-maille p { margin: 4px 0 8px; font-size: 0.8rem; color: var(--muted); }
+
+.rapport-zone-tete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+
+.rapport-zone-tete strong { display: block; }
+.rapport-zone-tete span { display: block; font-size: 0.78rem; color: var(--muted); }
+
+.rapport-zone-chiffres {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.rapport-zone-chiffres li {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.rapport-zone-chiffres em {
+  display: block;
+  font-style: normal;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.rapport-zone-chiffres strong { font-size: 1rem; }
+
+.rapport-zone-bloc { margin-top: 14px; }
+.rapport-zone-bloc h4 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 0.86rem;
+}
+.rapport-zone-bloc h4 em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.gfw-tableaux { margin-top: 24px; }
+.gfw-tableaux .ds-table { margin-top: 10px; }
+
+.profil-editeur { display: flex; flex-direction: column; gap: 20px; }
+.profil-masques {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.profil-qr {
+  width: 120px;
+  height: 120px;
+  margin: 8px 0;
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  .rapport-zone-chiffres { grid-template-columns: 1fr; }
+  .activite-plage { grid-template-columns: 1fr; }
+}
+
+/* File des demandes : tableau lisible (type, état, date entière). */
+.file-demandes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+@media (min-width: 1100px) {
+  .file-demandes.has-fiche {
+    grid-template-columns: minmax(520px, 1.25fr) minmax(320px, 0.9fr);
+    align-items: start;
+  }
+}
+.file-demandes-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.file-demandes-table {
+  overflow-x: auto;
+}
+.file-demandes .ds-table {
+  width: 100%;
+  min-width: 520px;
+}
+.file-demandes .cellule-serree {
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .file-demandes .ds-table { min-width: 0; }
 }

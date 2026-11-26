@@ -127,11 +127,21 @@ async def _indicateurs_effort(
     volume = sum(float(v or 0) for _, v in repartition_rows)
     valeur = 0.0
     couvert = 0.0
-    for espece, vol in repartition_rows:
+    captures_prix = (
+        await db.execute(
+            select(Capture.espece, Capture.quantite_kg, Capture.prix_fcfa_kg).where(*capture_filters)
+        )
+    ).all()
+    for espece, vol, prix_declare in captures_prix:
+        qty = float(vol or 0)
+        if prix_declare is not None:
+            valeur += qty * float(prix_declare)
+            couvert += qty
+            continue
         prix = ref.prix_moyen_fcfa_kg(espece)
         if prix is not None:
-            valeur += float(vol or 0) * prix
-            couvert += float(vol or 0)
+            valeur += qty * prix
+            couvert += qty
     taxes = (
         await db.execute(
             select(Capture.taxe_statut, func.coalesce(func.sum(Capture.taxe_fcfa), 0.0))

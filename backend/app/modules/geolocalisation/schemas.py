@@ -69,6 +69,12 @@ class LiveVesselRead(BaseModel):
         ...,
         description="cote | bras_mer | fleuve — classification indicative Gabon",
     )
+    # Lot 4 : régularité et âge, pour colorer la carte sans ouvrir une fiche par navire
+    age_libelle: str | None = Field(None, description="Âge en clair (« il y a 12 min »)")
+    perimee: bool = Field(False, description="Position plus ancienne que le seuil du paramétrage")
+    regularite: str | None = Field(None, description="conforme | a_verifier | alerte")
+    regularite_libelle: str | None = Field(None, description="« Navire à contrôler » pour alerte")
+    motifs: list[str] = Field(default_factory=list)
 
 
 class TrajectorySegmentRead(BaseModel):

@@ -16,6 +16,7 @@ Ce module ne lit ni n'écrit la base et ne déclenche aucune alerte.
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -107,8 +108,11 @@ def _verrou() -> asyncio.Lock:
     return _verrou_rapport[1]
 
 
-def _cle(chemin: str, params: Sequence[tuple[str, str]]) -> str:
-    return chemin + "?" + "&".join(f"{k}={v}" for k, v in sorted(params))
+def _cle(chemin: str, params: Sequence[tuple[str, str]], corps: dict[str, Any] | None = None) -> str:
+    base = chemin + "?" + "&".join(f"{k}={v}" for k, v in sorted(params))
+    if corps:
+        base += "|" + json.dumps(corps, sort_keys=True, default=str)
+    return base
 
 
 def _frais(entree: _Entree | None, p: ParametresGfw) -> bool:
@@ -173,6 +177,7 @@ async def _interroger(
     jeton: str,
     cle: str,
     p: ParametresGfw,
+    corps: dict[str, Any] | None = None,
 ) -> ReponseGfw:
     ancienne = _cache.get(cle)
     jour = _maintenant().strftime("%Y-%m-%d")
@@ -200,13 +205,19 @@ async def _interroger(
             timeout=float(p.delai_reponse_secondes),
             transport=_transport(),
         ) as http:
-            reponse = await http.get(
-                chemin,
-                params=list(params),
-                headers={"Authorization": f"Bearer {jeton}", "Accept": "application/json"},
-            )
+            entetes = {"Authorization": f"Bearer {jeton}", "Accept": "application/json"}
+            if corps is None:
+                reponse = await http.get(chemin, params=list(params), headers=entetes)
+            else:
+                reponse = await http.post(
+                    chemin,
+                    params=list(params),
+                    headers={**entetes, "Content-Type": "application/json"},
+                    json=corps,
+                )
         statut = reponse.status_code
-        if statut == 200:
+        # L'éditeur répond 200 aux lectures et 201 aux recherches d'évènements (POST).
+        if statut in (200, 201):
             try:
                 donnees = reponse.json()
             except ValueError:
@@ -241,21 +252,26 @@ async def _interroger(
 
 
 async def appeler(
-    chemin: str, params: Sequence[tuple[str, str]], *, rapport: bool = False
+    chemin: str,
+    params: Sequence[tuple[str, str]],
+    *,
+    rapport: bool = False,
+    corps: dict[str, Any] | None = None,
 ) -> ReponseGfw:
     """Interroge l'éditeur, ou ressert la réponse en cache si elle est encore fraîche.
 
     `rapport=True` : les rapports passent un par un (verrou) ; une demande
     identique à celle qui vient d'aboutir profite de son résultat.
+    `corps` : corps JSON (POST) ; sans corps, l'appel reste un GET.
     """
     p = parametres_gfw()
     jeton = exiger_actif()
-    cle = _cle(chemin, params)
+    cle = _cle(chemin, params, corps)
     entree = _cache.get(cle)
     if entree is not None and _frais(entree, p):
         return ReponseGfw(entree.donnees, entree.recupere_a, en_cache=True)
     if not rapport:
-        return await _interroger(chemin, params, jeton=jeton, cle=cle, p=p)
+        return await _interroger(chemin, params, jeton=jeton, cle=cle, p=p, corps=corps)
 
     verrou = _verrou()
     try:
@@ -274,6 +290,6 @@ async def appeler(
         entree = _cache.get(cle)
         if entree is not None and _frais(entree, p):
             return ReponseGfw(entree.donnees, entree.recupere_a, en_cache=True)
-        return await _interroger(chemin, params, jeton=jeton, cle=cle, p=p)
+        return await _interroger(chemin, params, jeton=jeton, cle=cle, p=p, corps=corps)
     finally:
         verrou.release()

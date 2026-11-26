@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.errors import bad_request, conflict, forbidden
 from app.core.security import create_access_token, verify_password
@@ -9,7 +10,14 @@ from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
 from app.modules.abonnements.pawapay import normalize_gabon_msisdn
 from app.modules.appareils import service as appareils_service
-from app.schemas.auth import LoginRequest, TelephoneUpdate, TokenResponse, UtilisateurRead
+from app.modules.sessions import service as sessions
+from app.schemas.auth import (
+    LoginRequest,
+    RenouvellementRequest,
+    TelephoneUpdate,
+    TokenResponse,
+    UtilisateurRead,
+)
 from fastapi import APIRouter, Header
 from sqlalchemy import or_, select
 
@@ -42,7 +50,48 @@ async def login(
     appareil = await appareils_service.rattacher_a_la_connexion(db, user, x_appareil_id)
 
     token = create_access_token(subject=user.id, role=user.role.value)
-    return TokenResponse(access_token=token, appareil_rattache=appareil is not None)
+    reponse = TokenResponse(
+        access_token=token,
+        appareil_rattache=appareil is not None,
+        expires_in=settings.jwt_expire_minutes * 60,
+    )
+    # Session longue (demande S1) : seulement pour les rôles du paramétrage
+    if payload.session_longue and sessions.session_longue_admise(user):
+        jeton, echeance = sessions.emettre(
+            db, user, appareil_empreinte=sessions.appareil_de_connexion(appareil)
+        )
+        await db.commit()
+        reponse.refresh_token, reponse.refresh_expire_a = jeton, echeance
+    return reponse
+
+
+@router.post("/renouveler", response_model=TokenResponse)
+async def renouveler(
+    payload: RenouvellementRequest,
+    db: DbSession,
+    x_appareil_id: Annotated[str | None, Header(alias=appareils_service.ENTETE)] = None,
+) -> TokenResponse:
+    """Nouveau jeton d'accès contre un jeton de renouvellement, sans mot de passe.
+
+    Le jeton de renouvellement est remplacé à chaque appel : gardez le nouveau. Pour un
+    pêcheur, l'en-tête `X-Appareil-Id` du téléphone rattaché est exigé.
+    """
+    user, jeton, echeance, rattache = await sessions.renouveler(
+        db, payload.refresh_token, x_appareil_id
+    )
+    return TokenResponse(
+        access_token=create_access_token(subject=user.id, role=user.role.value),
+        appareil_rattache=rattache,
+        refresh_token=jeton,
+        refresh_expire_a=echeance,
+        expires_in=settings.jwt_expire_minutes * 60,
+    )
+
+
+@router.post("/deconnexion", status_code=204)
+async def deconnexion(payload: RenouvellementRequest, db: DbSession) -> None:
+    """Ferme la session longue du jeton présenté (sans effet s'il est inconnu)."""
+    await sessions.fermer(db, payload.refresh_token)
 
 
 @router.get("/me", response_model=UtilisateurRead)

@@ -283,6 +283,7 @@ Garde-fous :
 | `GET /gfw/peche-apparente` | `debut`, `fin` (AAAA-MM-JJ) | Heures de pêche apparente par mois et par pavillon |
 | `GET /gfw/navires` | `debut`, `fin` | Navires observés et heures par navire |
 | `GET /gfw/detections-radar` | `debut`, `fin` | Détections radar par mois et par pavillon |
+| `GET /gfw/evenements-peche` | `debut`, `fin` | Épisodes de pêche apparente, avec un lieu par point (carte). Côté éditeur : `POST /v3/events` (un `GET` avec `region-id` est refusé). L'éditeur répond `201 Created` ; le client l'accepte comme une lecture réussie. |
 | `GET /gfw/navires/{vessel_id}` | identifiant donné par `/gfw/navires` | Fiche d'identité : registres publics d'un côté, identité émise de l'autre |
 
 Sans dates, la période se termine au dernier jour publié par l'éditeur et couvre 90 jours. Les bornes sont transmises telles quelles à l'éditeur ; lors des deux essais, une période du 2026-08-01 au 2026-11-01 a renvoyé août, septembre et octobre.

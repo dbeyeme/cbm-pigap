@@ -5,6 +5,66 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-26] Lot 6 : prix de vente, courbes et carnet des déclarations
+
+**Ce qui a été construit :**
+- Prix de vente au kilo facultatif sur une capture (`prix_fcfa_kg`), plafond et anonymat lus dans `prix_marche.json` (Proposé)
+- Courbes agrégées (globale pondérée et par espèce), masquées sous 5 déclarations et 3 pêcheurs ; carnet par embarcation et par jour, sans charges ni rentabilité calculées
+- Portail : champ prix sur Captures, courbes et carnet sur Rapports ; mobile : champ prix et onglet Carnet
+- Valeur estimée du tableau de bord : prix déclaré s'il existe, sinon référence 2024
+
+**Pourquoi :** lot 6 du chantier de novembre 2026 ; aucun prix collecté jusqu'ici ; pas d'invention de formule de rentabilité ni de carnet de sortie (départ / retour reportés)
+
+**Tests réalisés :** `pytest app/tests/test_lot6_prix.py` (à confirmer à l'exécution) ; typage portail. Seuils d'anonymat, prix facultatif et formule de rentabilité : statut « Proposé »
+
+**Points ouverts :** lots 7 et 8 bloqués (ADR / Kimba Connect, multi-zones) ; CompactList encore sur Quotas, Contrôles, Organisations, Redevances ; rien n'est commité
+
+---
+
+## [2026-11-26] Portail : lots 4 et 9 (carte des présomptions, traitement des alertes)
+
+**Ce qui a été construit :**
+- Lot 4 : régularité dans les flux de la carte (losange « navire à contrôler », carré « à vérifier »), filtre « À contrôler », âge en clair, tableau des embarcations suivies, légende, libellés des alertes AIS ; aucun mot « pirate » ni « infraction » sur la carte
+- Lot 9 : page Alertes branchée sur les états de traitement, la description lisible, le commentaire obligatoire et le journal (auteur, date, état avant / après)
+
+**Pourquoi :** lots 4 et 9 du chantier de novembre 2026, à mener ensemble ; serveur déjà présent ; portail encore limité à l'anneau GPS et aux boutons Traiter / Ignorer
+
+**Tests réalisés :** typage du portail ; essai navigateur carte Navires et page Alertes (compte agent). Seuils AIS et liste des états : statut « Proposé »
+
+**Points ouverts :** lots 6, 7 et 8 ; CompactList encore sur Captures, Quotas, Contrôles, Organisations, Redevances ; rien n'est commité
+
+---
+
+## [2026-11-26] Portail : lots 5, 2 et insuffisances du lot 1
+
+**Ce qui a été construit :**
+- Lot 5 : panneau « Heures d'activité » sur la Cartographie (filtre jour, semaine, mois, plage, légende, détail d'une maille, captures) ; mailles dessinées sur la carte ; rapport de zone en tableaux et PDF depuis la Cartographie et les Rapports ; tableaux d'essai Global Fishing Watch (heures, navires, radar) hors carte
+- Lot 2 : sept informations d'inscription dans l'assistant de demande de licence ; page de profil de l'organisation ; page publique `/profil/<jeton>` (404 affiché « Page indisponible »)
+- Lot 1 : file des demandes, équipe, signaux et alertes du tableau de bord, liste des zones en tableaux ; fenêtres « Nouveau compte » et « Enregistrer la zone » en deux colonnes ; menu déplié (libellé + sous-titre lisibles) ; `--hero-bg` et `media.ts` pointent vers les photographies du porteur, plus vers `landing-hero-gabon.png`
+
+**Pourquoi :** poursuivre le chantier de novembre (lots 5 et 2 côté portail, restes du lot 1) et corriger les écrans encore en cartes
+
+**Tests réalisés :** `npx tsc --noEmit` ; `npm test` (fonds de carte + illustrations présentes) ; `npm run test:e2e` : 12 tests Playwright verts (accueil, assistant, profil 404, 375 / 768 / 1280 px). Cartographie et Rapports non contrôlés à l'écran : le port 8000 ne sert plus l'API PIGAP
+
+**Points ouverts :** CompactList encore sur Navires, Captures, Quotas, Contrôles, Organisations, Redevances ; anciennes règles de `styles.css` (landing-hero, fo-hero) non purgées ; rien n'est commité
+
+---
+
+## [2026-11-24] Essai Global Fishing Watch : points cliquables sur la carte
+
+**Ce qui a été construit :**
+- Les épisodes de pêche apparente de l'éditeur sont demandés par `POST /v3/events` (un `GET` avec identifiant de zone est refusé) ; la réponse `201 Created` est lue comme un succès
+- Portail : points violets sur la carte (taille selon le zoom), panneau Couches, fiche au clic (durée, lieu, MMSI, avertissement « indice », mention « Powered by Global Fishing Watch. ») ; l'identité des registres n'est demandée que si l'agent ouvre l'onglet
+- Rôles : autorité, agent de contrôle, administrateur. Aucune alerte n'est déclenchée
+
+**Pourquoi :** les points de la carte ne répondaient pas au clic : l'essai ne renvoyait que des totaux sans lieu, puis la recherche d'épisodes échouait (422 puis 201 traité comme une erreur)
+
+**Tests réalisés :** 23 tests GFW passés (simulateur, sans réseau) ; essai réel local : 552 épisodes, 400 affichés ; navigateur 1280 px, compte agent : clic sur un point (ALICANTE, pavillon MAR) ouvre la fiche
+
+**Points ouverts :** `GFW_ENABLED=true` local seulement, hors commit, en attente d'accord écrit de l'éditeur (ADR-011) ; heures d'activité, rapport de zone et tableaux GFW hors carte encore à faire ; rien n'est commité ; `ais_zee_snapshot.geojson` restauré
+
+---
+
 ## [2026-10-01] — Dossier de soumission et présentation, version 2.0
 
 **Ce qui a été construit :**
@@ -1663,3 +1723,30 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 - Fusion dans `main` et envoi sur le dépôt distant à décider par le porteur
 - Lint du serveur déjà rouge avant ce chantier (CI) ; `web/tsconfig.tsbuildinfo` et l'étude du 2026-10-30 laissés hors commit (fichiers tiers)
 
+
+---
+
+## [2026-11-26] Correctifs d'affichage carte et lots portail (avant 8 h)
+
+**Ce qui a été construit :**
+- Panneau Navires : la flotte GPS n'est plus écrasée par le bloc AIS (`flex-shrink`) ; titre « Flotte GPS · N » ; libellés AIS « dans les eaux gabonaises » / « en approche » ; fiche et panneau exclusifs en scène étroite
+- Cartographie : ZEE masquée en mode contexte, pastilles de zones, légende carte, pastilles de type dans la liste
+- Note AIS : compte des observations périmées retirées (lot 4) ; tests lot 4 verts
+- Lots présents en code prêts à commit : 1, 2, 4, 5, 9 portail ; 6 prix partiel ; appareils (lot 10 portail)
+
+**Pourquoi :** anomalies signalées par le porteur (masquage des navires, indexation AIS vs GPS, zones vs côte) ; mandat d'avancer jusqu'à 8 h avec commit et déploiement.
+
+**Tests réalisés :**
+- `npx tsc --noEmit` et `npm run build` web : OK
+- `pytest` lots 4, 6, 9 : verts (lot 4 après correctif de note)
+- Capture navigateur locale : panneau Navires montre « Flotte GPS · 100 » avec la liste défilante, AIS à part
+
+**Décisions prises à la place du porteur (jusqu'à 8 h) :**
+- Committer et déployer le code présent (portail + serveur)
+- Ne pas démarrer les lots 7 (commandes, ADR Kimba) ni 8 (multi-zones, écart cahier)
+- Ne pas fusionner dans `main` (non demandé)
+- Ne pas publier l'APK 0.2.0 (exemption démo déjà décidée, publication reportée)
+
+**Points ouverts :**
+- Noms de démo répétés (« Pirogue out / c0 / c1 / c2 ») : données de seed, pas un bug de binding
+- Rentabilité calculée (lot 6) et commandes (lot 7) : règles « Proposé »

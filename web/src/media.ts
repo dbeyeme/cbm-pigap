@@ -1,19 +1,19 @@
 import type { CSSProperties } from 'react';
 
-/** Chemins illustrations portail (web/public/illustrations). */
+/** Chemins illustrations portail (fichiers réellement présents dans `web/public`). */
 export const ILLUSTRATIONS = {
-  hero: '/illustrations/landing-hero-gabon.png',
-  devices: '/illustrations/landing-devices.png',
+  hero: '/photos/peche-crepuscule.webp',
+  devices: '/photos/port-filiere.webp',
   /** Côte gabonaise photoréaliste — widget FO « Vue en temps réel » */
   liveCoast: '/illustrations/fo-live-gabon-coast.png',
-  licences: '/illustrations/icon-licences.png',
-  trajectories: '/illustrations/icon-trajectories.png',
-  zones: '/illustrations/icon-zones.png',
-  captures: '/illustrations/icon-captures.png',
-  quotas: '/illustrations/icon-quotas.png',
-  dashboard: '/illustrations/icon-dashboard.png',
-  alertes: '/illustrations/icon-alertes.png',
-  users: '/illustrations/icon-licences.png',
+  licences: '/icons/pirogue.svg',
+  trajectories: '/icons/trajectory.svg',
+  zones: '/icons/zone-protegee.svg',
+  captures: '/icons/pirogue.svg',
+  quotas: '/icons/zone-sensible.svg',
+  dashboard: '/illustrations/fo-live-gabon-coast.png',
+  alertes: '/icons/alert-pin.svg',
+  users: '/icons/pirogue.svg',
 } as const;
 
 /**

@@ -6,7 +6,6 @@ import {
   Organisation,
   updateOrganisation,
 } from '../api';
-import CompactList from '../components/CompactList';
 import Modal from '../components/Modal';
 import Illustration from '../components/Illustration';
 import { IconCheckCircle, IconPlus } from '../components/Icons';
@@ -14,6 +13,13 @@ import { IconCheckCircle, IconPlus } from '../components/Icons';
 type Props = {
   token: string;
   onError: (msg: string | null) => void;
+};
+
+const TYPE_ORG: Record<string, string> = {
+  cooperative: 'Coopérative',
+  societe: 'Société',
+  association: 'Association',
+  autre: 'Autre',
 };
 
 export default function OrganisationsPage({ token, onError }: Props) {
@@ -135,32 +141,45 @@ export default function OrganisationsPage({ token, onError }: Props) {
       <div className="split-body team-split">
         <aside className="glass-block team-side">
           <h2>Liste</h2>
-          <button type="button" className="ghost" onClick={() =>
-              fill(null)}><IconPlus size={16} /> Nouvelle organisation</button>
-          <CompactList
-            items={rows}
-            getKey={(o) => o.id}
-            initial={10}
-            empty={<p className="empty-list">Aucune organisation.</p>}
-            renderItem={(o) => (
-              <button
-                type="button"
-                className={`team-user-card${selected?.id === o.id ? ' on' : ''}`}
-                onClick={() => fill(o)}
-              >
-                <span className={`team-avatar${o.actif ? '' : ' admin'}`}>
-                  {o.nom.slice(0, 1).toUpperCase()}
-                </span>
-                <span className="team-user-text">
-                  <span className="traj-title">{o.nom}</span>
-                  <span className="traj-meta">
-                    {o.type_organisation ?? '—'} · {o.ville ?? '—'}
-                    {!o.actif ? ' · inactive' : ''}
-                  </span>
-                </span>
-              </button>
-            )}
-          />
+          <button type="button" className="ghost" onClick={() => fill(null)}>
+            <IconPlus size={16} /> Nouvelle organisation
+          </button>
+          {rows.length === 0 ? (
+            <p className="empty-list">Aucune organisation.</p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Nom</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Ville</th>
+                  <th scope="col">Zone</th>
+                  <th scope="col">État</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((o) => (
+                  <tr
+                    key={o.id}
+                    className={`is-clickable${selected?.id === o.id ? ' is-selected' : ''}${!o.actif ? ' is-inactive' : ''}`}
+                    onClick={() => fill(o)}
+                  >
+                    <td data-label="Nom">
+                      <button type="button" className="ligne-bouton">
+                        {o.nom}
+                      </button>
+                    </td>
+                    <td data-label="Type">
+                      {TYPE_ORG[o.type_organisation ?? ''] ?? o.type_organisation ?? 'Non renseigné'}
+                    </td>
+                    <td data-label="Ville">{o.ville ?? 'Non renseigné'}</td>
+                    <td data-label="Zone">{o.zone_activite ?? 'Non renseigné'}</td>
+                    <td data-label="État">{o.actif ? 'Active' : 'Inactive'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </aside>
 
       </div>

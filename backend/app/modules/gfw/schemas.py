@@ -131,6 +131,33 @@ class DetectionsRadarRead(EnteteGfw):
     par_pavillon: list[DetectionsPavillon]
 
 
+# --- Évènements de pêche apparente (points sur la carte) ---------------------- #
+
+
+class EvenementPeche(BaseModel):
+    """Un épisode de pêche apparente, avec un lieu pour le poser sur la carte."""
+
+    id: str
+    vessel_id: str | None = None
+    nom: str | None = None
+    pavillon: str | None = None
+    mmsi: str | None = None
+    numero_omi: str | None = None
+    indicatif: str | None = None
+    engin: str | None = None
+    heures: float = 0
+    debut: datetime | None = None
+    fin: datetime | None = None
+    longitude: float
+    latitude: float
+
+
+class EvenementsPecheRead(EnteteGfw):
+    total: int
+    nb_affiches: int
+    evenements: list[EvenementPeche]
+
+
 # --- Fiche d'identité d'un navire ---------------------------------------------- #
 
 

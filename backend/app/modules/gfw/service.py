@@ -8,7 +8,8 @@ au cache du client :
 - détections radar par mois et par pavillon.
 
 S'y ajoute la fiche d'identité d'un navire (registres publics d'un côté,
-identité émise de l'autre). Aucune de ces données ne déclenche d'alerte : elles
+identité émise de l'autre) et la liste des évènements de pêche apparente
+(points posés sur la carte). Aucune de ces données ne déclenche d'alerte : elles
 éclairent l'agent, qui qualifie.
 """
 
@@ -31,6 +32,8 @@ from app.modules.gfw.schemas import (
     EmissionNavire,
     EnteteGfw,
     EtatGfw,
+    EvenementPeche,
+    EvenementsPecheRead,
     FraicheurGfw,
     FraicheurIdentite,
     HeuresMois,
@@ -47,6 +50,9 @@ from app.modules.gfw.schemas import (
 
 _RAPPORT = "/v3/4wings/report"
 _NAVIRES = "/v3/vessels"
+_EVENEMENTS = "/v3/events"
+# Un écran de carte reste lisible ; le total renvoyé par l'éditeur est conservé.
+_EVENEMENTS_MAX = 400
 
 AVERTISSEMENT_PECHE = (
     "Pêche apparente : estimation de l'éditeur à partir des émissions AIS des navires. "
@@ -61,6 +67,11 @@ AVERTISSEMENT_RADAR = (
 AVERTISSEMENT_IDENTITE = (
     "Identité réunie par l'éditeur à partir de registres publics et des émissions AIS. "
     "Une autorisation publique ne prouve pas la conformité du navire."
+)
+AVERTISSEMENT_EVENEMENTS = (
+    "Chaque point est un épisode de pêche apparente estimé par l'éditeur à partir "
+    "des émissions AIS. C'est un indice pour orienter un contrôle, pas la preuve "
+    "d'une infraction. Les embarcations sans AIS, dont les pirogues, n'y figurent pas."
 )
 
 
@@ -134,6 +145,26 @@ def _texte(valeur: Any) -> str | None:
         return None
     texte = str(valeur).strip()
     return texte or None
+
+
+def _position(valeur: Any) -> tuple[float, float] | None:
+    """Longitude, latitude d'un évènement ; aucune si le lieu est absent ou illisible."""
+    if not isinstance(valeur, dict):
+        return None
+    lon = valeur.get("lon", valeur.get("longitude"))
+    lat = valeur.get("lat", valeur.get("latitude"))
+    if lon is None or lat is None:
+        coords = valeur.get("coordinates")
+        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+            lon, lat = coords[0], coords[1]
+    try:
+        lon_f = float(lon)
+        lat_f = float(lat)
+    except (TypeError, ValueError):
+        return None
+    if not (-180 <= lon_f <= 180 and -90 <= lat_f <= 90):
+        return None
+    return lon_f, lat_f
 
 
 def _instant(valeur: Any) -> datetime | None:
@@ -349,6 +380,101 @@ def _textes(valeur: Any) -> list[str]:
         return [t for t in (_texte(v) for v in valeur) if t]
     seul = _texte(valeur)
     return [seul] if seul else []
+
+
+def _evenements_lus(donnees: Any) -> list[dict[str, Any]]:
+    """L'éditeur renvoie `entries` comme une liste d'évènements, pas comme un rapport 4wings."""
+    if not isinstance(donnees, dict):
+        return []
+    entrees = donnees.get("entries")
+    if isinstance(entrees, list):
+        return [e for e in entrees if isinstance(e, dict)]
+    return []
+
+
+def _heures_evenement(ev: dict[str, Any], debut: datetime | None, fin: datetime | None) -> float:
+    peche = ev.get("fishing") if isinstance(ev.get("fishing"), dict) else {}
+    for cle in ("totalTimeHours", "hours", "durationHours", "totalDurationHours"):
+        n = _nombre(peche.get(cle))
+        if n > 0:
+            return round(n, 2)
+    if debut is not None and fin is not None and fin > debut:
+        return round((fin - debut).total_seconds() / 3600, 2)
+    return 0.0
+
+
+async def evenements_peche(debut: date | None, fin: date | None) -> EvenementsPecheRead:
+    """Épisodes de pêche apparente dans la ZEE, avec un lieu par point."""
+    p = parametres_gfw()
+    client.exiger_actif()
+    retard = p.retard_publication_heures.peche_apparente
+    debut_r, fin_r = _periode(debut, fin, p, retard)
+    reponse = await client.appeler(
+        _EVENEMENTS,
+        [("offset", "0"), ("limit", str(_EVENEMENTS_MAX))],
+        rapport=False,
+        corps={
+            "datasets": [p.jeux.evenements_peche],
+            "startDate": debut_r.isoformat(),
+            "endDate": fin_r.isoformat(),
+            "region": {"dataset": p.zone.jeu, "id": p.zone.identifiant},
+        },
+    )
+    evenements: list[EvenementPeche] = []
+    for rang, ev in enumerate(_evenements_lus(reponse.donnees)):
+        lieu = _position(ev.get("position"))
+        if lieu is None:
+            continue
+        lon, lat = lieu
+        navire = ev.get("vessel") if isinstance(ev.get("vessel"), dict) else {}
+        debut_ev = _instant(ev.get("start"))
+        fin_ev = _instant(ev.get("end"))
+        identifiant = _texte(ev.get("id")) or f"evenement-{rang}"
+        evenements.append(
+            EvenementPeche(
+                id=identifiant,
+                vessel_id=_texte(navire.get("id") or navire.get("vesselId")),
+                nom=_texte(navire.get("name") or navire.get("shipname") or navire.get("shipName")),
+                pavillon=_texte(navire.get("flag")),
+                mmsi=_texte(navire.get("ssvid") or navire.get("mmsi")),
+                numero_omi=_texte(navire.get("imo")),
+                indicatif=_texte(navire.get("callsign")),
+                engin=_texte(
+                    navire.get("geartype")
+                    or navire.get("gearType")
+                    or (navire.get("type") if isinstance(navire.get("type"), str) else None)
+                ),
+                heures=_heures_evenement(ev, debut_ev, fin_ev),
+                debut=debut_ev,
+                fin=fin_ev,
+                longitude=round(lon, 5),
+                latitude=round(lat, 5),
+            )
+        )
+        if len(evenements) >= _EVENEMENTS_MAX:
+            break
+    donnees = reponse.donnees if isinstance(reponse.donnees, dict) else {}
+    total_editeur = donnees.get("total")
+    try:
+        total = int(total_editeur) if total_editeur is not None else len(evenements)
+    except (TypeError, ValueError):
+        total = len(evenements)
+    entete = _entete(
+        p,
+        reponse,
+        debut=debut_r,
+        fin=fin_r,
+        retard_heures=retard,
+        avertissement=AVERTISSEMENT_EVENEMENTS,
+    )
+    if total > len(evenements):
+        entete.fraicheur.resultat_partiel = True
+    return EvenementsPecheRead(
+        **entete.model_dump(),
+        total=total,
+        nb_affiches=len(evenements),
+        evenements=evenements,
+    )
 
 
 async def identite_navire(vessel_id: str) -> IdentiteNavireRead:

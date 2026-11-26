@@ -11,6 +11,7 @@ import {
   synchroniserPaiement,
 } from '../api';
 import PageBanner from '../components/PageBanner';
+import ProfilEditeur from '../components/ProfilEditeur';
 import StatusPill from '../components/StatusPill';
 import { IconCheckCircle } from '../components/Icons';
 
@@ -196,6 +197,15 @@ export default function OrgPortalPage({ token, onError }: Props) {
           ) : null}
         </div>
       ) : null}
+
+      <div className="ds-panel" style={{ marginTop: 24 }}>
+        <h2>Page de profil</h2>
+        <p className="chart-legend-text">
+          Espèces pêchées par vos membres, tarifs facultatifs, et ouverture au public si vous le
+          décidez.
+        </p>
+        <ProfilEditeur token={token} onError={onError} />
+      </div>
     </section>
   );
 }

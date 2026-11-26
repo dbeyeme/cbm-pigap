@@ -13,8 +13,6 @@ import {
   Pecheur,
   updateCapture,
 } from '../api';
-import CompactList from '../components/CompactList';
-import { MODULE_VISUALS } from '../media';
 import { IconEdit, IconPlus, IconRefresh, IconTrash, IconXCircle } from '../components/Icons';
 
 type Props = {
@@ -63,6 +61,7 @@ export default function CapturesPage({ token, onError }: Props) {
   const [espece, setEspece] = useState('');
   const [methode, setMethode] = useState('');
   const [quantite, setQuantite] = useState('5');
+  const [prixKg, setPrixKg] = useState('');
   const [debarquement, setDebarquement] = useState('Owendo');
   const [dateCapture, setDateCapture] = useState(() => toLocalDatetimeValue(new Date().toISOString()));
 
@@ -84,6 +83,7 @@ export default function CapturesPage({ token, onError }: Props) {
     setEspece(especes[0] ?? '');
     setMethode(methodes[0] ?? '');
     setQuantite('5');
+    setPrixKg('');
     setDebarquement('Owendo');
     setDateCapture(toLocalDatetimeValue(new Date().toISOString()));
     if (pecheurs[0]) {
@@ -176,6 +176,7 @@ export default function CapturesPage({ token, onError }: Props) {
     setEspece(c.espece);
     setMethode(c.methode ?? methodes[0] ?? '');
     setQuantite(String(c.quantite_kg));
+    setPrixKg(c.prix_fcfa_kg != null ? String(c.prix_fcfa_kg) : '');
     setDebarquement(c.point_debarquement ?? '');
     setDateCapture(toLocalDatetimeValue(c.date_capture));
   }
@@ -198,6 +199,17 @@ export default function CapturesPage({ token, onError }: Props) {
       if (!debarquement.trim()) {
         throw new Error('Point de débarquement requis');
       }
+      const prixTexte = prixKg.trim().replace(/\s/g, '').replace(',', '.');
+      let prix_fcfa_kg: number | null = null;
+      if (prixTexte) {
+        const n = Number(prixTexte);
+        if (!Number.isInteger(n) || n < 1) {
+          throw new Error(
+            'Le prix au kilo est un entier en francs CFA. Laissez vide si vous ne le connaissez pas.',
+          );
+        }
+        prix_fcfa_kg = n;
+      }
       const payload = {
         pecheur_id: pecheurId,
         embarcation_id: embarcationId,
@@ -206,6 +218,7 @@ export default function CapturesPage({ token, onError }: Props) {
         methode,
         point_debarquement: debarquement.trim(),
         date_capture: fromLocalDatetimeValue(dateCapture),
+        prix_fcfa_kg,
       };
       if (editingId) {
         await updateCapture(token, editingId, payload);
@@ -241,16 +254,7 @@ export default function CapturesPage({ token, onError }: Props) {
 
   return (
     <section className="stage stage-wide">
-      <div className="stage-head page-head-with-icon">
-        <img src={MODULE_VISUALS.captures.src} alt="" className="page-module-icon" />
-        <div>
-          <p className="eyebrow">Pêches et ressources · Déclarations</p>
-          <h1>Captures</h1>
-          <p>Déclarer ou corriger depuis le web · mobile offline en priorité.</p>
-          <p className="status-line">{status}</p>
-        </div>
-      </div>
-
+      {status ? <p className="status-line">{status}</p> : null}
       <div className="licences-layout" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)' }}>
         <div className="licences-col">
           <h2>{editingId ? 'Corriger la capture' : 'Déclarer une capture'}</h2>
@@ -350,6 +354,17 @@ export default function CapturesPage({ token, onError }: Props) {
               />
             </label>
             <label>
+              Prix de vente au kilo (FCFA), facultatif
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={prixKg}
+                onChange={(e) => setPrixKg(e.target.value)}
+                placeholder="Laissé vide si inconnu"
+              />
+            </label>
+            <label>
               Point de débarquement
               <input
                 value={debarquement}
@@ -397,48 +412,55 @@ export default function CapturesPage({ token, onError }: Props) {
           {rows.length === 0 ? (
             <p className="empty-list">Aucune capture pour ce filtre.</p>
           ) : (
-            <CompactList
-              items={rows}
-              getKey={(c) => c.id}
-              initial={6}
-              renderItem={(c) => (
-                <div
-                  className="traj-item"
-                  style={{
-                    borderLeftColor: editingId === c.id ? 'var(--foam)' : '#7FE0D3',
-                  }}
-                >
-                  <span className="traj-title">
-                    {especeNom(c.espece)} · {c.quantite_kg} kg
-                    {c.taxe_fcfa != null
-                      ? ` · taxe ${Math.round(c.taxe_fcfa).toLocaleString('fr-FR')} FCFA${c.taxe_statut === 'payee' ? ' (payée)' : ''}`
-                      : c.taxe_statut === 'sans_bareme'
-                        ? ' · sans barème'
-                        : ''}
-                  </span>
-                  <span className="traj-meta">
-                    {c.methode ?? '—'} · {c.point_debarquement ?? '—'} ·{' '}
-                    {pecheurLabel(c.pecheur_id)}
-                  </span>
-                  <div className="zone-actions" style={{ marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="ghost compact"
-                      disabled={loading}
-                      onClick={() =>
-              startEdit(c)}
-                    ><IconEdit size={16} /> Éditer</button>
-                    <button
-                      type="button"
-                      className="ghost compact danger-ghost"
-                      disabled={loading}
-                      onClick={() =>
-              void onDelete(c.id)}
-                    ><IconTrash size={16} /> Supprimer</button>
-                  </div>
-                </div>
-              )}
-            />
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Espèce</th>
+                  <th scope="col">Quantité</th>
+                  <th scope="col">Prix / kg</th>
+                  <th scope="col">Pêcheur</th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c) => (
+                  <tr key={c.id} className={editingId === c.id ? 'is-selected' : undefined}>
+                    <td data-label="Espèce">{especeNom(c.espece)}</td>
+                    <td data-label="Quantité">{c.quantite_kg.toLocaleString('fr-FR')} kg</td>
+                    <td data-label="Prix / kg">
+                      {c.prix_fcfa_kg != null
+                        ? `${c.prix_fcfa_kg.toLocaleString('fr-FR')} FCFA`
+                        : '—'}
+                    </td>
+                    <td data-label="Pêcheur">{pecheurLabel(c.pecheur_id)}</td>
+                    <td data-label="Date" className="cellule-serree">
+                      {new Date(c.date_capture).toLocaleDateString('fr-FR')}
+                    </td>
+                    <td data-label="Actions">
+                      <div className="zone-actions">
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          disabled={loading}
+                          onClick={() => startEdit(c)}
+                        >
+                          <IconEdit size={16} /> Éditer
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost compact danger-ghost"
+                          disabled={loading}
+                          onClick={() => void onDelete(c.id)}
+                        >
+                          <IconTrash size={16} /> Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>

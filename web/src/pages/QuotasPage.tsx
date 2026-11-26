@@ -4,6 +4,7 @@ import {
   createQuota,
   deleteQuota,
   getCapturesCatalog,
+  graviteLabel,
   listQuotaAlertes,
   listQuotas,
   listZones,
@@ -11,8 +12,7 @@ import {
   QuotaRead,
   ZoneReglementee,
 } from '../api';
-import CompactList from '../components/CompactList';
-import { MODULE_VISUALS } from '../media';
+import StatusPill from '../components/StatusPill';
 import { IconPlus, IconTrash } from '../components/Icons';
 
 type Props = {
@@ -28,6 +28,10 @@ function barClass(q: QuotaRead): string {
   if (q.taux_consommation >= 1) return 'quota-bar danger';
   if (q.taux_consommation >= 0.9) return 'quota-bar warn';
   return 'quota-bar';
+}
+
+function graviteTone(g: string): 'danger' | 'warn' {
+  return g === 'critique' ? 'danger' : 'warn';
 }
 
 export default function QuotasPage({ token, onError }: Props) {
@@ -82,7 +86,7 @@ export default function QuotasPage({ token, onError }: Props) {
         periode_fin: fin,
         volume_autorise_kg: Number(volume),
       });
-      setStatus('Quota créé — consommation recalculée');
+      setStatus('Quota créé, consommation recalculée');
       await refresh();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Création impossible');
@@ -105,22 +109,18 @@ export default function QuotasPage({ token, onError }: Props) {
     }
   }
 
+  function zoneNom(zoneId: string | null): string {
+    if (!zoneId) return 'Toutes zones';
+    return zones.find((z) => z.id === zoneId)?.nom ?? 'Zone liée';
+  }
+
   const alertes90 = alertes.filter(
     (a) => Number(a.declencheur.seuil) === 0.9 || Number(a.declencheur.seuil) === 1,
   );
 
   return (
     <section className="stage stage-wide quotas-stage">
-      <div className="stage-head page-head-with-icon">
-        <img src={MODULE_VISUALS.quotas.src} alt="" className="page-module-icon" />
-        <div>
-          <p className="eyebrow">Pêches et ressources · Gestion des quotas</p>
-          <h1>Quotas</h1>
-          <p>Seuils par espèce · consommation auto · alertes à 90 % et 100 %.</p>
-          <p className="status-line">{status}</p>
-        </div>
-      </div>
-
+      {status ? <p className="status-line">{status}</p> : null}
       <div className="quotas-grid">
         <div className="quotas-stat">
           <strong>{quotas.length}</strong>
@@ -186,64 +186,93 @@ export default function QuotasPage({ token, onError }: Props) {
 
         <div className="licences-col quotas-panel">
           <h2>Consommation</h2>
-          <CompactList
-            items={quotas}
-            getKey={(q) => q.id}
-            initial={6}
-            empty={<p className="empty-list">Aucun quota — créez-en un à gauche.</p>}
-            renderItem={(q) => (
-              <div className="traj-item" style={{ borderLeftColor: q.taux_consommation >= 0.9 ? 'var(--warn)' : 'var(--foam)' }}>
-                <span className="traj-title">
-                  {q.espece} · {pct(q)} %
-                </span>
-                <span className="traj-meta">
-                  {q.volume_consomme_kg} / {q.volume_autorise_kg} kg · {q.periode_debut} → {q.periode_fin}
-                  {q.zone_id ? ' · zone liée' : ''}
-                </span>
-                <div className={barClass(q)} aria-hidden>
-                  <i style={{ width: `${Math.min(100, pct(q))}%` }} />
-                </div>
-                <div className="zone-actions" style={{ marginTop: 8 }}>
-                  <button
-                    type="button"
-                    className="ghost compact danger-ghost"
-                    disabled={loading}
-                    onClick={() =>
-              void onDelete(q.id)}
-                  ><IconTrash size={16} /> Supprimer</button>
-                </div>
-              </div>
-            )}
-          />
+          {quotas.length === 0 ? (
+            <p className="empty-list">Aucun quota. Créez-en un à gauche.</p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Espèce</th>
+                  <th scope="col">Consommation</th>
+                  <th scope="col">Volume</th>
+                  <th scope="col">Période</th>
+                  <th scope="col">Zone</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotas.map((q) => (
+                  <tr key={q.id}>
+                    <td data-label="Espèce">{q.espece}</td>
+                    <td data-label="Consommation">
+                      {pct(q)} %
+                      <div className={barClass(q)} aria-hidden>
+                        <i style={{ width: `${Math.min(100, pct(q))}%` }} />
+                      </div>
+                    </td>
+                    <td data-label="Volume">
+                      {q.volume_consomme_kg.toLocaleString('fr-FR')} /{' '}
+                      {q.volume_autorise_kg.toLocaleString('fr-FR')} kg
+                    </td>
+                    <td data-label="Période" className="cellule-serree">
+                      du {q.periode_debut} au {q.periode_fin}
+                    </td>
+                    <td data-label="Zone">{zoneNom(q.zone_id)}</td>
+                    <td data-label="Actions">
+                      <div className="zone-actions">
+                        <button
+                          type="button"
+                          className="ghost compact danger-ghost"
+                          disabled={loading}
+                          onClick={() => void onDelete(q.id)}
+                        >
+                          <IconTrash size={16} /> Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           <h2 style={{ marginTop: 28 }}>Alertes quotas</h2>
           <p className="landing-section-lede" style={{ marginBottom: 12 }}>
-            Visible ici en attendant le tableau de bord M6 — critère §5.5.
+            Visible ici en attendant le tableau de bord M6, critère §5.5.
           </p>
-          <CompactList
-            items={alertes}
-            getKey={(a) => a.id}
-            initial={5}
-            empty={<p className="empty-list">Aucune alerte de dépassement pour l’instant.</p>}
-            renderItem={(a) => (
-              <div
-                className="traj-item"
-                style={{
-                  borderLeftColor:
-                    a.niveau_gravite === 'critique' ? 'var(--danger)' : 'var(--warn)',
-                }}
-              >
-                <span className="traj-title">
-                  {String(a.declencheur.espece ?? '—')} · seuil{' '}
-                  {Math.round(Number(a.declencheur.seuil) * 100)} %
-                </span>
-                <span className="traj-meta">
-                  {a.niveau_gravite} · {a.statut} ·{' '}
-                  {new Date(a.horodatage).toLocaleString()}
-                </span>
-              </div>
-            )}
-          />
+          {alertes.length === 0 ? (
+            <p className="empty-list">Aucune alerte de dépassement pour l’instant.</p>
+          ) : (
+            <table className="ds-table empilable">
+              <thead>
+                <tr>
+                  <th scope="col">Espèce</th>
+                  <th scope="col">Seuil</th>
+                  <th scope="col">Gravité</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertes.map((a) => (
+                  <tr key={a.id}>
+                    <td data-label="Espèce">{String(a.declencheur.espece ?? 'Non renseigné')}</td>
+                    <td data-label="Seuil">{Math.round(Number(a.declencheur.seuil) * 100)} %</td>
+                    <td data-label="Gravité">
+                      <StatusPill
+                        label={graviteLabel(a.niveau_gravite)}
+                        tone={graviteTone(a.niveau_gravite)}
+                      />
+                    </td>
+                    <td data-label="Statut">{a.statut}</td>
+                    <td data-label="Date" className="cellule-serree">
+                      {new Date(a.horodatage).toLocaleString('fr-FR')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </section>

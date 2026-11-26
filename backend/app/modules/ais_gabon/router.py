@@ -37,6 +37,7 @@ AisUser = Annotated[
 
 @router.get("/live", response_model=AisLiveResponse)
 async def ais_live_fleet(
+    db: DbSession,
     _: AisUser,
     refresh: Annotated[bool, Query(description="Forcer un recalcul immédiat")] = False,
 ) -> AisLiveResponse:
@@ -46,7 +47,8 @@ async def ais_live_fleet(
     avec statut opérationnel (à quai, au mouillage, en route, en pêche) et
     port de rattachement. Distinct des positions GPS PIGAP (`/positions/live`).
     """
-    return await service.list_ais_live(force=refresh)
+    # Lot 4 : observations périmées retirées, âge et régularité de chaque navire
+    return await service.enrichir_flux(db, await service.list_ais_live(force=refresh))
 
 
 @router.get("/ports", response_model=AisPortsResponse)

@@ -1,0 +1,166 @@
+{
+  "version": "2026-11-24",
+  "statut": "Proposé",
+  "valideurs": ["Christian"],
+  "note": "Traitement des alertes (lot 9) : états successifs, transitions permises, commentaire obligatoire, descriptions lisibles. Modifier ce fichier change le comportement sans toucher au code.",
+  "traitement": {
+    "etat_initial": "a_traiter",
+    "etats": [
+      {"code": "a_traiter", "libelle": "À traiter", "ouvert": true, "statut_historique": "nouvelle"},
+      {"code": "prise_en_charge", "libelle": "Prise en charge", "ouvert": true, "statut_historique": "nouvelle"},
+      {"code": "en_verification", "libelle": "En vérification", "ouvert": true, "statut_historique": "nouvelle"},
+      {"code": "cloturee_fondee", "libelle": "Clôturée, fondée", "ouvert": false, "statut_historique": "traitee"},
+      {"code": "cloturee_non_fondee", "libelle": "Clôturée, non fondée", "ouvert": false, "statut_historique": "ignoree"}
+    ],
+    "transitions": {
+      "a_traiter": ["prise_en_charge", "cloturee_non_fondee"],
+      "prise_en_charge": ["en_verification", "cloturee_fondee", "cloturee_non_fondee", "a_traiter"],
+      "en_verification": ["cloturee_fondee", "cloturee_non_fondee", "prise_en_charge"],
+      "cloturee_fondee": ["prise_en_charge"],
+      "cloturee_non_fondee": ["prise_en_charge"]
+    },
+    "commentaire_min_caracteres": 5,
+    "commentaire_max_caracteres": 2000,
+    "ancien_ecran": {
+      "statut_vers_etat": {
+        "nouvelle": "a_traiter",
+        "traitee": "cloturee_fondee",
+        "ignoree": "cloturee_non_fondee"
+      },
+      "controle_des_transitions": false,
+      "commentaire_par_defaut": "Changement fait depuis l'ancien écran des alertes, sans commentaire saisi."
+    },
+    "liste_limite_defaut": 100,
+    "liste_limite_max": 500,
+    "fuseau_affichage": "Africa/Libreville"
+  },
+  "explications": {
+    "etat_initial": "État d'une alerte à sa création.",
+    "etats": "États de traitement, leur libellé, s'ils laissent l'alerte ouverte, et le statut historique (nouvelle, traitee, ignoree) qui leur correspond pour les écrans et compteurs existants.",
+    "transitions": "Passages permis d'un état à un autre ; tout autre passage est refusé.",
+    "commentaire_min_caracteres": "Longueur minimale du commentaire exigé à chaque changement d'état.",
+    "commentaire_max_caracteres": "Longueur maximale de ce commentaire.",
+    "ancien_ecran": "Changement par l'ancien point d'accès PATCH /alertes/{id} : correspondance des statuts, contrôle ou non des transitions, commentaire inscrit au journal quand aucun n'est fourni.",
+    "liste_limite_defaut": "Nombre d'alertes renvoyées par page, faute de précision.",
+    "liste_limite_max": "Nombre maximal d'alertes par page.",
+    "fuseau_affichage": "Fuseau des dates et heures écrites dans les descriptions."
+  },
+  "regles_alerte": {
+    "intrusion_zone_interdite": {
+      "libelle": "Présence en zone interdite",
+      "modele": "L'embarcation {embarcation} a été localisée dans la zone interdite « {zone_nom} »."
+    },
+    "activite_inhabituelle": {
+      "libelle": "Activité inhabituelle",
+      "modele": "L'embarcation {embarcation} a déclaré {volume_7j_kg} kg en sept jours, plus de {seuil_multiplicateur} fois sa moyenne habituelle ({moyenne_historique_7j_kg} kg)."
+    },
+    "sortie_limite_geographique": {
+      "libelle": "Sortie de la limite autorisée",
+      "modele": "L'embarcation {embarcation} a été localisée hors de la limite autorisée ({reference})."
+    },
+    "concentration_zone": {
+      "libelle": "Concentration d'embarcations",
+      "modele": "{nb_embarcations} embarcations ont été relevées dans un rayon de {rayon_km} km en {fenetre_min} minutes (seuil : {seuil})."
+    },
+    "espece_protegee": {
+      "libelle": "Capture d'une espèce protégée",
+      "modele": "Une capture de l'espèce protégée « {espece_nom} » a été déclarée pour l'embarcation {embarcation}."
+    },
+    "licence_expiree": {
+      "libelle": "Autorisation de pêche expirée",
+      "modele": "L'embarcation {embarcation} a été active alors que l'autorisation de pêche n° {numero_licence} a expiré le {date_expiration}."
+    },
+    "pecheur_suspendu": {
+      "libelle": "Pêcheur suspendu",
+      "modele": "L'embarcation {embarcation} a été active alors que son pêcheur titulaire est suspendu."
+    },
+    "declaration_manquante": {
+      "libelle": "Déclaration de capture manquante",
+      "modele": "L'embarcation {embarcation} est rentrée au port sans déclarer de capture dans les {delai_heures} heures suivantes."
+    },
+    "detresse_balise": {
+      "libelle": "Signal de détresse",
+      "modele": "La balise de l'embarcation {embarcation} a émis un signal de détresse."
+    },
+    "suivi_double_appareil": {
+      "libelle": "Suivi par deux téléphones",
+      "modele": "Un second téléphone a tenté d'émettre des positions pour l'embarcation {embarcation} alors qu'un autre en assurait déjà le suivi."
+    },
+    "quota_seuil": {
+      "libelle": "Seuil de quota atteint",
+      "modele": "Le quota de « {espece_nom} » atteint {taux} de son volume autorisé : {volume_consomme_kg} kg sur {volume_autorise_kg} kg."
+    },
+    "meteo_marine": {
+      "libelle": "Conditions de mer dangereuses",
+      "modele": "Conditions de mer défavorables sur le secteur « {secteur} » : houle de {houle_m} m, rafales de {rafales_kn} nœuds."
+    },
+    "crue_fleuve": {
+      "libelle": "Crue d'un fleuve",
+      "modele": "Débit élevé de {debit_m3s} m³/s sur le fleuve {fleuve}, à la station « {station} »."
+    },
+    "infraction_constatee": {
+      "libelle": "Infraction constatée lors d'un contrôle",
+      "modele": "Un agent a constaté une infraction lors d'un contrôle de l'embarcation {embarcation} : {categorie}."
+    },
+    "navire_peche_non_enregistre": {"libelle": "Navire de pêche hors registre", "modele": "Le navire de pêche « {navire} » (MMSI {mmsi}) a été relevé dans les eaux gabonaises sans correspondre à aucune embarcation du registre : navire à contrôler."},
+    "navire_ais_zone_interdite": {"libelle": "Navire AIS en zone interdite", "modele": "Le navire « {navire} » (MMSI {mmsi}) a été relevé dans la zone interdite « {zone_nom} » : navire à contrôler."},
+    "extinction_signal_ais": {"libelle": "Signal AIS éteint", "modele": "Le navire « {navire} » (MMSI {mmsi}), qui faisait route dans les eaux gabonaises, n'émet plus depuis {silence_minutes} minutes : navire à contrôler."}
+  },
+  "modele_par_defaut": "Alerte « {regle_libelle} » concernant l'embarcation {embarcation}.",
+  "donnees_masquees": ["regle", "fingerprint", "position", "message", "horodatage", "a_la_date", "cellule", "origine", "appareil_refuse", "appareil_en_place"],
+  "libelles_donnees": {
+    "zone_nom": "Zone",
+    "volume_7j_kg": "Volume déclaré sur sept jours (kg)",
+    "moyenne_historique_7j_kg": "Moyenne habituelle sur sept jours (kg)",
+    "seuil_multiplicateur": "Seuil (multiple de la moyenne)",
+    "fenetre_debut": "Début de la période",
+    "fenetre_fin": "Fin de la période",
+    "limite": "Limite appliquée",
+    "reference": "Référence",
+    "nb_embarcations": "Embarcations relevées",
+    "seuil": "Seuil",
+    "rayon_km": "Rayon (km)",
+    "fenetre_min": "Durée observée (minutes)",
+    "espece": "Espèce",
+    "numero_licence": "Autorisation de pêche",
+    "date_expiration": "Date d'expiration",
+    "sortie_debut": "Départ du port",
+    "retour_port": "Retour au port",
+    "port_id": "Port",
+    "delai_heures": "Délai de déclaration (heures)",
+    "fenetre_minutes": "Fenêtre d'exclusivité (minutes)",
+    "releve_refuse": "Relevé refusé",
+    "releve_en_place": "Dernier relevé du téléphone en place",
+    "taux": "Taux de consommation",
+    "volume_autorise_kg": "Volume autorisé (kg)",
+    "volume_consomme_kg": "Volume consommé (kg)",
+    "periode_debut": "Début de la période",
+    "periode_fin": "Fin de la période",
+    "secteur": "Secteur",
+    "niveau_pirogue": "Niveau de risque pour une pirogue",
+    "houle_m": "Houle (m)",
+    "rafales_kn": "Rafales (nœuds)",
+    "courant_kn": "Courant (nœuds)",
+    "motifs": "Motifs",
+    "fleuve": "Fleuve",
+    "station": "Station",
+    "debit_m3s": "Débit (m³/s)",
+    "debit_max_7j_m3s": "Débit maximal sur sept jours (m³/s)",
+    "categorie": "Catégorie d'infraction",
+    "sanction": "Sanction",
+    "licence_valide": "Autorisation valide",
+    "engin_declare": "Engin déclaré",
+    "engin_trouve": "Engin trouvé",
+    "mmsi": "MMSI",
+    "navire": "Navire",
+    "pavillon": "Pavillon",
+    "type_navire": "Type de navire",
+    "qualification": "Qualification",
+    "silence_minutes": "Silence (minutes)",
+    "vitesse_noeuds": "Dernière vitesse (nœuds)"
+  },
+  "libelles_valeurs": {
+    "limite": {"zee_gabon": "Eaux gabonaises (ZEE et marge côtière)", "zones_autorisees": "Zones de pêche autorisées"},
+    "niveau_pirogue": {"vert": "Vert", "orange": "Orange", "rouge": "Rouge"}
+  }
+}

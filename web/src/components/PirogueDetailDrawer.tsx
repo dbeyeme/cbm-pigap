@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import { alertTypeLabel, getFicheEmbarcation, graviteLabel, type FicheEmbarcation } from '../api';
-import { equipementsResume } from './EquipementsFields';
 import {
   FicheConstats,
   FicheOnglets,
@@ -15,6 +14,7 @@ import {
   pluriel,
   type Ton,
 } from './Fiche';
+import FicheIdentite from './FicheIdentite';
 import { IconAlert, IconBadge, IconEye, IconPirogue, IconRadar, IconShip } from './Icons';
 
 type Props = {
@@ -28,7 +28,7 @@ type Props = {
 const REGULARITE: Record<string, { label: string; ton: Ton }> = {
   conforme: { label: 'Aucun constat', ton: 'ok' },
   a_verifier: { label: 'À vérifier', ton: 'warn' },
-  alerte: { label: 'Alerte', ton: 'danger' },
+  alerte: { label: 'Navire à contrôler', ton: 'danger' },
 };
 
 const TON_SIGNAL: Record<string, Ton> = { actif: 'ok', recent: 'warn', silence: 'danger', aucun: 'neutre' };
@@ -193,34 +193,19 @@ export default function PirogueDetailDrawer({ token, embarcationId, onClose, onL
             ) : null}
 
             {onglet === 'registre' ? (
-              <FicheTable
-                lignes={[
-                  {
-                    label: 'Titulaire',
-                    value: `${fiche.pecheur_nom}${fiche.organisation ? ` · ${fiche.organisation}` : ''}`,
-                  },
-                  {
-                    label: 'Licence',
-                    value: `${fiche.numero_licence} · ${fiche.statut_pecheur}${
-                      fiche.date_delivrance_licence
-                        ? ` · délivrée le ${new Date(fiche.date_delivrance_licence).toLocaleDateString('fr-FR')}`
-                        : ''
-                    }`,
-                  },
-                  { label: 'Immatriculation', value: fiche.immatriculation },
-                  {
-                    label: 'Type',
-                    value: `${fiche.type ?? 'Non renseigné'}${fiche.longueur_m ? ` · ${fiche.longueur_m} m` : ''}`,
-                  },
-                  { label: 'Équipements', value: equipementsResume(fiche.equipements) || 'Non renseignés' },
-                  {
-                    label: 'Abonnement',
-                    value: `${fiche.couverture_ok ? 'Couverture en règle' : 'Non couvert'}${
-                      fiche.couverture_motif ? ` · ${fiche.couverture_motif}` : ''
-                    }`,
-                  },
-                ]}
-              />
+              <>
+                <FicheIdentite token={token} pecheurId={fiche.pecheur_id} embarcationId={fiche.embarcation_id} />
+                <FicheTable
+                  lignes={[
+                    {
+                      label: 'Abonnement',
+                      value: `${fiche.couverture_ok ? 'Couverture en règle' : 'Non couvert'}${
+                        fiche.couverture_motif ? ` · ${fiche.couverture_motif}` : ''
+                      }`,
+                    },
+                  ]}
+                />
+              </>
             ) : null}
 
             {onglet === 'suivi' ? (

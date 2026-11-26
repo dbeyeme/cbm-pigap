@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -66,6 +67,43 @@ RADAR_PAR_MOIS = [
     {"date": "2001-03", "flag": None, "detections": 30},
     {"date": "2001-04", "detections": 8},
 ]
+EVENEMENTS_PECHE = {
+    "total": 2,
+    "nextOffset": None,
+    "entries": [
+        {
+            "id": "evt-fictif-un",
+            "type": "fishing",
+            "start": "2001-03-02T06:00:00Z",
+            "end": "2001-03-02T09:30:00Z",
+            "position": {"lon": 8.55, "lat": -0.42},
+            "vessel": {
+                "id": "aaaa1111-fictif",
+                "name": "NAVIRE FICTIF UN",
+                "flag": "AAA",
+                "ssvid": "999000001",
+                "imo": "9990001",
+                "callsign": "FICT1",
+                "geartype": "trawlers",
+            },
+            "fishing": {"totalTimeHours": 3.5},
+        },
+        {
+            "id": "evt-fictif-deux",
+            "type": "fishing",
+            "start": "2001-04-01T12:00:00Z",
+            "end": "2001-04-01T14:00:00Z",
+            "position": {"lat": 0.21, "lon": 9.12},
+            "vessel": {
+                "id": "bbbb2222-fictif",
+                "name": "NAVIRE FICTIF DEUX",
+                "flag": "BBB",
+                "ssvid": 999000002,
+            },
+        },
+    ],
+}
+
 IDENTITE = {
     "dataset": "public-global-vessel-identity:v-fictive",
     "registryInfoTotalRecords": 1,
@@ -160,6 +198,9 @@ class Editeur:
             if self.corps is not None:
                 return httpx.Response(200, json=self.corps)
             params = request.url.params
+            if request.url.path.startswith("/v3/events"):
+                # L'éditeur répond 201 Created aux recherches d'évènements (POST).
+                return httpx.Response(201, json=EVENEMENTS_PECHE)
             if request.url.path.startswith("/v3/vessels/"):
                 return httpx.Response(200, json=IDENTITE)
             if "sar" in params.get("datasets[0]", ""):
@@ -222,6 +263,7 @@ ROUTES_DE_DONNEES = (
     "/peche-apparente",
     "/navires",
     "/detections-radar",
+    "/evenements-peche",
     "/navires/aaaa1111-fictif",
 )
 
@@ -419,6 +461,41 @@ async def test_l5_d_detections_radar(client: AsyncClient, autorite: dict, editeu
     ]
     (demande,) = editeur.demandes
     assert demande.url.params["datasets[0]"] == "public-global-sar-presence:latest"
+
+
+@pytest.mark.asyncio
+async def test_l5_d_evenements_peche_avec_lieu(
+    client: AsyncClient, autorite: dict, editeur: Editeur
+) -> None:
+    """Acceptation : chaque épisode porte un lieu, cliquable sur la carte."""
+    resp = await client.get(
+        BASE + "/evenements-peche",
+        headers=autorite,
+        params={"debut": "2001-03-01", "fin": "2001-05-01"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    _entete_attendu(body, debut="2001-03-01", fin="2001-05-01", publie="2001-05-06", retard=96)
+    assert "indice" in body["avertissement"]
+    assert body["total"] == 2 and body["nb_affiches"] == 2
+    premier, second = body["evenements"]
+    assert premier["id"] == "evt-fictif-un"
+    assert premier["vessel_id"] == "aaaa1111-fictif"
+    assert premier["nom"] == "NAVIRE FICTIF UN"
+    assert premier["mmsi"] == "999000001"
+    assert (premier["longitude"], premier["latitude"]) == (8.55, -0.42)
+    assert premier["heures"] == 3.5
+    assert second["mmsi"] == "999000002"
+    assert second["heures"] == 2.0  # durée déduite du début et de la fin
+    assert (second["longitude"], second["latitude"]) == (9.12, 0.21)
+    (demande,) = editeur.demandes
+    assert demande.method == "POST"
+    assert demande.url.path == "/v3/events"
+    assert demande.url.params["limit"] == "400"
+    corps = json.loads(demande.content)
+    assert corps["datasets"] == ["public-global-fishing-events:latest"]
+    assert corps["region"] == {"dataset": "public-eez-areas", "id": 8476}
+    assert demande.headers["authorization"] == f"Bearer {JETON_FICTIF}"
 
 
 @pytest.mark.asyncio

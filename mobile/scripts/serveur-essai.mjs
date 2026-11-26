@@ -62,7 +62,17 @@ const state = {
 };
 
 /** Écritures reçues, pour vérifier ce que l'application envoie vraiment. */
-const received = { positions: [], captures: [], dossiers: [], lotsRefuses: 0, appels: [], enTeteAppareil: 0 };
+const received = {
+  positions: [],
+  captures: [],
+  dossiers: [],
+  embarcations: [],
+  corrections: [],
+  consultations: 0,
+  lotsRefuses: 0,
+  appels: [],
+  enTeteAppareil: 0,
+};
 
 /* ------------------------------------------------------------------------ */
 /* Données FICTIVES du mode autonome                                         */
@@ -109,6 +119,34 @@ const PECHEUR_USER_2 = {
   organisation_id: null,
   date_creation: '2026-01-05T08:00:00Z',
 };
+/* Lot 2 : registre complet, informations d'inscription, page de profil (données fictives) */
+const ORGANISATION = { id: '00000000-0000-4000-8000-0000000000e1', nom: 'Coopérative fictive d’Owendo', type: 'cooperative' };
+const REGISTRE_BATEAUX = {
+  [BATEAUX[0].id]: {
+    type_pirogue: null, longueur_m: 9.5, materiau: 'bois', puissance_moteur_cv: 40, site_attache: 'Débarcadère fictif d’Owendo',
+    filiere: null, strate: null, equipements: { engins: ['filet'] }, balise: false,
+    mmsi: '626799010', numero_omi: null, indicatif_radio: null, jauge_brute: null, annee_construction: 2014, proprietaire: null, exploitant: null,
+  },
+  [BATEAUX[1].id]: {
+    type_pirogue: null, longueur_m: 7, materiau: 'fibre', puissance_moteur_cv: 15, site_attache: 'Débarcadère fictif d’Owendo',
+    filiere: null, strate: null, equipements: { engins: ['ligne'] }, balise: true,
+    mmsi: null, numero_omi: null, indicatif_radio: null, jauge_brute: null, annee_construction: null, proprietaire: null, exploitant: null,
+  },
+};
+/** Relevés fictifs d'une balise sur la seconde pirogue, il y a trois jours. */
+const RELEVES_BALISE = { [BATEAUX[1].id]: { nb: 12, fin: Date.now() - 3 * 86400_000, duree: 5 * 3600_000 } };
+const ESPECES_FICTIVES = { sardine: 'Sardine', mulet: 'Mulet', thon: 'Thon', capitaine: 'Capitaine' };
+const profilEssai = {
+  presentation: null,
+  especes_masquees: [],
+  tarifs_visibles: false,
+  mes_tarifs: [],
+  ouvert_au_public: false,
+  jeton: null,
+  mise_a_jour: null,
+};
+const LIMITES_PROFIL = { presentation_max_caracteres: 600, tarifs_max: 30, prix_max_fcfa: 10_000_000, unites_tarif: ['kg', 'unite'] };
+
 const TOKENS = { 'essai-agent': AGENT, 'essai-pecheur': PECHEUR_USER, 'essai-pecheur-2': PECHEUR_USER_2 };
 const TOKEN_BY_EMAIL = {
   [AGENT.email]: 'essai-agent',
@@ -194,6 +232,173 @@ function simulateWrite(method, path, body, res) {
     return sendJson(res, 200, { accepts, duplicates, rejects: [] });
   }
   return null;
+}
+
+/* ---- Lot 2 : mêmes contrôles et mêmes messages que le serveur ---------- */
+
+function erreurSaisie(res, champ, message) {
+  return sendJson(res, 422, { detail: `${champ} : ${message}`, code: 'VALIDATION_ERROR' });
+}
+
+/** Informations d'inscription : mise en forme et contrôle de format, comme `ComplementsEmbarcation`. */
+function lireComplements(body, res) {
+  const out = {};
+  const present = (k) => Object.prototype.hasOwnProperty.call(body ?? {}, k);
+  const vide = (v) => v === null || v === undefined || String(v).trim() === '';
+  if (present('mmsi')) {
+    const v = vide(body.mmsi) ? null : String(body.mmsi).replace(/[\s.-]/g, '');
+    if (v !== null && !/^\d{9}$/.test(v)) return erreurSaisie(res, 'MMSI', 'le MMSI compte 9 chiffres');
+    out.mmsi = v;
+  }
+  if (present('numero_omi')) {
+    const v = vide(body.numero_omi) ? null : String(body.numero_omi).replace(/[\s.-]/g, '').replace(/^(imo|omi)/i, '');
+    if (v !== null && !/^\d{7}$/.test(v)) return erreurSaisie(res, 'Numéro OMI', 'le numéro OMI compte 7 chiffres');
+    out.numero_omi = v;
+  }
+  if (present('indicatif_radio')) {
+    const v = vide(body.indicatif_radio) ? null : String(body.indicatif_radio).replace(/\s/g, '').toUpperCase();
+    if (v !== null && !/^[A-Z0-9]{3,10}$/.test(v)) return erreurSaisie(res, 'Indicatif radio', '3 à 10 lettres ou chiffres');
+    out.indicatif_radio = v;
+  }
+  if (present('jauge_brute')) {
+    const v = vide(body.jauge_brute) ? null : Number(body.jauge_brute);
+    if (v !== null && !(v > 0 && v <= 500_000)) return erreurSaisie(res, 'Jauge brute', 'nombre strictement positif');
+    out.jauge_brute = v;
+  }
+  if (present('annee_construction')) {
+    const v = vide(body.annee_construction) ? null : Number(body.annee_construction);
+    if (v !== null && !(Number.isInteger(v) && v >= 1900 && v <= new Date().getFullYear())) {
+      return erreurSaisie(res, 'Année de construction', `de 1900 à ${new Date().getFullYear()}`);
+    }
+    out.annee_construction = v;
+  }
+  for (const [k, libelle] of [['proprietaire', 'Propriétaire'], ['exploitant', 'Exploitant']]) {
+    if (!present(k)) continue;
+    const v = vide(body[k]) ? null : String(body[k]).trim();
+    if (v !== null && (v.length > 255 || /[\r\n]/.test(v))) return erreurSaisie(res, libelle, '255 caractères au plus, sur une ligne');
+    out[k] = v;
+  }
+  return out;
+}
+
+function nomEspece(code) {
+  return ESPECES_FICTIVES[code] ?? code.charAt(0).toUpperCase() + code.slice(1);
+}
+
+/** Espèces tirées des captures : celles du jeu fictif, plus celles déclarées pendant l'essai. */
+function especesDeclarees() {
+  const codes = new Set(['sardine', 'mulet', 'thon']);
+  for (const c of received.captures) if (c.espece) codes.add(String(c.espece));
+  return [...codes].map((espece) => ({ espece, nom: nomEspece(espece) }));
+}
+
+function monProfil() {
+  const declarees = especesDeclarees();
+  const masquees = new Set(profilEssai.especes_masquees);
+  const especes = declarees.filter((e) => !masquees.has(e.espece));
+  const mesTarifs = profilEssai.mes_tarifs.map((t) => ({ ...t, nom: nomEspece(t.espece) }));
+  const tarifs = profilEssai.tarifs_visibles
+    ? mesTarifs.filter((t) => !masquees.has(t.espece) && LIMITES_PROFIL.unites_tarif.includes(t.unite))
+    : [];
+  return {
+    genre: 'pecheur',
+    nom: `${PECHEUR.prenom} ${PECHEUR.nom}`,
+    localite: 'Débarcadère fictif d’Owendo',
+    presentation: profilEssai.presentation,
+    especes,
+    tarifs_affiches: profilEssai.tarifs_visibles,
+    tarifs,
+    mise_a_jour: profilEssai.mise_a_jour,
+    acteur_id: PECHEUR.id,
+    organisation: ORGANISATION.nom,
+    nb_embarcations: BATEAUX.length,
+    especes_declarees: declarees,
+    especes_masquees: profilEssai.especes_masquees,
+    tarifs_visibles: profilEssai.tarifs_visibles,
+    mes_tarifs: mesTarifs,
+    ouvert_au_public: profilEssai.ouvert_au_public,
+    lien_public: profilEssai.ouvert_au_public && profilEssai.jeton ? `https://cbm-pigap-web.vercel.app/profil/${profilEssai.jeton}` : null,
+    limites: LIMITES_PROFIL,
+    statut_regles: 'Proposé',
+  };
+}
+
+function modifierProfil(body, res) {
+  if ('presentation' in body) {
+    const texte = String(body.presentation ?? '').trim();
+    if (texte.length > LIMITES_PROFIL.presentation_max_caracteres) {
+      return sendJson(res, 400, { detail: `Présentation trop longue : ${LIMITES_PROFIL.presentation_max_caracteres} caractères au plus.`, code: 'PRESENTATION_TROP_LONGUE' });
+    }
+    const chiffres = Math.max(0, ...(texte.normalize('NFKC').match(/\d[\d\s.-]*/g) ?? []).map((s) => s.replace(/\D/g, '').length));
+    if (texte && (/[^\s@]+@[^\s@]+\.[^\s@]+/.test(texte) || /https?:\/\/|www\./i.test(texte) || chiffres > 6)) {
+      return sendJson(res, 400, {
+        detail: "Votre présentation ne doit pas contenir de coordonnées (numéro de téléphone, adresse électronique ou adresse de site) : retirez-les pour l'enregistrer.",
+        code: 'PRESENTATION_COORDONNEES',
+      });
+    }
+    profilEssai.presentation = texte || null;
+  }
+  if (Array.isArray(body.especes_masquees)) profilEssai.especes_masquees = body.especes_masquees.map(String);
+  if (Array.isArray(body.tarifs)) {
+    if (body.tarifs.length > LIMITES_PROFIL.tarifs_max) {
+      return sendJson(res, 400, { detail: `Un profil compte au plus ${LIMITES_PROFIL.tarifs_max} tarifs.`, code: 'TARIFS_TROP_NOMBREUX' });
+    }
+    const vus = new Set();
+    for (const t of body.tarifs) {
+      if (!Number.isInteger(t?.prix_fcfa) || t.prix_fcfa <= 0) return erreurSaisie(res, 'Prix', 'un nombre entier strictement positif');
+      if (!LIMITES_PROFIL.unites_tarif.includes(t.unite)) {
+        return sendJson(res, 400, { detail: 'Unité de tarif inconnue : choisissez « au kilo » ou « à l’unité ».', code: 'UNITE_INVALIDE' });
+      }
+      if (t.prix_fcfa > LIMITES_PROFIL.prix_max_fcfa) {
+        return sendJson(res, 400, { detail: `Prix trop élevé : au plus ${LIMITES_PROFIL.prix_max_fcfa} francs CFA par ligne.`, code: 'PRIX_INVALIDE' });
+      }
+      const cle = `${t.espece}|${t.unite}`;
+      if (vus.has(cle)) return sendJson(res, 400, { detail: `Deux tarifs pour « ${nomEspece(t.espece)} » dans la même unité.`, code: 'TARIF_EN_DOUBLE' });
+      vus.add(cle);
+    }
+    profilEssai.mes_tarifs = body.tarifs.map(({ espece, unite, prix_fcfa }) => ({ espece, unite, prix_fcfa }));
+  }
+  if (typeof body.tarifs_visibles === 'boolean') profilEssai.tarifs_visibles = body.tarifs_visibles;
+  if (typeof body.ouvert_au_public === 'boolean') {
+    profilEssai.ouvert_au_public = body.ouvert_au_public;
+    // Jeton tiré au hasard à la première ouverture, gardé si la page est refermée puis rouverte
+    if (body.ouvert_au_public && !profilEssai.jeton) profilEssai.jeton = randomUUID().replace(/-/g, '').slice(0, 24);
+  }
+  profilEssai.mise_a_jour = new Date().toISOString();
+  return sendJson(res, 200, monProfil());
+}
+
+function ficheIdentite() {
+  const now = Date.now();
+  const suivi = BATEAUX.map((b) => {
+    const mobiles = received.positions.filter((p) => p.embarcation_id === b.id).map((p) => Date.parse(p.horodatage));
+    const balise = RELEVES_BALISE[b.id];
+    const instants = [...mobiles];
+    if (balise) instants.push(balise.fin - balise.duree, balise.fin);
+    const fin = instants.length ? Math.max(...instants) : null;
+    const debut = instants.length ? Math.min(...instants) : null;
+    const nbBalise = balise ? balise.nb : 0;
+    const source = balise && (!mobiles.length || balise.fin >= Math.max(...mobiles)) ? 'balise' : 'mobile';
+    return {
+      embarcation_id: b.id,
+      nom: b.nom,
+      immatriculation: b.immatriculation,
+      dernier_releve: fin === null ? null : { source, horodatage: new Date(fin).toISOString(), age_secondes: Math.round((now - fin) / 1000) },
+      periode_observee: fin === null ? null : { debut: new Date(debut).toISOString(), fin: new Date(fin).toISOString() },
+      nb_releves: mobiles.length + nbBalise,
+      releves_par_source: { ...(mobiles.length ? { mobile: mobiles.length } : {}), ...(nbBalise ? { balise: nbBalise } : {}) },
+    };
+  });
+  return {
+    pecheur_id: PECHEUR.id,
+    registre: {
+      identite: { nom: PECHEUR.nom, prenom: PECHEUR.prenom, nationalite: 'gabonaise', statut: PECHEUR.statut },
+      licence: { numero: PECHEUR.numero_licence, date_delivrance: PECHEUR.date_delivrance, date_expiration: PECHEUR.date_expiration, statut: 'valide', validite_jours: 365 },
+      organisation: ORGANISATION,
+      embarcations: BATEAUX.map((b) => ({ id: b.id, nom: b.nom, immatriculation: b.immatriculation, type: b.type, ...REGISTRE_BATEAUX[b.id] })),
+    },
+    suivi: { embarcations: suivi, nb_releves: suivi.reduce((n, s) => n + s.nb_releves, 0), genere_a: new Date(now).toISOString() },
+  };
 }
 
 /** Mode autonome : réponses construites à partir des données fictives. */
@@ -288,7 +493,37 @@ function autonomous(method, path, url, body, req, res) {
     return sendJson(res, 201, created);
   }
   if (method === 'POST' && path === '/api/v1/embarcations') {
-    return sendJson(res, 201, { id: randomUUID(), ...body });
+    const complements = lireComplements(body, res);
+    if (typeof complements === 'number') return complements;
+    const created = { id: randomUUID(), ...body, ...complements };
+    received.embarcations.push(created);
+    return sendJson(res, 201, created);
+  }
+  if (method === 'PATCH' && path.startsWith('/api/v1/embarcations/')) {
+    if (fisher) return sendJson(res, 403, { detail: 'Rôle non autorisé', code: 'ROLE_FORBIDDEN' });
+    const id = decodeURIComponent(path.split('/').pop() ?? '');
+    const boat = BATEAUX.find((b) => b.id === id);
+    if (!boat) return sendJson(res, 404, { detail: 'Embarcation introuvable', code: 'EMBARCATION_NOT_FOUND' });
+    const complements = lireComplements(body, res);
+    if (typeof complements === 'number') return complements;
+    Object.assign(REGISTRE_BATEAUX[id], complements);
+    received.corrections.push({ id, ...complements });
+    return sendJson(res, 200, { ...boat, ...REGISTRE_BATEAUX[id] });
+  }
+  if (path === '/api/v1/profils/moi') {
+    if (!fisher) return sendJson(res, 404, { detail: 'Profil introuvable', code: 'PROFIL_NOT_FOUND' });
+    if (method === 'GET') return sendJson(res, 200, monProfil());
+    if (method === 'PATCH') return modifierProfil(body ?? {}, res);
+  }
+  if (method === 'GET' && path === '/api/v1/identite/moi') {
+    if (!fisher) return sendJson(res, 403, { detail: 'Rôle non autorisé', code: 'ROLE_FORBIDDEN' });
+    return sendJson(res, 200, ficheIdentite());
+  }
+  if (method === 'GET' && path.startsWith('/api/v1/identite/pecheurs/')) {
+    const id = decodeURIComponent(path.split('/').pop() ?? '');
+    if (id !== PECHEUR.id) return sendJson(res, 404, { detail: 'Pêcheur introuvable', code: 'PECHEUR_NOT_FOUND' });
+    received.consultations += 1;
+    return sendJson(res, 200, ficheIdentite());
   }
   if (method === 'GET' && path === '/api/v1/controles/verifier-licence') {
     const numero = url.searchParams.get('numero') ?? '';
@@ -351,7 +586,7 @@ const server = http.createServer(async (req, res) => {
 
   // Commandes de l'outil d'essai
   if (path === '/__essai' && method === 'GET') {
-    sendJson(res, 200, { autonome: AUTONOME, etat: state, recu: received });
+    sendJson(res, 200, { autonome: AUTONOME, etat: state, recu: received, profil: profilEssai, registre: REGISTRE_BATEAUX });
     return;
   }
   if (path === '/__essai/mode' && method === 'POST') {
@@ -368,6 +603,9 @@ const server = http.createServer(async (req, res) => {
     received.positions = [];
     received.captures = [];
     received.dossiers = [];
+    received.embarcations = [];
+    received.corrections = [];
+    received.consultations = 0;
     received.lotsRefuses = 0;
     received.appels = [];
     received.enTeteAppareil = 0;
