@@ -5,6 +5,19 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-26] Correctif affichage Quittances + mise en ligne
+
+**Ce qui a été construit :**
+- Tableau Quittances : une ligne par quittance, actions compactes (« Payer », PDF, Annuler), colonnes à largeurs fixes, défilement horizontal sans casser la hauteur des lignes
+
+**Pourquoi :** les boutons primaires trop hauts et le `white-space: nowrap` mobile faisaient chevaucher les actions entre lignes
+
+**Tests réalisés :** `tsc -b` via build Vercel réussi ; déploiement production READY
+
+**Points ouverts :** lots 7 et 8 reportés ; APK 0.2.0 non publiée
+
+---
+
 ## [2026-11-26] Fusion de `fix/lot-0-fonds-de-carte` dans `main`
 
 **Ce qui a été construit :**
