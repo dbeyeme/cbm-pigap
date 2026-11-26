@@ -40,7 +40,6 @@ import SeaStatePanel from './components/SeaStatePanel';
 import HelpTip from './components/HelpTip';
 import AppTopbar from './components/AppTopbar';
 import GlobalSearch from './components/GlobalSearch';
-import CompactList from './components/CompactList';
 import {
   IconAnchor,
   IconLayers,
@@ -1856,48 +1855,60 @@ export default function App() {
                         </div>
                       )
                     ) : (
-                      <CompactList
-                        items={
-                          boatFilter
-                            ? segments.filter((s) => s.embarcation_id === boatFilter)
-                            : segments
-                        }
-                        getKey={(s) => s.id}
-                        initial={8}
-                        empty={
-                          <p className="empty-list">
-                            Aucune trajectoire enregistrée. Les sorties s’affichent dès que des
-                            relevés GPS sont consolidés.
-                          </p>
-                        }
-                        renderItem={(s) => {
-                          const on = selectedId === s.id;
-                          const kind = vesselKind(s.type);
-                          const VesselIcon = kind === 'navire' ? IconShip : IconPirogue;
+                      (() => {
+                        const trajs = boatFilter
+                          ? segments.filter((s) => s.embarcation_id === boatFilter)
+                          : segments;
+                        if (trajs.length === 0) {
                           return (
-                            <button
-                              type="button"
-                              className={`traj-item traj-item--vessel traj-item--${kind}${on ? ' on' : ''}`}
-                              style={{ borderLeftColor: colorFor(s.id) }}
-                              title={`${s.embarcation_nom} · sortie ${s.index}`}
-                              onClick={() => setSelectedId(on ? null : s.id)}
-                            >
-                              <span className={`traj-vessel-icon traj-vessel-icon--${kind}`} aria-hidden>
-                                <VesselIcon size={18} />
-                              </span>
-                              <span className="traj-item-body">
-                                <span className="traj-title">
-                                  {s.embarcation_nom}
-                                  <em> · {s.index}</em>
-                                </span>
-                                <span className="traj-meta">
-                                  {s.points_count} pts · {new Date(s.debut).toLocaleDateString()}
-                                </span>
-                              </span>
-                            </button>
+                            <p className="empty-list">
+                              Aucune trajectoire enregistrée. Les sorties s’affichent dès que des
+                              relevés GPS sont consolidés.
+                            </p>
                           );
-                        }}
-                      />
+                        }
+                        return (
+                          <div className="table-defile table-defile--panel">
+                            <table className="ds-table empilable">
+                              <thead>
+                                <tr>
+                                  <th scope="col">Embarcation</th>
+                                  <th scope="col">Sortie</th>
+                                  <th scope="col">Points</th>
+                                  <th scope="col">Date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {trajs.map((s) => {
+                                  const on = selectedId === s.id;
+                                  return (
+                                    <tr
+                                      key={s.id}
+                                      className={`is-clickable${on ? ' is-selected' : ''}`}
+                                      onClick={() => setSelectedId(on ? null : s.id)}
+                                    >
+                                      <td data-label="Embarcation">
+                                        <button type="button" className="ligne-bouton">
+                                          {s.embarcation_nom}
+                                        </button>
+                                      </td>
+                                      <td data-label="Sortie" className="cellule-serree">
+                                        {s.index}
+                                      </td>
+                                      <td data-label="Points" className="cellule-serree">
+                                        {s.points_count}
+                                      </td>
+                                      <td data-label="Date" className="cellule-serree">
+                                        {new Date(s.debut).toLocaleDateString('fr-FR')}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()
                     )}
                   </section>
                   {aisOverlay ? (
