@@ -318,9 +318,12 @@ button.ghost.active-filter {
   background: rgba(94, 228, 212, 0.1);
 }
 
+button.compact,
 button.ghost.compact {
-  padding: 6px 10px;
-  font-size: 0.75rem;
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 0.72rem;
+  line-height: 1.2;
 }
 
 button.danger-ghost {
@@ -4443,13 +4446,18 @@ button.linkish {
 .ds-status {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  max-width: 100%;
+  padding: 1px 8px;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   font-weight: 700;
+  line-height: 1.35;
   text-transform: capitalize;
   background: #e2e8f0;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ds-status-ok { background: #dcfce7; color: #166534; }
@@ -4591,21 +4599,42 @@ button.linkish {
 .ds-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .ds-table th,
 .ds-table td {
   text-align: left;
-  padding: 10px 8px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .ds-table th {
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
+}
+
+.ds-table .zone-actions,
+.ds-table .table-actions {
+  margin-top: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.ds-table button,
+.ds-table .zone-actions > button,
+.ds-table .table-actions > button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .ds-alert-item {

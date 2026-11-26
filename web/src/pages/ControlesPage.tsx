@@ -371,6 +371,7 @@ export default function ControlesPage({ token, onError }: Props) {
           {missions.length === 0 ? (
             <p className="empty-list">Aucune mission.</p>
           ) : (
+            <div className="table-defile">
             <table className="ds-table empilable">
               <thead>
                 <tr>
@@ -429,6 +430,7 @@ export default function ControlesPage({ token, onError }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </section>
       </div>
@@ -444,6 +446,7 @@ export default function ControlesPage({ token, onError }: Props) {
         {controles.length === 0 ? (
           <p className="empty-list">Aucun contrôle enregistré.</p>
         ) : (
+          <div className="table-defile">
           <table className="ds-table empilable">
             <thead>
               <tr>
@@ -491,6 +494,7 @@ export default function ControlesPage({ token, onError }: Props) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </section>

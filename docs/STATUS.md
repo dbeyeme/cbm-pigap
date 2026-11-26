@@ -15,7 +15,7 @@
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
 | **Chantier en cours** | Évolutions de novembre 2026 : lots 0 à 6, 9 et 10 livrés en code (serveur + portail, mobile pour 3/6/10) ; lots 7 et 8 reportés (ADR / Kimba Connect, multi-zones). |
-| **Note récente** | 2026-11-26 : correctif lignes Quittances déployé sur Vercel (`cbm-pigap-web`) ; lots 7 et 8 reportés ; API Railway inchangée (correctif portail seul) |
+| **Note récente** | 2026-11-26 : contrôle global tableaux (typo, boutons compact, anti-débordement) ; Quittances densifiées ; lots 7 et 8 reportés |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

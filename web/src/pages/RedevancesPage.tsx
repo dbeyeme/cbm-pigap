@@ -22,7 +22,14 @@ import {
 import HelpTip from '../components/HelpTip';
 import KpiCard from '../components/KpiCard';
 import StatusPill from '../components/StatusPill';
-import { IconCard, IconDownload, IconReceipt, IconRefresh, IconXCircle } from '../components/Icons';
+import {
+  IconCard,
+  IconCheck,
+  IconDownload,
+  IconReceipt,
+  IconRefresh,
+  IconXCircle,
+} from '../components/Icons';
 
 type Props = {
   token: string;
@@ -283,9 +290,6 @@ export default function RedevancesPage({ token, onError }: Props) {
                     <th scope="col">Titulaire</th>
                     <th scope="col">Montant</th>
                     <th scope="col">Statut</th>
-                    <th scope="col">Captures</th>
-                    <th scope="col">Émise</th>
-                    <th scope="col">Paiement</th>
                     <th scope="col">Actions</th>
                   </tr>
                 </thead>
@@ -294,14 +298,23 @@ export default function RedevancesPage({ token, onError }: Props) {
                     const st = STATUT[q.statut] ?? { label: q.statut, tone: 'muted' };
                     const paiement = q.paiement;
                     const pillTone = st.tone === 'ok' ? 'ok' : st.tone === 'warn' ? 'warn' : 'neutral';
+                    const notePaiement =
+                      paiement && paiement.statut === 'en_attente'
+                        ? `${paiement.operateur} · ${paiement.msisdn ?? 'n/r'} · en attente`
+                        : q.date_paiement
+                          ? `Payée le ${fmtDate(q.date_paiement)} · ${q.nb_captures} capt.`
+                          : `Émise le ${fmtDate(q.date_creation)} · ${q.nb_captures} capt.`;
                     return (
                       <tr key={q.id}>
                         <td data-label="Numéro">
                           <span className="empreinte">{q.numero}</span>
                         </td>
                         <td data-label="Titulaire">
-                          <span className="cellule-principale">
+                          <span className="cellule-principale" title={q.titulaire ?? pecheurLabel(q.pecheur_id)}>
                             {q.titulaire ?? pecheurLabel(q.pecheur_id)}
+                          </span>
+                          <span className="cellule-note" title={notePaiement}>
+                            {notePaiement}
                           </span>
                         </td>
                         <td data-label="Montant" className="cellule-serree">
@@ -310,28 +323,14 @@ export default function RedevancesPage({ token, onError }: Props) {
                         <td data-label="Statut">
                           <StatusPill label={st.label} tone={pillTone} />
                         </td>
-                        <td data-label="Captures" className="cellule-serree">
-                          {q.nb_captures}
-                        </td>
-                        <td data-label="Émise" className="cellule-serree">
-                          {fmtDate(q.date_creation)}
-                        </td>
-                        <td data-label="Paiement">
-                          <span className="cellule-note" style={{ margin: 0 }}>
-                            {paiement && paiement.statut === 'en_attente'
-                              ? `${paiement.operateur} · ${paiement.msisdn ?? 'non renseigné'} · en attente`
-                              : q.date_paiement
-                                ? `Payée le ${fmtDate(q.date_paiement)}`
-                                : 'Aucun'}
-                          </span>
-                        </td>
                         <td data-label="Actions">
                           <div className="table-actions">
                             {q.statut === 'en_attente' && (!paiement || paiement.statut !== 'en_attente') ? (
                               <button
                                 type="button"
-                                className="ghost compact"
+                                className="ghost compact icon-only"
                                 disabled={busy !== null}
+                                aria-label={live ? 'Payer par Mobile Money' : 'Initier le paiement (démonstration)'}
                                 title={live ? 'Payer par Mobile Money' : 'Initier le paiement (démonstration)'}
                                 onClick={() =>
                                   void run(`payer-${q.id}`, async () => {
@@ -348,14 +347,15 @@ export default function RedevancesPage({ token, onError }: Props) {
                                   })
                                 }
                               >
-                                <IconCard size={14} /> Payer
+                                <IconCard size={14} />
                               </button>
                             ) : null}
                             {q.statut === 'en_attente' && paiement && paiement.statut === 'en_attente' && !live ? (
                               <button
                                 type="button"
-                                className="ghost compact"
+                                className="ghost compact icon-only"
                                 disabled={busy !== null}
+                                aria-label="Confirmer le paiement (démonstration)"
                                 title="Confirmer le paiement (démonstration)"
                                 onClick={() =>
                                   void run(`confirmer-${q.id}`, async () => {
@@ -364,24 +364,28 @@ export default function RedevancesPage({ token, onError }: Props) {
                                   })
                                 }
                               >
-                                Confirmer
+                                <IconCheck size={14} />
                               </button>
                             ) : null}
                             <button
                               type="button"
-                              className="ghost compact"
+                              className="ghost compact icon-only"
                               disabled={busy !== null}
+                              aria-label={`Télécharger le PDF ${q.numero}`}
+                              title="Télécharger le PDF"
                               onClick={() =>
                                 void run(`pdf-${q.id}`, () => downloadQuittancePdf(token, q.id, q.numero))
                               }
                             >
-                              <IconDownload size={14} /> PDF
+                              <IconDownload size={14} />
                             </button>
                             {q.statut === 'en_attente' ? (
                               <button
                                 type="button"
-                                className="ghost compact danger-ghost"
+                                className="ghost compact danger-ghost icon-only"
                                 disabled={busy !== null}
+                                aria-label={`Annuler ${q.numero}`}
+                                title="Annuler la quittance"
                                 onClick={() =>
                                   void run(`annuler-${q.id}`, async () => {
                                     await annulerQuittance(token, q.id);
@@ -389,7 +393,7 @@ export default function RedevancesPage({ token, onError }: Props) {
                                   })
                                 }
                               >
-                                <IconXCircle size={14} /> Annuler
+                                <IconXCircle size={14} />
                               </button>
                             ) : null}
                           </div>
@@ -407,26 +411,28 @@ export default function RedevancesPage({ token, onError }: Props) {
       {synthese && synthese.par_mois.length ? (
         <section className="ds-panel redev-panel">
           <h3 className="side-sub">Taxe à la production par mois</h3>
-          <table className="ds-table">
-            <thead>
-              <tr>
-                <th>Mois</th>
-                <th>Débarqué (kg)</th>
-                <th>Due</th>
-                <th>Payée</th>
-              </tr>
-            </thead>
-            <tbody>
-              {synthese.par_mois.slice(-12).map((m) => (
-                <tr key={m.periode}>
-                  <td>{m.periode}</td>
-                  <td>{Math.round(m.quantite_kg).toLocaleString('fr-FR')}</td>
-                  <td>{fcfa(m.due_fcfa)}</td>
-                  <td>{fcfa(m.payee_fcfa)}</td>
+          <div className="table-defile">
+            <table className="ds-table">
+              <thead>
+                <tr>
+                  <th>Mois</th>
+                  <th>Débarqué (kg)</th>
+                  <th>Due</th>
+                  <th>Payée</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {synthese.par_mois.slice(-12).map((m) => (
+                  <tr key={m.periode}>
+                    <td>{m.periode}</td>
+                    <td>{Math.round(m.quantite_kg).toLocaleString('fr-FR')}</td>
+                    <td>{fcfa(m.due_fcfa)}</td>
+                    <td>{fcfa(m.payee_fcfa)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : null}
     </div>

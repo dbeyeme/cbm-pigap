@@ -5,6 +5,22 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-26] Contrôle global tableaux / débordements / typo
+
+**Ce qui a été construit :**
+- Suppression du `display: block` sur `.ds-table` (≤768 px) qui cassait hauteur et alignement des lignes
+- Densité globale : polices tableaux 0.78 / en-têtes 0.65, pastilles 0.64, boutons compact 30 px (28 px dans les tableaux)
+- Quittances : 5 colonnes, note paiement sous le titulaire, actions en icônes ; grille Encours | Quittances avec `minmax(0, 1fr)`
+- Conteneurs `.table-defile` / filet `:has(> .ds-table)` pour le défilement horizontal
+
+**Pourquoi :** chevauchements et débordements persistants malgré le premier correctif Quittances
+
+**Tests réalisés :** `npx tsc --noEmit` sans erreur
+
+**Points ouverts :** lots 7 et 8 reportés ; APK 0.2.0 non publiée
+
+---
+
 ## [2026-11-26] Correctif affichage Quittances + mise en ligne
 
 **Ce qui a été construit :**
