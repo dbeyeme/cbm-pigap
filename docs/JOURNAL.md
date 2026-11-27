@@ -5,6 +5,20 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] GFW actif en local et en production (env seulement)
+
+**Ce qui a été construit :**
+- `GFW_ENABLED=true` et `GFW_API_TOKEN` posés sur Railway (`cbm-pigap`) et en local (hors git)
+- Vérification : `/api/v1/gfw/etat` actif avec jeton ; `/gfw/peche-apparente` HTTP 200 (~4158 h, période 2026-08-01 → 2026-11-01)
+
+**Pourquoi :** décision 5b du porteur ; ADR-011 (interrupteur env, jeton serveur)
+
+**Tests réalisés :** curl authentifié agent démo sur l'API de production
+
+**Points ouverts :** rotation des secrets exposés par un affichage CLI antérieur ; accord écrit éditeur GFW reste à la charge du porteur
+
+---
+
 ## [2026-11-27] Sécurité — vue agent par zone et écriture GPS
 
 **Ce qui a été construit :**

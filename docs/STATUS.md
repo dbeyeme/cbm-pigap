@@ -12,10 +12,10 @@
 | **Statut module** | ✅ done |
 | **Branche active** | `main` |
 | **Dernière mise à jour** | 2026-11-27 |
-| **Prochain jalon** | GFW env (local + production) → APK → Phase 3 terrain → commit / publier / déployer |
-| **Bloqueurs** | `GFW_API_TOKEN` absent sur Railway (`cbm-pigap`) : à poser avant `GFW_ENABLED=true` |
-| **Chantier en cours** | Lots 7 et 8 livrés en code (ADR-014, ADR-015) ; GFW à activer via variables d'environnement seulement. |
-| **Note récente** | 2026-11-27 : vue agent par zone + GPS write pêcheur/admin ; lots 7–8 ; GFW en env |
+| **Prochain jalon** | APK → Phase 3 terrain |
+| **Bloqueurs** | Aucun (GFW production vérifié) |
+| **Chantier en cours** | Lots 7–8 et GFW OK en production ; APK à mettre à jour pour Phase 3. |
+| **Note récente** | 2026-11-27 : GFW `/peche-apparente` HTTP 200 (~4158 h) ; jeton via env seulement |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
