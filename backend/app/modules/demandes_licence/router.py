@@ -4,12 +4,13 @@ import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from app.core.deps import DbSession, require_role
 from app.core.errors import ApiError, bad_request, not_found
+from app.core.rate_limit import fo_limiter
 from app.core.validation_messages import format_validation_errors
 from app.db.enums import RoleUtilisateur, StatutDemandeLicence, TypeDemandeLicence
 from app.db.models import Utilisateur
@@ -25,6 +26,15 @@ from app.modules.demandes_licence.storage import resolve_piece_path, save_pieces
 from app.modules.pecheurs.schemas import ComplementsEmbarcation
 
 router = APIRouter(prefix="/demandes-licence", tags=["demandes-licence"])
+
+
+def _exiger_fo_rate_limit(request: Request, cle: str) -> None:
+    host = request.client.host if request.client else "unknown"
+    if not fo_limiter.allow(f"{cle}:{host}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Trop de soumissions ; réessayez dans une minute",
+        )
 
 StaffRoles = Annotated[
     Utilisateur,
@@ -96,8 +106,10 @@ def _as_str_list(value: list[str] | str | None) -> list[str]:
 async def soumettre_demande(
     payload: DemandeLicenceCreate,
     db: DbSession,
+    request: Request,
 ) -> DemandeLicenceRead:
     """Front office public — JSON sans pièces."""
+    _exiger_fo_rate_limit(request, "demande-licence")
     row = await service.create_demande(db, payload)
     return DemandeLicenceRead.model_validate(row)
 
@@ -105,6 +117,7 @@ async def soumettre_demande(
 @router.post("/with-files", response_model=DemandeLicenceRead, status_code=201)
 async def soumettre_demande_avec_pieces(
     db: DbSession,
+    request: Request,
     type_demande: Annotated[TypeDemandeLicence, Form()],
     nom: Annotated[str | None, Form()] = None,
     prenom: Annotated[str | None, Form()] = None,
@@ -132,6 +145,7 @@ async def soumettre_demande_avec_pieces(
     pieces: Annotated[list[UploadFile] | None, File()] = None,
 ) -> DemandeLicenceRead:
     """Front office — formulaire wizard + justificatifs (multipart)."""
+    _exiger_fo_rate_limit(request, "demande-licence")
     payload = DemandeLicenceCreate(
         type_demande=type_demande,
         nom=_empty_to_none(nom),

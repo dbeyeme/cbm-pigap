@@ -15,7 +15,7 @@
 | **Prochain jalon** | GFW env (local + production) → APK → Phase 3 terrain → commit / publier / déployer |
 | **Bloqueurs** | `GFW_API_TOKEN` absent sur Railway (`cbm-pigap`) : à poser avant `GFW_ENABLED=true` |
 | **Chantier en cours** | Lots 7 et 8 livrés en code (ADR-014, ADR-015) ; GFW à activer via variables d'environnement seulement. |
-| **Note récente** | 2026-11-27 : sécurité red/blue (IDOR, webhooks, batch GPS 500, rate-limit login, fail-closed live) ; lots 7–8 ; GFW en env |
+| **Note récente** | 2026-11-27 : sécurité (docs prod off, FO rate-limit, chercheur GPS lecture) ; lots 7–8 publiés ; GFW en env |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

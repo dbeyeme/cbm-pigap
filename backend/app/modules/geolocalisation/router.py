@@ -44,6 +44,19 @@ GeolocUser = Annotated[
     ),
 ]
 
+# Écriture GPS : pêcheur (mobile) + staff opérationnel. Chercheur = lecture seule.
+GeolocWriteUser = Annotated[
+    Utilisateur,
+    Depends(
+        require_role(
+            RoleUtilisateur.pecheur,
+            RoleUtilisateur.agent_controle,
+            RoleUtilisateur.admin,
+            RoleUtilisateur.autorite,
+        )
+    ),
+]
+
 # Purge trajectoire : pas le chercheur ni le pêcheur (historique réglementaire).
 TrajectoryAdmin = Annotated[
     Utilisateur,
@@ -75,7 +88,7 @@ async def get_geoloc_config(_: GeolocUser) -> GeolocConfig:
 async def post_position(
     payload: PositionCreate,
     db: DbSession,
-    user: GeolocUser,
+    user: GeolocWriteUser,
     x_appareil_id: AppareilId = None,
 ) -> PositionRead:
     return await service.create_position(db, user, payload, appareil_brut=x_appareil_id)
@@ -85,7 +98,7 @@ async def post_position(
 async def post_positions_batch(
     payload: PositionBatchCreate,
     db: DbSession,
-    user: GeolocUser,
+    user: GeolocWriteUser,
     x_appareil_id: AppareilId = None,
 ) -> list[PositionRead]:
     return await service.create_positions_batch(db, user, payload, appareil_brut=x_appareil_id)

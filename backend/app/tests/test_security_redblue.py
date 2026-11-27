@@ -12,8 +12,8 @@ from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.db.enums import RoleUtilisateur, StatutPecheur
 from app.db.models import Pecheur, Utilisateur
-from app.core.rate_limit import login_limiter
-from app.main import assert_live_payment_security, assert_production_security
+from app.core.rate_limit import fo_limiter, login_limiter
+from app.main import assert_live_payment_security, assert_production_security, app as fastapi_app
 from app.modules.geolocalisation.schemas import POSITION_BATCH_MAX
 
 
@@ -186,6 +186,68 @@ async def test_webhook_pawapay_exige_bearer_si_jeton_meme_en_demo(
         json={"depositId": str(uuid.uuid4()), "status": "COMPLETED"},
     )
     assert wh.status_code == 401
+
+
+def test_docs_ouverts_hors_production() -> None:
+    """Hors production : /docs actif. En production l'usine passe docs_url=None."""
+    from app.core import config as cfg
+
+    if cfg.settings.app_env == "production":
+        assert fastapi_app.docs_url is None
+        assert fastapi_app.openapi_url is None
+    else:
+        assert fastapi_app.docs_url == "/docs"
+
+
+@pytest.mark.asyncio
+async def test_chercheur_ne_peut_pas_ecrire_gps(
+    client: AsyncClient, engine
+) -> None:
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        user = Utilisateur(
+            nom="Chercheur Test",
+            role=RoleUtilisateur.chercheur,
+            email=f"chercheur.{uuid.uuid4().hex[:8]}@example.com",
+            mot_de_passe_hash=hash_password("PecheurPass1!"),
+        )
+        session.add(user)
+        await session.commit()
+        headers = {
+            "Authorization": f"Bearer {create_access_token(subject=user.id, role=user.role.value)}"
+        }
+    r = await client.post(
+        "/api/v1/positions",
+        headers=headers,
+        json={
+            "embarcation_id": str(uuid.uuid4()),
+            "position": {"type": "Point", "coordinates": [9.45, 0.42]},
+            "horodatage": "2020-06-01T12:00:00Z",
+            "source": "mobile",
+        },
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_fo_demande_licence_rate_limit(client: AsyncClient) -> None:
+    fo_limiter.reset()
+    fo_limiter.max_calls = 2
+    try:
+        corps = {
+            "type_demande": "personne_physique",
+            "nom": "Test",
+            "prenom": "FO",
+            "telephone": "077000001",
+        }
+        for _ in range(2):
+            r = await client.post("/api/v1/demandes-licence", json=corps)
+            assert r.status_code == 201, r.text
+        blocked = await client.post("/api/v1/demandes-licence", json=corps)
+        assert blocked.status_code == 429
+    finally:
+        fo_limiter.max_calls = 30
+        fo_limiter.reset()
 
 
 @pytest.mark.asyncio

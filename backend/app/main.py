@@ -31,11 +31,15 @@ async def lifespan(_app: FastAPI):
     logger.info("app_shutdown")
 
 
+_docs_enabled = settings.app_env != "production"
 app = FastAPI(
     title="CBM-PIGAP API",
     description="Plateforme Intelligente Gabonaise des Activités de Pêche — MVP",
     version="0.2.0",
     lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 _JWT_SECRET_DEV = "change-me-in-production-use-openssl-rand-hex-32"

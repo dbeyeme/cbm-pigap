@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.deps import DbSession, require_role
+from app.core.rate_limit import fo_limiter
 from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
 from app.modules.commandes import service
@@ -50,8 +51,16 @@ AnnuleurCommande = Annotated[
     response_model=ClientInscriptionRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def inscrire_client(db: DbSession, payload: ClientInscription) -> ClientInscriptionRead:
+async def inscrire_client(
+    db: DbSession, payload: ClientInscription, request: Request
+) -> ClientInscriptionRead:
     """Inscription publique d'un compte client (réservation sans paiement en ligne)."""
+    host = request.client.host if request.client else "unknown"
+    if not fo_limiter.allow(f"inscription-client:{host}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Trop de soumissions ; réessayez dans une minute",
+        )
     return await service.inscrire_client(db, payload)
 
 

@@ -34,3 +34,6 @@ class RateLimiter:
 
 # Login : 20 tentatives / minute / IP (tolère agents de test, freine le brute-force).
 login_limiter = RateLimiter(max_calls=20, window_seconds=60.0)
+
+# Front office public : demandes licence / inscription client (anti-spam).
+fo_limiter = RateLimiter(max_calls=30, window_seconds=60.0)

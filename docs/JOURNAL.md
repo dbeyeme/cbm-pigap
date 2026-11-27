@@ -5,6 +5,19 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Sécurité red/blue — docs prod, FO, chercheur GPS
+
+**Ce qui a été construit :**
+- `/docs` et OpenAPI désactivés si `app_env=production`
+- Chercheur : lecture GPS seule (plus d'écriture POST/batch)
+- Rate-limit FO (30/min/IP) sur demandes licence et inscription client
+
+**Tests réalisés :** `pytest app/tests/test_security_redblue.py` → 17 passed
+
+**Points ouverts :** vue agent par zone ; écriture GPS agent/autorité encore autorisée (ops MVP)
+
+---
+
 ## [2026-11-27] Lots 7 et 8 : commandes et périmètre (ADR-014, ADR-015)
 
 **Ce qui a été construit :**
