@@ -85,6 +85,13 @@ def _pick_boat(pool: list[Embarcation], name: str) -> Embarcation | None:
 
 
 async def main() -> None:
+    if "--force" not in sys.argv:
+        print(
+            "Obsolète : un an de sorties côte / intérieur est semé par "
+            "seed_production_demo.py --reset. Ce script effaçait tout l'historique GPS. "
+            "Passez --force seulement pour un jour de corridors (sans l'année)."
+        )
+        raise SystemExit(0)
     async with AsyncSessionLocal() as session:
         await session.execute(delete(Position))
         await session.flush()

@@ -5,30 +5,19 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
-## [2026-11-27] Sécurité red/blue — correctifs Haute (abonnements)
+## [2026-11-27] Lots 7 et 8 : commandes et périmètre (ADR-014, ADR-015)
 
 **Ce qui a été construit :**
-- Agent / skill `security-redblue` (attaque-défense : revue + correctifs, sans exploits)
-- Contrôle d'appartenance sur `confirmer-demo` et `synchroniser` (IDOR pêcheur/org → 404)
-- Accusés webhook Mobile Money / PawaPay sans MSISDN (`WebhookAckRead`)
-- Auth Bearer PawaPay aussi dès qu'un jeton/secret est configuré en mode démo
-- Suite audit : plafond batch GPS (500), fail-closed `MOBILE_MONEY_MODE=live` sans secret/jeton, JWT prod min 32 car., rate-limit login (20/min/IP)
-- Tests défensifs : `test_security_redblue.py` (+ alignement pawapay / abonnements)
+- ADR-014 et ADR-015 acceptés (écarts cahier §2.2)
+- Lot 7 : rôle `client`, module `/api/v1/commandes` (inscription, réservation, acceptation, double validation, annulation), prix facultatif, aucun paiement ; portail client + onglet Commandes (Pêches) ; vitrine pêcheurs pour le client
+- Lot 8 : table `perimetre_zones` (6 zones seedées), API admin, filtre PostGIS sur trajectoires / live / alertes ; désactivation masque aussi l'historique ; page Administration
+- Migrations `e4a7b8c9d260`, `f5b8c9d0e371`
 
-**Pourquoi (lien avec le cahier des charges / ce document) :**
-- §7 sécurité par conception ; suite exploration + audit `security-auditor` (GO réserves)
-- CORS joker et JWT défaut déjà refusés en production (`assert_production_security`)
+**Pourquoi :** décisions du porteur du 2026-11-27 (1b, 2a prix facultatif, 3a, 4b, 5b)
 
-**Technologies / principes utilisés :**
-- Filtrage serveur (pas seulement UI) ; 404 hors périmètre ; hmac.compare_digest ; limiteur mémoire
+**Tests réalisés :** `pytest` lot 7 et lot 8 : 9 verts ; `npx tsc --noEmit` portail OK
 
-**Tests réalisés :**
-- `pytest app/tests/test_security_redblue.py` → 14 passed (+ abonnements / pawapay précédemment verts)
-
-**Points ouverts / dette technique :**
-- FO public (demandes licence, inscription commande, profil public, vérif quittance) : volontaire MVP
-- Écriture GPS staff encore large ; vue agent par zone (H3/H5) reportée
-- LogAcces incomplet ; `/docs` ouvert hors prod
+**Points ouverts :** `GFW_API_TOKEN` à poser sur Railway avant `GFW_ENABLED=true` ; écran mobile pêcheur pour accepter / confirmer les commandes ; APK à reconstruire ; commit / déploiement après GFW local + production OK
 
 ---
 
@@ -1865,3 +1854,58 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Points ouverts :**
 - Noms de démo répétés (« Pirogue out / c0 / c1 / c2 ») : données de seed, pas un bug de binding
 - Rentabilité calculée (lot 6) et commandes (lot 7) : règles « Proposé »
+
+---
+
+## [2026-11-27] Sécurité red/blue — correctifs Haute (abonnements)
+
+**Ce qui a été construit :**
+- Agent / skill `security-redblue` (attaque-défense : revue + correctifs, sans exploits)
+- Contrôle d'appartenance sur `confirmer-demo` et `synchroniser` (IDOR pêcheur/org → 404)
+- Accusés webhook Mobile Money / PawaPay sans MSISDN (`WebhookAckRead`)
+- Auth Bearer PawaPay aussi dès qu'un jeton/secret est configuré en mode démo
+- Suite audit : plafond batch GPS (500), fail-closed `MOBILE_MONEY_MODE=live` sans secret/jeton, JWT prod min 32 car., rate-limit login (20/min/IP)
+- Tests défensifs : `test_security_redblue.py` (+ alignement pawapay / abonnements)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §7 sécurité par conception ; suite exploration + audit `security-auditor` (GO réserves)
+- CORS joker et JWT défaut déjà refusés en production (`assert_production_security`)
+
+**Technologies / principes utilisés :**
+- Filtrage serveur (pas seulement UI) ; 404 hors périmètre ; hmac.compare_digest ; limiteur mémoire
+
+**Tests réalisés :**
+- `pytest app/tests/test_security_redblue.py` (+ abonnements / pawapay précédemment verts)
+
+**Points ouverts / dette technique :**
+- FO public (demandes licence, inscription commande, profil public, vérif quittance) : volontaire MVP
+- Écriture GPS staff encore large ; vue agent par zone (H3/H5) reportée
+- LogAcces incomplet ; `/docs` ouvert hors prod
+
+---
+
+## [2026-11-27] Jeu de démonstration réduit (poignée d'acteurs, 12 mois)
+
+**Ce qui a été construit :**
+- `backend/scripts/seed_production_demo.py --reset` : 1 admin, 1 agent de contrôle, 1 autorité, 1 organisation (Coopérative des Pêcheurs de l'Estuaire), 5 pêcheurs / 5 embarcations
+- Un an de sorties (une tous les 10 jours) le long des corridors open data, mer vers l'intérieur : Estuaire, Mondah, Ogooué jusqu'à Lambaréné et Ogooué moyen, rade de Port-Gentil, Mayumba ; 184 sorties, 1845 positions, 184 captures, 5 alertes, 1 quota crevette (fictif, à valider)
+- `seed_series_saisonnieres.py` et `seed_maritime_scenarios.py` : no-op sauf `--force` (le premier créait une capture par jour et des centaines d'alertes ; le second effaçait tout l'historique GPS)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- Demande du porteur : limiter la démo à une poignée d'acteurs avec un an d'enregistrements de la côte vers les zones de pêche intérieures
+- Les volumes précédents (milliers d'acteurs, noms « Pirogue out / c0 ») venaient de dumps de tests et de graines lourdes, pas du produit
+
+**Technologies / principes utilisés :**
+- Corridors `DEMO_ROUTES` (ZEE / OSM) ; points hors eau = 0 sur les sous-échantillons
+- Purge SQL (`--reset`) : extra comptes, pêcheurs, navires, organisations, demandes, alertes ; les 5 bateaux du jeu sont ressemés
+
+**Tests réalisés :**
+- Seed local PostGIS : 8 comptes (3 staff + 5 pêcheurs), 5 embarcations, 1 organisation, GPS du 2025-11-29 au 2026-11-27 ; Pirogue Ogooué 9,01°E à 11,25°E
+- Seed production (base Railway du portail) : mêmes volumes
+- API production : 5 pêcheurs, 5 embarcations, 1 organisation, 5 alertes, 5 positions live, 2677 kg de captures sur 12 mois
+
+**Points ouverts / dette technique :**
+- Script de seed modifié non commité (demande de commit à part)
+- `simulate_live_fleet.py` peut encore être lancé à la main ; il n'ajoute plus de bateaux s'il n'y en a que 5
+- Lots 7 et 8 toujours reportés
+

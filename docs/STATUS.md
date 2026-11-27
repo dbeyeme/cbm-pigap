@@ -12,10 +12,10 @@
 | **Statut module** | ✅ done |
 | **Branche active** | `main` |
 | **Dernière mise à jour** | 2026-11-27 |
-| **Prochain jalon** | Phase 3 — Expérimentation terrain |
-| **Bloqueurs** | Aucun |
-| **Chantier en cours** | Évolutions de novembre 2026 : lots 0 à 6, 9 et 10 livrés en code (serveur + portail, mobile pour 3/6/10) ; lots 7 et 8 reportés (ADR / Kimba Connect, multi-zones). |
-| **Note récente** | 2026-11-27 : sécurité red/blue (IDOR confirmer-demo, webhooks, batch GPS 500, rate-limit login, fail-closed live) |
+| **Prochain jalon** | GFW env (local + production) → APK → Phase 3 terrain → commit / publier / déployer |
+| **Bloqueurs** | `GFW_API_TOKEN` absent sur Railway (`cbm-pigap`) : à poser avant `GFW_ENABLED=true` |
+| **Chantier en cours** | Lots 7 et 8 livrés en code (ADR-014, ADR-015) ; GFW à activer via variables d'environnement seulement. |
+| **Note récente** | 2026-11-27 : sécurité red/blue (IDOR, webhooks, batch GPS 500, rate-limit login, fail-closed live) ; lots 7–8 ; GFW en env |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -73,13 +73,13 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 - Liste fermée espèces/méthodes MVP à valider zone pilote (avant quotas réalistes)
 - Agrégateur Mobile Money live (SingPay/PViT) + calendrier `ABONNEMENT_ENFORCE=true`
 - _(ADR-001…008 acceptés ; ADR-009 proposé : suivi temps réel, triangulation GSM/GPS écartée ; ingestion `source=balise` livrée avec données fictives ; ADR-010 accepté : fonds de carte sans clé)_
-- Commandes entre pêcheurs, clients et revendeurs : hors périmètre du cahier (§2.2), ADR et validation de Kimba Connect à venir ; acompte de 30 % par Mobile Money décidé en option le 2026-11-24
-- Règles « Proposé » du chantier de novembre 2026 (prix, rentabilité, seuils d'alerte des navires, confirmation de livraison) à valider avant les lots 4 et 5
+- ~~Commandes~~ : ADR-014 accepté (client → pêcheur, prix facultatif, double validation, sans paiement)
+- Règles « Proposé » restantes (prix obligatoire, rentabilité, seuils AIS, espèces profil) à valider
 - Comptes de démonstration en ligne, imagerie satellitaire sans clé, accès Skylight et station AIS : décisions du porteur
-- Global Fishing Watch (ADR-011) : essai de faisabilité hors service décidé le 2026-11-24 ; API réservées à un usage non commercial, mise en service soumise à l'accord de l'éditeur (traité par le porteur)
-- Commit de tous les lots faits : demandé par le porteur le 2026-11-25, fait ; fusion dans `main` demandée et effectuée le 2026-11-26
+- Global Fishing Watch (ADR-011) : activation locale et production via `GFW_ENABLED` / `GFW_API_TOKEN` (env seulement) ; accord éditeur reste à la charge du porteur
 - ADR-013 (base de test dédiée) : Proposé, à valider
-- Lot 8 (périmètre de suivi) : effet d'une désactivation sur les données et rôle habilité, à décider · Lot 9 (alertes) : liste des états de traitement, à décider (questions posées le 2026-11-25)
+- ~~Lot 8~~ : ADR-015 accepté (admin seul ; désactivation masque l'historique)
+- Lot 9 (alertes) : liste des états de traitement, à décider (questions posées le 2026-11-25)
 - Lot 10, un appareil, un seul compte pêcheur (ADR-012) : règle R1 décidée le 2026-11-25 ; règles R2 à R6 « Proposé » ; mise en service après fixation de la clé de signature de l'application
 - Décidé le 2026-11-24 : commandes sans paiement en ligne (réservation gratuite indiquant le montant prévu), page de profil visible des comptes connectés et ouvrable au public par l'acteur, bannières du portail conservées · restent « Proposé » : informations d'inscription à ajouter, espèces du profil tirées des captures
 

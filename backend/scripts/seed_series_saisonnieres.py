@@ -5,8 +5,11 @@ Courbes documentées comme FICTIVES (pas un modèle halieutique).
 
 Prérequis : seed_production_demo.py (pêcheurs / zones démo).
 
+Obsolète sauf `--force` : le jeu lisible (5 pêcheurs, 12 mois) est
+`seed_production_demo.py --reset`.
+
 Usage:
-  cd backend && DATABASE_URL=... python scripts/seed_series_saisonnieres.py
+  cd backend && DATABASE_URL=... python scripts/seed_series_saisonnieres.py --force
 """
 
 from __future__ import annotations
@@ -191,4 +194,11 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    if "--force" not in sys.argv:
+        print(
+            "Obsolète : les séries d'un an sont dans seed_production_demo.py --reset. "
+            "Ce script créait une capture par jour et des centaines d'alertes. "
+            "Passez --force seulement si vous voulez encore ce volume."
+        )
+        raise SystemExit(0)
     asyncio.run(main())
