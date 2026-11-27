@@ -1,6 +1,6 @@
 # Lot 11 : sorties en mer, lieu de pêche proposé, zones favorables enrichies
 
-- **Statut :** livré en code ; commité et poussé par une autre session (`f394528`, branche `feature/lot-11-sorties-zones-favorables`) ; compléments ultérieurs non commités (garde-fou du score, ports embarqués, barre de carte sur téléphone, documentation)
+- **Statut :** en production depuis le 2026-11-27 (PR #1 fusionnée dans `main`, `b23e63d`) ; application Android 0.3.0 ; règles « Proposé »
 - **Date :** 2026-11-27
 - **Décision :** [ADR-016](adr/ADR-016-sorties-lieu-de-peche-zones-favorables.md) (Proposé)
 - **Origine :** [étude du 2026-10-30](etude-localisation-sans-capteur-et-zones-favorables.md), demande de Christian « implémente les approches utiles »
@@ -137,11 +137,22 @@ Sur le bulletin réel du 2026-11-27, les huit secteurs sortaient « favorables �
 
 ### 4.4 Non vérifié
 
-- Écrans de l'application (aucun émulateur ni téléphone) ; essai de bout en bout application et serveur.
+- Écrans de l'application (aucun émulateur ni téléphone) ; essai de bout en bout application et serveur, y compris avec l'APK 0.3.0.
 - Portail à 768 px ; à 375 px, seul le panneau des sorties a été contrôlé.
 - Tâche de fond des retards sur un serveur hébergé.
 
-### 4.5 Dettes et décisions
+### 4.5 Mise en ligne du 2026-11-27
+
+| Élément | Action | Contrôle |
+|---------|--------|----------|
+| Fusion | PR #1 fusionnée dans `main` (`b23e63d`) | Contrôles automatiques au vert, aucun conflit |
+| Serveur | Mis en ligne depuis une copie de `main` ; migration `b7c8d9e0f611` jouée au démarrage | `/health` « ok » ; `/api/v1/sorties` : 401 sans connexion (404 avant) |
+| Portail | Mis en ligne depuis `main` | Le paquet servi contient le panneau « Sorties en mer » et vise le serveur de production |
+| Application | Version 0.3.0 (code 6), version GitHub `v0.3.0-mobile`, accueil du portail mis à jour | Adresse de production contrôlée dans le paquet de l'APK |
+
+Non contrôlé : le portail et le bulletin connectés en production (pas de connexion avec de vrais identifiants depuis l'outil), l'APK sur un téléphone.
+
+### 4.6 Dettes et décisions
 
 | Sujet | Proposition | Valideur |
 |-------|-------------|----------|

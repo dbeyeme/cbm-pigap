@@ -5,6 +5,22 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Lot 11 : mise en ligne et application 0.3.0
+
+**Ce qui a été fait :**
+- PR #1 (lot 11 et sécurité) fusionnée dans `main` (`b23e63d`), contrôles automatiques au vert
+- Serveur mis en ligne depuis `main` ; la migration des sorties s'applique au démarrage ; `/api/v1/sorties` répond désormais 401 sans connexion (404 auparavant)
+- Portail mis en ligne depuis `main` ; le paquet servi contient le panneau « Sorties en mer » et vise le serveur de production
+- Application Android 0.3.0 (code 6) : déclaration de départ et de retour, file hors ligne des sorties, point de pêche proposé ; publiée en version GitHub `v0.3.0-mobile` ; accueil du portail mis à jour (version et taille)
+
+**Pourquoi :** demande de Christian « fusionne la PR et déploie », puis « fais les mises à jour nécessaires même sur l'APK, commit, publie et déploie »
+
+**Tests réalisés :** application `tsc` sans erreur, Jest 17 suites et 124 tests réussis ; adresse du serveur contrôlée dans le paquet de l'APK ; contrôles de production sans compte (santé, route des sorties)
+
+**Points ouverts :** contrôle à l'écran connecté du portail et de l'application en production (Christian) ; validation des seuils « Proposé » ; clé de signature propre au projet avant diffusion large
+
+---
+
 ## [2026-11-27] Lot 11 — sorties, lieu de pêche, zones favorables
 
 **Ce qui a été construit :**
@@ -20,7 +36,7 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 **Tests réalisés :** `pytest` lot 11 + zones favorables → 20 passed ; compte rendu `docs/lot-11-sorties-lieu-zones-favorables.md`
 
-**Points ouverts :** validation des seuils « Proposé » ; republier l'APK avec sync sorties ; déploiement migration
+**Points ouverts :** validation des seuils « Proposé » (mise en ligne et APK : entrée « Lot 11 : mise en ligne et application 0.3.0 »)
 
 ---
 
