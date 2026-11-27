@@ -6148,3 +6148,22 @@ button.ligne-bouton:hover:not(:disabled) {
   font-size: 0.68rem;
   color: var(--muted);
 }
+
+/* Lot 11 : avec le bouton « Sorties », le groupe d'outils dépasse 375 px. Sur scène
+   étroite, il défile à l'intérieur de lui-même au lieu de faire glisser toute la carte. */
+@container scene (max-width: 760px) {
+  .map-bar-group {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .map-bar-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .map-bar-group > .map-bar-btn {
+    flex: none;
+  }
+}

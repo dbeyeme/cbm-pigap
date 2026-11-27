@@ -101,6 +101,26 @@ describe('syncPendingSorties', () => {
     expect(report).toMatchObject({ pushed: 1, accepted: 1, rejected: 0, stopped: null, error: null });
   });
 
+  it('envoie le port sans position quand le pêcheur a choisi un port', async () => {
+    mockPending = [
+      sortie('a', {
+        port_depart_id: 'owendo',
+        position_depart: null,
+        retour_a: '2026-11-27T12:10:00.000Z',
+        port_retour_id: 'libreville',
+        revision: 2,
+      }),
+    ];
+    send.mockResolvedValue(read('a', { retour_a: '2026-11-27T12:10:00.000Z' }));
+    await syncPendingSorties('jeton', 'u1');
+    expect(send.mock.calls[0][1]).toMatchObject({
+      port_depart_id: 'owendo',
+      position_depart: null,
+      port_retour_id: 'libreville',
+      position_retour: null,
+    });
+  });
+
   it('renvoie la même sortie sans danger : le même identifiant part à chaque fois', async () => {
     mockPending = [sortie('a')];
     send.mockRejectedValueOnce(new ApiError('réseau', 0, 'RESEAU'));

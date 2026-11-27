@@ -66,9 +66,16 @@ class RegleAiresProtegees(BaseModel):
     jamais_favorable: bool
 
 
+class RegleClassement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    signe_de_ressource_requis: bool
+
+
 class RegleZonesFavorables(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    classement: RegleClassement
     temperature: RegleTemperature
     chlorophylle: RegleChlorophylle
     aires_protegees: RegleAiresProtegees

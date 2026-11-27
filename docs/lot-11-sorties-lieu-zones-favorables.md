@@ -1,6 +1,6 @@
 # Lot 11 : sorties en mer, lieu de pêche proposé, zones favorables enrichies
 
-- **Statut :** livré en code (branche `feature/lot-11-sorties-zones-favorables`)
+- **Statut :** livré en code ; commité et poussé par une autre session (`f394528`, branche `feature/lot-11-sorties-zones-favorables`) ; compléments ultérieurs non commités (garde-fou du score, ports embarqués, barre de carte sur téléphone, documentation)
 - **Date :** 2026-11-27
 - **Décision :** [ADR-016](adr/ADR-016-sorties-lieu-de-peche-zones-favorables.md) (Proposé)
 - **Origine :** [étude du 2026-10-30](etude-localisation-sans-capteur-et-zones-favorables.md), demande de Christian « implémente les approches utiles »
@@ -105,17 +105,48 @@ Champ facultatif `origine_lieu` (colonne déjà présente en base depuis la dema
 
 ## 4. Exécution
 
-| Élément | Statut |
-|---------|--------|
-| Modèle `Sortie` + migration `b7c8d9e0f611` | Fait |
-| API sorties / retour / lieu-de-peche | Fait |
-| Alerte `sortie_non_rentree` (une fois) | Fait |
-| `origine_lieu` exposé (`gps` / `saisie` / `trace`) | Fait |
-| Score favorable : SST 30 j, chlorophylle, aire protégée | Fait |
-| Mobile (SortieSheet, sync hors ligne) | Fait |
-| Portail (SortiesPanel) | Fait |
-| Tests `test_lot11_sorties.py` + `test_lot11_zones_favorables.py` | Vérifié (20 passed) |
-| Règles métier ADR-016 | Non validées (statut Proposé) |
-| Boucle fond serveur en production | À confirmer après déploiement |
+« Fait » s'entend ici : présent en code et couvert par des tests exécutés ; « vérifié » : constaté à l'écran ou contre les vraies sources. Rien n'est déployé.
 
-**Dettes :** validation humaine des seuils `sorties.json` / `zones_favorables.json` ; APK terrain à republier avec sync sorties.
+### 4.1 Ce qui est fait
+
+| Élément | Où | État |
+|---------|----|------|
+| Objet `Sortie`, migration `b7c8d9e0f611` | `backend/app/db/models.py`, `backend/alembic/versions/` | Fait ; migration appliquée à la base de développement locale |
+| Déclaration idempotente, retour, liste, détail, cloisonnement | `backend/app/modules/sorties/` | Fait, tests |
+| Alerte `sortie_non_rentree`, une seule par sortie, tâche de fond | idem | Fait, tests |
+| Lieu de pêche proposé depuis la trace | idem | Fait, tests |
+| `origine_lieu` exposé, valeur `trace` | `backend/app/modules/captures/` | Fait, tests |
+| Écart de température sur 30 jours, chlorophylle, aire protégée, signe de ressource obligatoire | `backend/app/modules/meteo_marine/oceano.py`, `service.py` | Fait, tests ; vérifié contre les vraies sources le 2026-11-27 |
+| Application : départ en trois étapes (port du référentiel embarqué, port le plus proche présélectionné, ou position du téléphone), retour avec port facultatif, file hors ligne, bandeau, point de la sortie, origine du lieu | `mobile/src/` | Fait, tests Jest ; écrans non vus |
+| Portail : panneau « Sorties en mer » (en retard, en cours, terminées, constat du retour), indicateurs du secteur, colonne « Lieu de pêche » des captures | `web/src/` | Fait ; panneau vérifié au navigateur |
+
+### 4.2 Vérifications exécutées
+
+- Serveur, suite complète sur une base de test dédiée (`pigap_lot11_test`, une autre session occupait `pigap_test`) : 323 réussis, 2 échecs. Le premier, `test_l8_alembic_head`, figeait l'ancienne tête de migration : mis à jour, vert. Le second, `test_webhook_mm_refuse_sans_secret_en_live`, échoue sur un délai réseau en appelant le vrai service de paiement ; il ne touche aucun fichier de ce lot.
+- Serveur, tests du lot et de la météo-marine après le dernier changement : 30 réussis. `ruff check` sans erreur sur les fichiers du lot.
+- Application : `npx tsc --noEmit` sans erreur ; Jest 17 suites, 124 tests réussis.
+- Portail : `npx tsc -b` sans erreur ; `npm run build` réussi.
+- Navigateur, portail local contre le serveur local, compte d'agent fictif : pastille du nombre de retards, onglets « En retard » (retard de 3 h 06 affiché) et « En cours », dernière position. Le constat du retour n'a pas été essayé à l'écran (couvert par les tests serveur).
+- Sources réelles, 2026-11-27 : moyenne de température sur 30 jours et chlorophylle obtenues pour les huit secteurs (dernière image du 5 novembre) ; lecture d'environ 10 à 24 secondes, d'où le cache de 12 heures et le délai de 40 secondes.
+
+- Navigateur à 375 px : le bouton « Sorties » faisait déborder la barre d'outils (459 px) et glisser toute la carte de 72 px, panneau coupé à gauche. Corrigé (`ui-kit.css`, scène étroite : la barre défile dans son propre cadre) et constaté : carte non décalée, panneau aligné.
+
+### 4.3 Constat sur le score des secteurs
+
+Sur le bulletin réel du 2026-11-27, les huit secteurs sortaient « favorables » : une mer calme et une eau dans la plage suffisaient à atteindre le seuil, sans aucun signe de ressource. Une règle « Proposé » exige désormais au moins un signe de ressource ; six secteurs sur huit restent favorables, parce que la chlorophylle est élevée ou en hausse presque partout. Les seuils sont donc à calibrer avec l'expert halieutique. Dans les estuaires, la turbidité fait surestimer la chlorophylle par satellite.
+
+### 4.4 Non vérifié
+
+- Écrans de l'application (aucun émulateur ni téléphone) ; essai de bout en bout application et serveur.
+- Portail à 768 px ; à 375 px, seul le panneau des sorties a été contrôlé.
+- Tâche de fond des retards sur un serveur hébergé.
+
+### 4.5 Dettes et décisions
+
+| Sujet | Proposition | Valideur |
+|-------|-------------|----------|
+| Seuils de `sorties.json` et `zones_favorables.json` | Calibrer au pilote | Christian, expert halieutique, DGPA |
+| Arrêt du suivi GPS à « Je suis rentré », raccourcis 4, 8 et 12 h, conservation des sorties closes 7 jours sur le téléphone | Tel que livré | Christian |
+| Listes des ports et des secteurs recopiées dans l'application | À resynchroniser si les référentiels changent | Christian |
+| Organisation : aucune vue des sorties sur le portail (son espace n'a pas de suivi de flotte) | Inchangé | Christian |
+| Seuils météo existants `METEO_*` encore dans l'environnement | À déplacer vers un paramétrage versionné | Christian |

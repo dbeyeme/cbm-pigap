@@ -324,6 +324,8 @@ def evaluer_opportunite(
     rt, rc = regle.temperature, regle.chlorophylle
     motifs: list[str] = []
     score = 50
+    # Signes de ressource, distincts des conditions de navigation (lot 11)
+    signes_ressource = 0
     ecart = (
         round(c.temperature_mer_c - temperature_reference_c, 2)
         if c.temperature_mer_c is not None and temperature_reference_c is not None
@@ -394,6 +396,7 @@ def evaluer_opportunite(
             )
     if ecart is not None and ecart <= -rt.refroidissement_min_c:
         score += rt.points_refroidissement
+        signes_ressource += 1
         motifs.append(
             f"Eau de surface {abs(ecart):.1f} °C sous sa moyenne des {rt.jours_reference} "
             "derniers jours : remontée d'eaux riches probable"
@@ -402,6 +405,7 @@ def evaluer_opportunite(
         date_image = chlorophylle.date_image.strftime("%d/%m")
         if chlorophylle.valeur_mg_m3 >= rc.riche_min_mg_m3:
             score += rc.points_riche
+            signes_ressource += 1
             motifs.append(
                 f"Eaux riches en plancton ({chlorophylle.valeur_mg_m3:.1f} mg/m³ de "
                 f"chlorophylle, image du {date_image})"
@@ -412,11 +416,13 @@ def evaluer_opportunite(
             >= chlorophylle.moyenne_mg_m3 * rc.enrichissement_min_ratio
         ):
             score += rc.points_enrichissement
+            signes_ressource += 1
             motifs.append(
                 f"Plancton en hausse par rapport aux semaines précédentes (image du {date_image})"
             )
     if mediane_kg > 0 and captures_kg >= mediane_kg * 1.3:
         score += 15
+        signes_ressource += 1
         motifs.append(f"Captures déclarées élevées sur 30 jours ({captures_kg:.0f} kg)")
     elif captures_kg > 0 and mediane_kg > 0 and captures_kg < mediane_kg * 0.5:
         score -= 5
@@ -436,6 +442,13 @@ def evaluer_opportunite(
         classe = "prudence"
     else:
         classe = "neutre"
+    if (
+        classe == "favorable"
+        and regle.classement.signe_de_ressource_requis
+        and not signes_ressource
+    ):
+        classe = "neutre"
+        motifs.append("Mer praticable, sans signe particulier de ressource relevé")
     if aire_protegee and regle.aires_protegees.jamais_favorable:
         motifs.append(
             "Aire protégée : secteur jamais proposé comme zone de pêche, "

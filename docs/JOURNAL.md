@@ -18,7 +18,7 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 **Pourquoi :** étude localisation 2026-10-30 ; écart cahier §5.2 / §5.7 documenté en ADR
 
-**Tests réalisés :** `pytest app/tests/test_lot11_sorties.py app/tests/test_lot11_zones_favorables.py` → 20 passed
+**Tests réalisés :** suite serveur complète sur une base de test dédiée : 323 réussis, 2 échecs, dont le test de tête de migration du lot 8 (mis à jour, vert) et `test_webhook_mm_refuse_sans_secret_en_live` (appel réseau réel au service de paiement, sans lien avec ce lot) ; tests du lot et de la météo-marine : 30 réussis après le dernier changement ; mobile : `tsc` et Jest verts (124 tests) ; portail : `tsc -b` et construction vertes ; panneau « Sorties en mer » vérifié au navigateur en local. Compte rendu : `docs/lot-11-sorties-lieu-zones-favorables.md`
 
 **Points ouverts :** validation des seuils « Proposé » ; republier l'APK avec sync sorties ; déploiement migration
 

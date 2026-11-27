@@ -47,6 +47,8 @@ const CODE_MESSAGES: Record<string, string> = {
   SORTIE_DEJA_EN_COURS:
     'Une autre sortie est déjà en cours pour ce bateau sur la plateforme. Adressez-vous à un agent de contrôle pour la clore.',
   SORTIE_DEJA_TERMINEE: 'Cette sortie était déjà close sur la plateforme.',
+  SORTIE_CLIENT_ID_REUTILISE:
+    'Cette déclaration de sortie n’a pas pu être enregistrée. Déclarez de nouveau votre départ.',
   APPAREIL_ID_INVALIDE:
     'Ce téléphone n’a pas pu être reconnu. Mettez l’application à jour, ou adressez-vous à un agent de contrôle.',
 };

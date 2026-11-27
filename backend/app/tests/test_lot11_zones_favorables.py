@@ -107,3 +107,14 @@ def test_chlorophylle_par_secteur_mediane_et_moyenne() -> None:
     assert c.moyenne_mg_m3 == 2.0
     assert c.date_image == date(2026, 11, 5)
     assert chlorophylle_par_secteur([], [SECTEUR]) == {}
+
+
+def test_mer_calme_sans_signe_de_ressource_non_favorable() -> None:
+    o = _evaluer(26.0)
+    assert o.score >= 65  # mer praticable et eau dans la plage
+    assert o.classe == "neutre"
+    assert any("sans signe particulier" in m for m in o.motifs)
+    donnees = regle_zones_favorables().model_dump()
+    donnees["classement"]["signe_de_ressource_requis"] = False
+    souple = RegleZonesFavorables.model_validate(donnees)
+    assert _evaluer(26.0, regle=souple).classe == "favorable"

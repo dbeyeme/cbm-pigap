@@ -61,7 +61,9 @@ async def test_l8_alembic_head() -> None:
     racine = Path(__file__).resolve().parents[2]
     cfg = Config(str(racine / "alembic.ini"))
     script = ScriptDirectory.from_config(cfg)
-    assert script.get_heads() == ["a1b2c3d4e580"]
+    # Tête actuelle : sorties du lot 11 (ADR-016), posée sur la chaîne du lot 8
+    assert script.get_heads() == ["b7c8d9e0f611"]
+    assert script.get_revision("b7c8d9e0f611").down_revision == "a1b2c3d4e580"
     assert script.get_revision("a1b2c3d4e580").down_revision == "f5b8c9d0e371"
     assert script.get_revision("f5b8c9d0e371").down_revision == "e4a7b8c9d260"
 

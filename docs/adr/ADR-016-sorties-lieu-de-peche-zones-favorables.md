@@ -35,6 +35,7 @@ Le cahier (§5.2) ne prévoit ni objet « sortie » ni alerte de retard ; §5.7 
 - Écart de température de surface au jour par rapport à la moyenne des 30 derniers jours (même source Open-Meteo, paramètre `past_days`).
 - Chlorophylle a quotidienne sans lacune, 9 km, NOAA CoastWatch, jeu `noaacwNPPN20S3ASCIDINEOFDaily`, licence CC0-1.0, sans clé (vérifié le 2026-11-27 : dernière image du 2026-11-05, réponse en moins d'une seconde). Valeur du dernier jour et moyenne des 30 jours précédents, médiane des mailles du secteur.
 - Un secteur dont le centre se trouve dans une zone réglementée active de type `protegee` n'est jamais classé « favorable ».
+- Un secteur n'est classé « favorable » que s'il montre au moins un signe de ressource (refroidissement récent, chlorophylle riche ou en hausse, captures déclarées élevées). Constat du 2026-11-27 sur le bulletin réel : sans cette condition, une mer calme et une eau dans la plage suffisaient, et les huit secteurs sortaient tous favorables ; avec elle, six sur huit, ce qui montre que les seuils restent à calibrer.
 - Fenêtre de température et points du score déplacés du code vers `backend/app/data/regles/zones_favorables.json`, au statut « Proposé ».
 - Indisponibilité d'une source : l'indicateur est marqué absent, le bulletin reste servi.
 
@@ -48,6 +49,7 @@ Le cahier (§5.2) ne prévoit ni objet « sortie » ni alerte de retard ; §5.7 
 
 - Positives : position approximative de chaque pirogue partie, même sans GPS ; alerte de sécurité sur retard ; captures localisées hors des ports ; avis de secteur fondés sur des indicateurs explicables.
 - Négatives : une déclaration de plus pour le pêcheur ; tolérance et seuils à calibrer au pilote ; image de chlorophylle en retard de plusieurs semaines sur la date du jour, affichée avec sa date.
+- Réserve de mesure : dans les estuaires (Komo, baie de la Mondah), les eaux turbides chargées de sédiments font surestimer la chlorophylle par satellite ; l'indicateur y est moins fiable qu'au large.
 - Données personnelles : heures et lieux de sortie sont des données personnelles (loi n° 001/2011 modifiée) ; mêmes règles de cloisonnement que les positions.
 
 ## Validation attendue
@@ -56,5 +58,5 @@ Le cahier (§5.2) ne prévoit ni objet « sortie » ni alerte de retard ; §5.7 
 |-------|--------|----------|
 | Tolérance de retard avant alerte, gravité, durée maximale d'une sortie | Proposé | Christian, expert halieutique, DGPA |
 | Calcul du lieu de pêche proposé (fenêtre, rayon, vitesse) | Proposé | Christian, expert halieutique |
-| Seuils du score favorable (écart de température, chlorophylle, points) | Proposé | Christian, expert halieutique |
+| Seuils du score favorable (écart de température, chlorophylle, points) et signe de ressource obligatoire | Proposé | Christian, expert halieutique |
 | Aire protégée jamais classée favorable | Proposé | Christian, DGPA, ANPN |
