@@ -13,6 +13,7 @@ import {
 import { FicheTable, type Ligne } from '../components/Fiche';
 import { useToast } from '../components/ToastProvider';
 import { friendlyApiError } from '../lib/apiErrors';
+import FormPanel from '../components/FormPanel';
 import PageBanner from '../components/PageBanner';
 import {
   IconArrowLeft,
@@ -490,14 +491,14 @@ export default function AlertesPage({ token, role, onError }: Props) {
                             </div>
                           ) : null}
                           {peutTraiter && (detail?.transitions_possibles.length ?? 0) > 0 ? (
+                            <FormPanel illustration="alertes" title="Enregistrer un traitement" compact>
                             <form
-                              className="alertes-traitement"
+                              className="alertes-traitement stack-form"
                               onSubmit={(e) => {
                                 e.preventDefault();
                                 void enregistrerTraitement(a.id);
                               }}
                             >
-                              <h3>Enregistrer un traitement</h3>
                               <label>
                                 Nouvel état
                                 <select
@@ -527,6 +528,7 @@ export default function AlertesPage({ token, role, onError }: Props) {
                                 <IconCheckCircle size={15} /> Enregistrer
                               </button>
                             </form>
+                            </FormPanel>
                           ) : null}
                         </td>
                       </tr>

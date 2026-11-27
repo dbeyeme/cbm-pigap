@@ -993,11 +993,16 @@ export default function App() {
             return {
               lng: c[0],
               lat: c[1],
+              id: a.id,
               label: `${a.type.replaceAll('_', ' ')} · ${a.niveau_gravite}`,
             };
           })
-          .filter((p): p is { lng: number; lat: number; label: string } => p != null);
-        placeAlertMarkers(map, points, alertMarkers.current);
+          .filter((p): p is { lng: number; lat: number; id: string; label: string } => p != null);
+        placeAlertMarkers(map, points, alertMarkers.current, {
+          onSelect: () => {
+            if (canAccessPage(meRole, 'alertes')) setPage('alertes');
+          },
+        });
         if (page === 'surveillance' && points.length) {
           const bounds = new maplibregl.LngLatBounds();
           for (const p of points) bounds.extend([p.lng, p.lat]);
@@ -1014,7 +1019,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [onMap, page, token]);
+  }, [onMap, page, token, meRole]);
 
   async function loadTrajectories(accessToken: string) {
     const trajs = await listTrajectories(accessToken);
@@ -1500,7 +1505,8 @@ export default function App() {
               <DashboardPage
                 token={token}
                 onError={setError}
-                onNavigate={canAccessPage(meRole, 'rapports') ? navigate : undefined}
+                onNavigate={navigate}
+                peutVoirRapports={canAccessPage(meRole, 'rapports')}
               />
             </>
           ) : null}

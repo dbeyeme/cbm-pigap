@@ -8,6 +8,7 @@ import {
   StaffUser,
   updateStaff,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import Modal from '../components/Modal';
 import PageBanner from '../components/PageBanner';
 import { IconFilter, IconPlus, IconSave, IconTrash, IconXCircle } from '../components/Icons';
@@ -188,7 +189,7 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
 
       <div className="split-body team-split">
         <aside className="glass-block team-side">
-          <h2>Liste des comptes</h2>
+          <FormPanel illustration="equipe" title="Liste des comptes" compact>
           <form className="stack-form" onSubmit={onSearch}>
             <label>
               Recherche
@@ -246,6 +247,7 @@ export default function UsersPage({ token, currentUserId, onError }: Props) {
               </tbody>
             </table>
           )}
+          </FormPanel>
         </aside>
 
       </div>

@@ -17,6 +17,7 @@ import {
   getCarnetDeclarations,
   getCourbesPrix,
 } from '../api';
+import FormPanel from './FormPanel';
 import { ESPECE_COLORS } from './TrendCharts';
 
 type Props = {
@@ -115,8 +116,11 @@ export default function PrixMarchePanel({
   }, [especeFiltre, especes]);
 
   return (
-    <div className="ds-panel">
-      <h2>Prix de vente</h2>
+    <FormPanel
+      illustration="redevances"
+      title="Prix de vente"
+      lede="Moyenne des prix déclarés au kilo, seulement si les seuils d’anonymat sont atteints."
+    >
       <p className="chart-legend-text">
         Moyenne des prix déclarés au kilo, affichée seulement si au moins{' '}
         {courbes?.anonymat_min_declarations ?? '—'} déclarations et{' '}
@@ -210,6 +214,6 @@ export default function PrixMarchePanel({
           </table>
         </>
       )}
-    </div>
+    </FormPanel>
   );
 }

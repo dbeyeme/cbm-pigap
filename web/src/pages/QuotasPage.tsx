@@ -12,6 +12,7 @@ import {
   QuotaRead,
   ZoneReglementee,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import StatusPill from '../components/StatusPill';
 import { IconPlus, IconTrash } from '../components/Icons';
 
@@ -137,9 +138,13 @@ export default function QuotasPage({ token, onError }: Props) {
       </div>
 
       <div className="licences-layout" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)' }}>
-        <div className="licences-col quotas-panel">
-          <h2>Définir un quota</h2>
-          <form className="login-form" onSubmit={onCreate}>
+        <FormPanel
+          illustration="quotas"
+          title="Définir un quota"
+          lede="Volume autorisé pour une espèce, une période et éventuellement une zone."
+          className="quotas-panel"
+        >
+          <form className="stack-form" onSubmit={onCreate}>
             <label>
               Espèce
               <select value={espece} onChange={(e) => setEspece(e.target.value)} required>
@@ -182,10 +187,9 @@ export default function QuotasPage({ token, onError }: Props) {
             </label>
             <button type="submit" disabled={loading}><IconPlus size={16} /> {loading ? 'Enregistrement…' : 'Créer le quota'}</button>
           </form>
-        </div>
+        </FormPanel>
 
-        <div className="licences-col quotas-panel">
-          <h2>Consommation</h2>
+        <FormPanel illustration="quotas" title="Consommation" compact className="quotas-panel">
           {quotas.length === 0 ? (
             <p className="empty-list">Aucun quota. Créez-en un à gauche.</p>
           ) : (
@@ -275,7 +279,7 @@ export default function QuotasPage({ token, onError }: Props) {
               </tbody>
             </table>
           )}
-        </div>
+        </FormPanel>
       </div>
     </section>
   );

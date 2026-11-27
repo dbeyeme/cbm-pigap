@@ -5,6 +5,21 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Formulaires illustrés, épingles d'alertes cliquables
+
+**Ce qui a été construit :**
+- Panneau de formulaire unique (`FormPanel`) : scène + titre sur captures, quotas, contrôles, redevances, demandes, alertes, organisations, équipe, profil, import de zones, prix de vente
+- Scènes ajoutées : contrôle (QR) et redevance (quittance) ; connexion, demande de licence, appareils et choix pêcheur / organisation illustrés
+- Épingles rouges du tableau de bord : clic possible, fiche, ouverture de la page Alertes (les clics étaient ignorés)
+
+**Pourquoi :** le porteur a demandé d'uniformiser les formulaires avec plus d'illustrations, puis de pousser et redéployer ; les points rouges en ligne ne répondaient pas
+
+**Tests réalisés :** `npx tsc --noEmit` sans erreur
+
+**Points ouverts :** lots 7 et 8 reportés ; Global Fishing Watch toujours à l'arrêt en production (ADR-011)
+
+---
+
 ## [2026-11-26] Contrôle global tableaux / débordements / typo
 
 **Ce qui a été construit :**

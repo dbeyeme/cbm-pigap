@@ -13,6 +13,7 @@ import {
   type MaillesActivite,
 } from '../api';
 import ActiviteHeuresPanel from '../components/ActiviteHeuresPanel';
+import FormPanel from '../components/FormPanel';
 import MapToolbar, { MapPanel } from '../components/MapToolbar';
 import Modal from '../components/Modal';
 import { COUCHE_ACTIVITE, syncActiviteOnMap, type ClasseActivite } from '../geo/activiteLayer';
@@ -932,7 +933,8 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
           {showImport ? 'Masquer import GeoJSON' : 'Import GeoJSON (avancé)'}
         </button>
         {showImport ? (
-          <form className="login-form compact-form" onSubmit={onImportGeoJSON}>
+          <FormPanel illustration="zones" title="Import GeoJSON" compact lede="Jeu de polygones au format FeatureCollection.">
+          <form className="stack-form" onSubmit={onImportGeoJSON}>
             <label>
               FeatureCollection
               <textarea
@@ -944,6 +946,7 @@ export default function ZonesPage({ token, onStatus, onError, initialZoneId = nu
             </label>
             <button type="submit" disabled={loading}><IconUpload size={16} /> Importer</button>
           </form>
+          </FormPanel>
         ) : null}
         </div>
       </MapPanel>

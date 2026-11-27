@@ -322,23 +322,28 @@ export function placeShipMarkers(
 /** Épingle d'alerte géolocalisée. */
 export function createAlertMarkerElement(opts?: { label?: string }): HTMLDivElement {
   const el = document.createElement('div');
-  el.className = 'vm vm--alert';
-  el.title = opts?.label ?? 'Alerte';
+  el.className = 'vm vm--alert vm--clickable';
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', opts?.label ?? 'Alerte');
+  el.title = `${opts?.label ?? 'Alerte'} · ouvrir le détail`;
   el.innerHTML = svgAlerte();
   return el;
 }
 
 export function placeAlertMarkers(
   map: MapLibreMap,
-  points: Array<{ lng: number; lat: number; label?: string }>,
+  points: Array<{ lng: number; lat: number; label?: string; id?: string }>,
   store: Marker[],
-  opts?: { max?: number },
+  opts?: { max?: number; onSelect?: (id?: string) => void },
 ): void {
   for (const m of store) m.remove();
   store.length = 0;
   const max = opts?.max ?? 40;
   /** Regroupe les alertes quasi-identiques (évite une colonne d'épingles empilées). */
-  const clusters = new Map<string, { lng: number; lat: number; label: string; count: number }>();
+  const clusters = new Map<
+    string,
+    { lng: number; lat: number; label: string; count: number; id?: string }
+  >();
   for (const p of points) {
     if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue;
     const key = `${p.lng.toFixed(3)},${p.lat.toFixed(3)}`;
@@ -352,15 +357,39 @@ export function placeAlertMarkers(
       lat: p.lat,
       label: p.label ?? 'Alerte',
       count: 1,
+      id: p.id,
     });
   }
   for (const c of [...clusters.values()].slice(0, max)) {
     const label = c.count > 1 ? `${c.label} (×${c.count})` : c.label;
+    const fiche = document.createElement('div');
+    fiche.className = 'vm-alerte-fiche';
+    fiche.innerHTML = `
+      <p class="vm-alerte-titre">${escapeHtml(label)}</p>
+      <p class="vm-alerte-hint">Alerte géolocalisée. Ce n’est pas un navire. Traitez-la depuis la page Alertes.</p>
+      ${
+        opts?.onSelect
+          ? '<button type="button" class="vm-alerte-ouvrir">Ouvrir les alertes</button>'
+          : ''
+      }`;
+    if (opts?.onSelect) {
+      fiche.querySelector('.vm-alerte-ouvrir')?.addEventListener('click', () => {
+        opts.onSelect?.(c.id);
+      });
+    }
     const marker = new maplibregl.Marker({
       element: createAlertMarkerElement({ label }),
       anchor: 'bottom',
     })
       .setLngLat([c.lng, c.lat])
+      .setPopup(
+        new maplibregl.Popup({
+          closeButton: true,
+          maxWidth: '280px',
+          offset: 28,
+          className: 'vm-popup',
+        }).setDOMContent(fiche),
+      )
       .addTo(map);
     store.push(marker);
   }

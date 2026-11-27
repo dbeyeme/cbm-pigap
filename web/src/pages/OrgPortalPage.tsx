@@ -10,6 +10,7 @@ import {
   OrgPortalRead,
   synchroniserPaiement,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import PageBanner from '../components/PageBanner';
 import ProfilEditeur from '../components/ProfilEditeur';
 import StatusPill from '../components/StatusPill';
@@ -141,8 +142,11 @@ export default function OrgPortalPage({ token, onError }: Props) {
       <p className="muted">{portal.motif}</p>
 
       {!portal.couvert && portal.inscription_validee ? (
-        <div className="glass-block" style={{ padding: 20, marginTop: 16 }}>
-          <h2>Payer la licence B2B</h2>
+        <FormPanel
+          illustration="abonnement"
+          title="Payer la licence"
+          lede="Choisissez la formule. Le paiement se fait depuis le numéro de l’organisation."
+        >
           <form className="stack-form" onSubmit={(e) => void onPay(e)}>
             <label>
               Formule
@@ -176,12 +180,11 @@ export default function OrgPortalPage({ token, onError }: Props) {
             </label>
             <button type="submit" className="btn primary" disabled={loading}><IconCheckCircle size={16} /> {payMode === 'live' ? 'Payer via Airtel Money' : 'Payer (demo) et activer'}</button>
           </form>
-        </div>
+        </FormPanel>
       ) : null}
 
       {portal.couvert ? (
-        <div className="glass-block" style={{ padding: 20, marginTop: 16 }}>
-          <h2>Modules inclus</h2>
+        <FormPanel illustration="organisation" title="Modules inclus" compact>
           <ul>
             {modulesOn.map(([k]) => (
               <li key={k}>{k}</li>
@@ -195,17 +198,16 @@ export default function OrgPortalPage({ token, onError }: Props) {
                 : ''}
             </p>
           ) : null}
-        </div>
+        </FormPanel>
       ) : null}
 
-      <div className="ds-panel" style={{ marginTop: 24 }}>
-        <h2>Page de profil</h2>
-        <p className="chart-legend-text">
-          Espèces pêchées par vos membres, tarifs facultatifs, et ouverture au public si vous le
-          décidez.
-        </p>
+      <FormPanel
+        illustration="acteurs"
+        title="Page de profil"
+        lede="Espèces pêchées par vos membres, tarifs facultatifs, ouverture au public si vous le décidez."
+      >
         <ProfilEditeur token={token} onError={onError} />
-      </div>
+      </FormPanel>
     </section>
   );
 }

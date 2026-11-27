@@ -13,6 +13,7 @@ import {
   type Referentiels,
   type VerificationLicence,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import HelpTip from '../components/HelpTip';
 import PageBanner from '../components/PageBanner';
 import KpiCard from '../components/KpiCard';
@@ -207,9 +208,13 @@ export default function ControlesPage({ token, onError }: Props) {
       </HelpTip>
 
       <div className="ctrl-grid">
-        <section className="ds-panel redev-panel">
-          <h3 className="side-sub">Vérifier une licence</h3>
-          <form className="login-form compact-form" onSubmit={onVerifier}>
+        <FormPanel
+          illustration="controles"
+          title="Vérifier une licence"
+          lede="Saisissez le numéro imprimé en QR code sur la licence."
+          className="redev-panel"
+        >
+          <form className="stack-form" onSubmit={onVerifier}>
             <label>
               Numéro de licence (QR code ou saisie)
               <input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="GA-PA-2026-00001" required />
@@ -266,7 +271,7 @@ export default function ControlesPage({ token, onError }: Props) {
           ) : null}
 
           {verif?.trouvee ? (
-            <form className="login-form compact-form" onSubmit={onCreateControle} style={{ marginTop: 12 }}>
+            <form className="stack-form" onSubmit={onCreateControle} style={{ marginTop: 12 }}>
               <h3 className="side-sub">Enregistrer le contrôle</h3>
               <label>
                 Mission
@@ -338,11 +343,15 @@ export default function ControlesPage({ token, onError }: Props) {
             </form>
           ) : null}
           {status ? <p className="zones-flash">{status}</p> : null}
-        </section>
+        </FormPanel>
 
-        <section className="ds-panel redev-panel">
-          <h3 className="side-sub">Missions de surveillance</h3>
-          <form className="login-form compact-form" onSubmit={onCreateMission}>
+        <FormPanel
+          illustration="surveillance"
+          title="Missions de surveillance"
+          lede="Patrouille, inspection au débarquement ou contrôle conjoint."
+          className="redev-panel"
+        >
+          <form className="stack-form" onSubmit={onCreateMission}>
             <label>
               Type
               <select value={mType} onChange={(e) => setMType(e.target.value)}>
@@ -432,12 +441,12 @@ export default function ControlesPage({ token, onError }: Props) {
             </table>
             </div>
           )}
-        </section>
+        </FormPanel>
       </div>
 
-      <section className="ds-panel redev-panel">
+      <FormPanel illustration="controles" title="Contrôles récents" compact className="redev-panel">
         <div className="redev-head">
-          <h3 className="side-sub">Contrôles récents</h3>
+          <h3 className="side-sub">Derniers constats</h3>
           <label className="abo-tiers">
             <input type="checkbox" checked={onlyInfractions} onChange={(e) => setOnlyInfractions(e.target.checked)} />
             Infractions seulement
@@ -496,7 +505,7 @@ export default function ControlesPage({ token, onError }: Props) {
           </table>
           </div>
         )}
-      </section>
+      </FormPanel>
     </section>
   );
 }

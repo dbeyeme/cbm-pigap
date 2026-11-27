@@ -61,6 +61,7 @@ type Props = {
   token: string;
   onError: (msg: string | null) => void;
   onNavigate?: (id: NavId) => void;
+  peutVoirRapports?: boolean;
 };
 
 const LIVE_POLL_MS = 20_000;
@@ -127,7 +128,7 @@ const KIND_LABEL: Record<VesselKind, string> = {
   navire: 'Navire',
 };
 
-export default function DashboardPage({ token, onError, onNavigate }: Props) {
+export default function DashboardPage({ token, onError, onNavigate, peutVoirRapports }: Props) {
   const period0 = defaultPeriod();
   const [debut, setDebut] = useState(period0.debut);
   const [fin, setFin] = useState(period0.fin);
@@ -255,12 +256,22 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
           label: v.nom,
           statut: v.statut,
           alert: v.statut === 'silence',
+          id: v.embarcation_id,
           regularite: v.regularite ?? undefined,
           regulariteLibelle: v.regularite_libelle,
           ageLibelle: v.age_libelle,
           perimee: v.perimee,
         })),
         shipMarkers.current,
+        {
+          onSelect: (id) => {
+            const v = liveFiltered.find((x) => x.embarcation_id === id);
+            if (v) {
+              map.flyTo({ center: v.position.coordinates, zoom: 10 });
+            }
+            onNavigate?.('navires');
+          },
+        },
       );
 
       if (!fittedLive.current && liveFiltered.length > 0) {
@@ -274,7 +285,7 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
 
     if (map.isStyleLoaded()) place();
     else map.once('load', place);
-  }, [liveFiltered]);
+  }, [liveFiltered, onNavigate]);
 
   useEffect(() => {
     const map = mapObj.current;
@@ -334,17 +345,21 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
           return {
             lng: c[0],
             lat: c[1],
+            id: a.id,
             label: `${alertTypeLabel(a.type)} · ${graviteLabel(a.niveau_gravite)}`,
           };
         })
-        .filter((p): p is { lng: number; lat: number; label: string } => p != null);
-      placeAlertMarkers(map, alertPts, alertMarkers.current, { max: 35 });
+        .filter((p): p is { lng: number; lat: number; id: string; label: string } => p != null);
+      placeAlertMarkers(map, alertPts, alertMarkers.current, {
+        max: 35,
+        onSelect: () => onNavigate?.('alertes'),
+      });
       requestAnimationFrame(() => map.resize());
     };
 
     if (map.isStyleLoaded()) draw();
     else map.once('load', draw);
-  }, [data]);
+  }, [data, onNavigate]);
 
   function onFilter(e: FormEvent) {
     e.preventDefault();
@@ -477,8 +492,8 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
             recalculés toutes les trente minutes ; les pêcheurs reçoivent le même avis sur mobile.
           </li>
           <li>
-            <strong>Carte</strong> : basculez côtes, fleuves et bras de mer ; cliquez un navire pour
-            sa fiche complète dans la vue Navires.
+            <strong>Carte</strong> : basculez côtes, fleuves et bras de mer. Cliquez un navire pour
+            sa fiche. Cliquez une épingle rouge pour lire l’alerte, puis ouvrez la page Alertes.
           </li>
           <li>
             <strong>Alertes</strong> : traitez-les depuis la colonne de droite ou la page Alertes ;
@@ -536,7 +551,7 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
               <IconShip size={14} /> Chaloupe / navire
             </span>
             <span className="dash-map-key">
-              <IconAlert size={14} /> Alertes géoloc. {geoAlertCount}
+              <IconAlert size={14} /> Épingles rouges : alertes {geoAlertCount}
             </span>
             <span className="dash-map-key muted">{sectorHint}</span>
           </div>
@@ -648,7 +663,7 @@ export default function DashboardPage({ token, onError, onNavigate }: Props) {
       </div>
 
       <div className="dash-analyse">
-        <PredictionStrip data={preds} onNavigate={onNavigate} />
+        <PredictionStrip data={preds} onNavigate={peutVoirRapports ? onNavigate : undefined} />
 
         <div className="ds-panel dash-charts-panel">
           <div className="dash-panel-head">

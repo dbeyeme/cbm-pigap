@@ -112,7 +112,7 @@ export default function ProfilEditeur({ token, onError }: Props) {
   return (
     <div className="profil-editeur">
       <ProfilVue profil={moi} />
-      <form className="login-form compact-form" onSubmit={(e) => void enregistrer(e)}>
+      <form className="stack-form" onSubmit={(e) => void enregistrer(e)}>
         <h3 className="side-sub">Réglages de votre page</h3>
         <label>
           Présentation

@@ -19,6 +19,7 @@ import {
   type Quittance,
   type SyntheseRedevances,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import HelpTip from '../components/HelpTip';
 import KpiCard from '../components/KpiCard';
 import StatusPill from '../components/StatusPill';
@@ -185,8 +186,7 @@ export default function RedevancesPage({ token, onError }: Props) {
       </HelpTip>
 
       <div className="redev-grid">
-        <section className="ds-panel redev-panel">
-          <h3 className="side-sub">Encours par acteur</h3>
+        <FormPanel illustration="redevances" title="Encours par acteur" className="redev-panel">
           <div className="redev-filter">
             <label>
               Périmètre
@@ -260,11 +260,11 @@ export default function RedevancesPage({ token, onError }: Props) {
             <p className="empty-list">Sélectionnez un acteur.</p>
           )}
           {status ? <p className="zones-flash">{status}</p> : null}
-        </section>
+        </FormPanel>
 
-        <section className="ds-panel redev-panel">
+        <FormPanel illustration="redevances" title="Quittances" compact className="redev-panel">
           <div className="redev-head">
-            <h3 className="side-sub">Quittances</h3>
+            <h3 className="side-sub">Paiements</h3>
             <button type="button" className="ghost compact" onClick={() => void refreshBase()}>
               <IconRefresh size={14} /> Actualiser
             </button>
@@ -405,12 +405,11 @@ export default function RedevancesPage({ token, onError }: Props) {
               </table>
             </div>
           )}
-        </section>
+        </FormPanel>
       </div>
 
       {synthese && synthese.par_mois.length ? (
-        <section className="ds-panel redev-panel">
-          <h3 className="side-sub">Taxe à la production par mois</h3>
+        <FormPanel illustration="quotas" title="Taxe à la production par mois" compact className="redev-panel">
           <div className="table-defile">
             <table className="ds-table">
               <thead>
@@ -433,7 +432,7 @@ export default function RedevancesPage({ token, onError }: Props) {
               </tbody>
             </table>
           </div>
-        </section>
+        </FormPanel>
       ) : null}
     </div>
   );

@@ -215,6 +215,7 @@ export default function AppareilsPanel({ token, pecheurId }: { token: string; pe
       <Modal
         open={action !== null}
         title={action?.genre === 'liberer' ? 'Libérer un appareil' : 'Autoriser un appareil supplémentaire'}
+        illustration="licence"
         onClose={() => setAction(null)}
         footer={
           <div className="row-actions">

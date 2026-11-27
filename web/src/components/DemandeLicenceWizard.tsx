@@ -4,7 +4,8 @@ import { createDemandeLicenceWithFiles } from '../api';
 import { friendlyApiError } from '../lib/apiErrors';
 import Modal from './Modal';
 import { useToast } from './ToastProvider';
-import { IconArrowLeft, IconArrowRight, IconBuilding, IconCheck, IconClose, IconUsers } from './Icons';
+import Illustration from './Illustration';
+import { IconArrowLeft, IconArrowRight, IconCheck, IconClose } from './Icons';
 import { NATIONALITES } from '../api';
 import ComplementsFields, {
   complementsPayload,
@@ -195,6 +196,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
       wide
       banner="filiere"
       title="Demande de licence"
+      illustration="demande"
       footer={
         ok ? (
           <button type="button" className="btn-primary" onClick={handleClose}><IconClose size={16} /> Fermer</button>
@@ -247,6 +249,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
 
       {ok ? (
         <div className="wizard-success">
+          <Illustration name="succes" size={80} />
           <p className="fo-ok">
             Demande envoyée. Un agent vérifiera votre dossier et vos justificatifs. Conservez vos
             coordonnées pour le suivi.
@@ -264,7 +267,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
                 onClick={() => setDemandeType('personne_physique')}
               >
                 <span className="wizard-choix-icone" aria-hidden>
-                  <IconUsers size={22} />
+                  <Illustration name="licence" size={48} />
                 </span>
                 <span className="wizard-choix-texte">
                   <strong>Pêcheur</strong>
@@ -279,7 +282,7 @@ export default function DemandeLicenceWizard({ open, onClose }: Props) {
                 onClick={() => setDemandeType('personne_morale')}
               >
                 <span className="wizard-choix-icone" aria-hidden>
-                  <IconBuilding size={22} />
+                  <Illustration name="organisation" size={48} />
                 </span>
                 <span className="wizard-choix-texte">
                   <strong>Organisation</strong>

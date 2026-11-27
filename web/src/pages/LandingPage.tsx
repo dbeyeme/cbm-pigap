@@ -330,7 +330,13 @@ export default function LandingPage({
         <p className="ds-fo-flag">République Gabonaise — Une mer, une richesse, notre avenir</p>
       </footer>
 
-      <Modal open={loginOpen} title="Connexion autorités" banner="logistique" onClose={closeModals}>
+      <Modal
+        open={loginOpen}
+        title="Connexion autorités"
+        banner="logistique"
+        illustration="equipe"
+        onClose={closeModals}
+      >
         <form id="fo-login-form" className="login-form" onSubmit={onLogin}>
           <label>
             E-mail

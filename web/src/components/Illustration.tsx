@@ -19,7 +19,9 @@ export type IllustrationName =
   | 'rapports'
   | 'equipe'
   | 'succes'
-  | 'vide';
+  | 'vide'
+  | 'controles'
+  | 'redevances';
 
 type Props = {
   name: IllustrationName;
@@ -273,6 +275,33 @@ export default function Illustration({ name, size = 96, className }: Props) {
         <svg {...common}>
           <circle cx="60" cy="52" r="30" fill={GREEN} />
           <path d="M44 52 l 10 10 l 22 -24" stroke="#fff" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Waves y={104} />
+        </svg>
+      );
+    case 'controles':
+      return (
+        <svg {...common}>
+          <Sun x={98} y={24} />
+          <rect x="18" y="22" width="44" height="44" rx="6" fill="#fff" stroke={NAVY} strokeWidth="2" />
+          <rect x="24" y="28" width="12" height="12" fill={NAVY} />
+          <rect x="40" y="28" width="6" height="6" fill={NAVY} />
+          <rect x="50" y="28" width="6" height="6" fill={NAVY} />
+          <rect x="24" y="44" width="6" height="6" fill={NAVY} />
+          <rect x="34" y="44" width="16" height="6" fill={NAVY} />
+          <rect x="24" y="54" width="12" height="6" fill={NAVY} />
+          <path d="M78 30 l 18 8 v 22 l -18 8 l -18 -8 v -22 Z" fill={BLUE} />
+          <path d="M70 48 l 8 8 l 16 -16" stroke="#fff" strokeWidth="3.5" fill="none" strokeLinecap="round" />
+          <Waves y={100} />
+        </svg>
+      );
+    case 'redevances':
+      return (
+        <svg {...common}>
+          <Sun x={22} y={26} />
+          <rect x="38" y="22" width="52" height="66" rx="6" fill="#fff" stroke={BLUE} strokeWidth="2" />
+          <path d="M48 36 h 32 M48 46 h 24 M48 56 h 28" stroke={NAVY} strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="86" cy="78" r="16" fill={SAND} />
+          <path d="M80 70 v 16 M80 70 h 10 M80 78 h 8" stroke={NAVY} strokeWidth="2.5" strokeLinecap="round" />
           <Waves y={104} />
         </svg>
       );

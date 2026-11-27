@@ -13,6 +13,7 @@ import {
   Pecheur,
   updateCapture,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import PrixMarchePanel from '../components/PrixMarchePanel';
 import { IconEdit, IconPlus, IconRefresh, IconTrash, IconXCircle } from '../components/Icons';
 
@@ -266,9 +267,12 @@ export default function CapturesPage({ token, onError }: Props) {
     <section className="stage stage-wide">
       {status ? <p className="status-line">{status}</p> : null}
       <div className="licences-layout captures-layout">
-        <div className="licences-col">
-          <h2>{editingId ? 'Corriger la capture' : 'Déclarer une capture'}</h2>
-          <form className="login-form" onSubmit={onSubmit}>
+        <FormPanel
+          illustration="captures"
+          title={editingId ? 'Corriger la capture' : 'Déclarer une capture'}
+          lede="Quantité, engin, lieu de débarquement. Le prix au kilo est facultatif."
+        >
+          <form className="stack-form" onSubmit={onSubmit}>
             <label>
               Pêcheur
               <select
@@ -400,11 +404,10 @@ export default function CapturesPage({ token, onError }: Props) {
               ) : null}
             </div>
           </form>
-        </div>
+        </FormPanel>
 
-        <div className="licences-col">
-          <h2>Liste</h2>
-          <form className="login-form" onSubmit={onFilter} style={{ marginBottom: 16 }}>
+        <FormPanel illustration="captures" title="Captures déclarées" compact>
+          <form className="stack-form" onSubmit={onFilter} style={{ marginBottom: 16 }}>
             <label>
               Filtrer espèce
               <select value={filterEspece} onChange={(e) => setFilterEspece(e.target.value)}>
@@ -484,7 +487,7 @@ export default function CapturesPage({ token, onError }: Props) {
             </table>
             </div>
           )}
-        </div>
+        </FormPanel>
       </div>
       <PrixMarchePanel
         token={token}

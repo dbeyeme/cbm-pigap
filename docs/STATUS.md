@@ -11,11 +11,11 @@
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
 | **Branche active** | `main` |
-| **Dernière mise à jour** | 2026-11-26 |
+| **Dernière mise à jour** | 2026-11-27 |
 | **Prochain jalon** | Phase 3 — Expérimentation terrain |
 | **Bloqueurs** | Aucun |
 | **Chantier en cours** | Évolutions de novembre 2026 : lots 0 à 6, 9 et 10 livrés en code (serveur + portail, mobile pour 3/6/10) ; lots 7 et 8 reportés (ADR / Kimba Connect, multi-zones). |
-| **Note récente** | 2026-11-26 : contrôle global tableaux (typo, boutons compact, anti-débordement) ; Quittances densifiées ; lots 7 et 8 reportés |
+| **Note récente** | 2026-11-27 : formulaires illustrés (FormPanel) ; épingles d'alertes cliquables ; lots 7 et 8 reportés |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

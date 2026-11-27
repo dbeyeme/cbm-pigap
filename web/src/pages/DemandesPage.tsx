@@ -10,6 +10,7 @@ import {
   refuseDemandeLicence,
   refreshNotifications,
 } from '../api';
+import FormPanel from '../components/FormPanel';
 import { useToast } from '../components/ToastProvider';
 import { friendlyApiError } from '../lib/apiErrors';
 import {
@@ -432,8 +433,8 @@ export default function DemandesPage({ token, onError }: Props) {
 
               {selected.statut === 'en_attente' ? (
                 <>
+                  <FormPanel illustration="succes" title="Approuver" compact>
                   <form className="stack-form" onSubmit={onApprove}>
-                    <h3>Approuver</h3>
                     <p className="form-hint form-hint--auto">
                       Le numéro de licence
                       {selected.embarcation_nom && !selected.embarcation_immatriculation
@@ -465,8 +466,9 @@ export default function DemandesPage({ token, onError }: Props) {
                     </label>
                     <button type="submit" className="btn-primary" disabled={loading}><IconCheckCircle size={16} /> Approuver et délivrer la licence</button>
                   </form>
-                  <form className="stack-form" onSubmit={onRefuse} style={{ marginTop: 16 }}>
-                    <h3>Refuser</h3>
+                  </FormPanel>
+                  <FormPanel illustration="alertes" title="Refuser" compact>
+                  <form className="stack-form" onSubmit={onRefuse}>
                     <label>
                       Motif
                       <textarea
@@ -482,6 +484,7 @@ export default function DemandesPage({ token, onError }: Props) {
               void onDelete()}><IconTrash size={16} /> Supprimer</button>
                     </div>
                   </form>
+                  </FormPanel>
                 </>
               ) : (
                 <p className="status-line">
