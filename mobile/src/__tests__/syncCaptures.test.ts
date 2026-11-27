@@ -41,6 +41,7 @@ function capture(id: string, espece = 'thon', position: [number, number] | null 
     date_capture: '2026-11-24T08:33:00.000Z',
     prix_fcfa_kg: null,
     position,
+    origine_lieu: position ? 'gps' : null,
     sync_status: 'pending',
     created_at: '2026-11-24T08:33:00.000Z',
     last_error: null,
@@ -67,6 +68,29 @@ describe('syncPendingCaptures', () => {
     expect('prix_fcfa_kg' in sent[1]).toBe(false);
     expect(mockSynced).toEqual(['a', 'b']);
     expect(report).toMatchObject({ accepted: 2, rejected: 0, deferred: 0, stopped: null });
+  });
+
+  it('envoie la provenance du lieu avec le lieu, et jamais sans lui', async () => {
+    mockPending = [
+      capture('gps', 'thon', [9.05, 0.42]),
+      { ...capture('saisie', 'thon', [9.1, 0.3]), origine_lieu: 'saisie' },
+      { ...capture('trace', 'thon', [9.2, 0.1]), origine_lieu: 'trace' },
+      // Déclaration enregistrée avant que l'application ne note la provenance
+      { ...capture('ancienne', 'thon', [9.2, 0.1]), origine_lieu: null },
+      // Provenance sans lieu : incohérente, rien n'est envoyé
+      { ...capture('sans-lieu'), origine_lieu: 'gps' },
+    ];
+    send.mockResolvedValue({
+      accepts: ['gps', 'saisie', 'trace', 'ancienne', 'sans-lieu'],
+      duplicates: [],
+      rejects: [],
+    });
+    await syncPendingCaptures('jeton', 'u1');
+    const sent = send.mock.calls[0][1];
+    expect(sent.map((c) => c.origine_lieu)).toEqual(['gps', 'saisie', 'trace', undefined, undefined]);
+    expect('origine_lieu' in sent[3]).toBe(false);
+    expect('origine_lieu' in sent[4]).toBe(false);
+    expect('position_capture' in sent[4]).toBe(false);
   });
 
   it('envoie le prix au kilo seulement s’il a été saisi', async () => {

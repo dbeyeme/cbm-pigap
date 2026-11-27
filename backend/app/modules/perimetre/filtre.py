@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from geoalchemy2.functions import ST_AsGeoJSON, ST_Intersects, ST_Union
+from geoalchemy2.functions import ST_AsGeoJSON, ST_Intersects
 from sqlalchemy import ColumnElement, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,7 +52,9 @@ def clause_point_dans_emprise_active(
     if not settings.perimetre_filtre_actif:
         return None
     union = (
-        _sous_requete_union_agent(agent_id) if agent_id is not None else _sous_requete_union_active()
+        _sous_requete_union_agent(agent_id)
+        if agent_id is not None
+        else _sous_requete_union_active()
     )
     return ST_Intersects(position_col, union)
 
@@ -81,9 +83,7 @@ async def emprise_active_geojson(db: AsyncSession) -> dict | None:
 
 async def codes_zones_actives(db: AsyncSession) -> list[str]:
     result = await db.execute(
-        select(PerimetreZone.code)
-        .where(PerimetreZone.actif.is_(True))
-        .order_by(PerimetreZone.code)
+        select(PerimetreZone.code).where(PerimetreZone.actif.is_(True)).order_by(PerimetreZone.code)
     )
     return list(result.scalars().all())
 
@@ -107,7 +107,9 @@ def clause_alerte_visible(*, agent_id: UUID | None = None) -> ColumnElement[bool
     if not settings.perimetre_filtre_actif:
         return None
     union = (
-        _sous_requete_union_agent(agent_id) if agent_id is not None else _sous_requete_union_active()
+        _sous_requete_union_agent(agent_id)
+        if agent_id is not None
+        else _sous_requete_union_active()
     )
     return or_(
         Alerte.embarcation_id.is_(None),

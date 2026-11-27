@@ -73,9 +73,7 @@ async def creer_commande(
 
 
 @router.get("/pecheurs", response_model=list[PecheurVitrineRead])
-async def lister_pecheurs_vitrine(
-    db: DbSession, _: ClientConnecte
-) -> list[PecheurVitrineRead]:
+async def lister_pecheurs_vitrine(db: DbSession, _: ClientConnecte) -> list[PecheurVitrineRead]:
     """Pêcheurs actifs pour le formulaire de réservation client."""
     return await service.lister_pecheurs_vitrine(db)
 
@@ -87,9 +85,7 @@ async def lister_commandes(db: DbSession, user: LecteurCommande) -> list[Command
 
 
 @router.get("/{commande_id}", response_model=CommandeRead)
-async def lire_commande(
-    commande_id: UUID, db: DbSession, user: LecteurCommande
-) -> CommandeRead:
+async def lire_commande(commande_id: UUID, db: DbSession, user: LecteurCommande) -> CommandeRead:
     return await service.lire_commande(db, user, commande_id)
 
 
@@ -108,9 +104,7 @@ async def confirmer_vendeur(
 
 
 @router.post("/{commande_id}/confirmer-client", response_model=CommandeRead)
-async def confirmer_client(
-    commande_id: UUID, db: DbSession, user: ClientConnecte
-) -> CommandeRead:
+async def confirmer_client(commande_id: UUID, db: DbSession, user: ClientConnecte) -> CommandeRead:
     return await service.confirmer_client(db, user, commande_id)
 
 

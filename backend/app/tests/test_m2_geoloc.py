@@ -285,7 +285,7 @@ async def test_reject_land_crossing_batch(client: AsyncClient, admin_headers: di
 
 @pytest.mark.asyncio
 async def test_dossier_by_licence(client: AsyncClient, admin_headers: dict) -> None:
-    emb_id = await _create_embarcation(client, admin_headers)
+    await _create_embarcation(client, admin_headers)
     # récupérer la licence via trajectoire setup — recreate with known licence
     suffix = uuid.uuid4().hex[:8]
     pecheur = await client.post(

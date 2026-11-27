@@ -12,15 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import bad_request, not_found
+from app.core.log_acces import enregistrer as journaliser_acces
 from app.db.enums import RoleUtilisateur, SourcePosition
 from app.db.models import Embarcation, Pecheur, Position, Utilisateur
 from app.modules.geolocalisation.gabon_routes import is_on_water, segment_stays_on_water
 from app.modules.geolocalisation.geo import geojson_text_to_point, point_to_wkt
-from app.modules.perimetre.filtre import (
-    agent_id_pour_filtre,
-    au_moins_une_zone_active,
-    clause_point_dans_emprise_active,
-)
 from app.modules.geolocalisation.schemas import (
     BaliseIngestPayload,
     BaliseIngestResult,
@@ -31,6 +27,11 @@ from app.modules.geolocalisation.schemas import (
     PositionCreate,
     PositionRead,
     TrajectorySegmentRead,
+)
+from app.modules.perimetre.filtre import (
+    agent_id_pour_filtre,
+    au_moins_une_zone_active,
+    clause_point_dans_emprise_active,
 )
 from app.schemas.common import PointGeoJSON
 
@@ -279,7 +280,17 @@ async def get_trajectory(
     result = await db.execute(stmt)
     rows = [_to_read(pos, geo) for pos, geo in result.all()]
     # Ne jamais renvoyer de points à terre / hors eau (historique anomal)
-    return [r for r in rows if is_on_water(r.position.coordinates[0], r.position.coordinates[1])]
+    out = [r for r in rows if is_on_water(r.position.coordinates[0], r.position.coordinates[1])]
+    if user.role != RoleUtilisateur.pecheur:
+        await journaliser_acces(
+            db,
+            utilisateur_id=user.id,
+            ressource="geoloc_trajectoire",
+            action="consultation",
+            detail=f"embarcation={embarcation_id};points={len(out)}",
+            commit=True,
+        )
+    return out
 
 
 async def list_embarcations_for_user(db: AsyncSession, user: Utilisateur) -> list[Embarcation]:
@@ -579,6 +590,16 @@ async def get_dossier_by_licence(
     for emb in emb_list:
         trajectories.extend(await list_trajectory_segments(db, user, embarcation_id=emb.id))
     trajectories.sort(key=lambda t: t.debut, reverse=True)
+
+    if user.role != RoleUtilisateur.pecheur:
+        await journaliser_acces(
+            db,
+            utilisateur_id=user.id,
+            ressource="geoloc_dossier",
+            action="consultation",
+            detail=f"licence={pecheur.numero_licence};pecheur={pecheur.id}",
+            commit=True,
+        )
 
     return LicenceDossierRead(
         pecheur_id=pecheur.id,

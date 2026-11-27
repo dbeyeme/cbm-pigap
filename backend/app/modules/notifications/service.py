@@ -21,29 +21,35 @@ async def build_summary(db: AsyncSession) -> NotificationSummary:
         or 0
     )
     alertes_count = int(
-        await db.scalar(
-            select(func.count(Alerte.id)).where(Alerte.statut == StatutAlerte.nouvelle)
-        )
+        await db.scalar(select(func.count(Alerte.id)).where(Alerte.statut == StatutAlerte.nouvelle))
         or 0
     )
 
     recent_demandes = (
-        await db.execute(
-            select(DemandeLicence)
-            .where(DemandeLicence.statut == StatutDemandeLicence.en_attente)
-            .order_by(DemandeLicence.date_creation.desc())
-            .limit(5)
+        (
+            await db.execute(
+                select(DemandeLicence)
+                .where(DemandeLicence.statut == StatutDemandeLicence.en_attente)
+                .order_by(DemandeLicence.date_creation.desc())
+                .limit(5)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     recent_alertes = (
-        await db.execute(
-            select(Alerte)
-            .where(Alerte.statut == StatutAlerte.nouvelle)
-            .order_by(Alerte.horodatage.desc())
-            .limit(5)
+        (
+            await db.execute(
+                select(Alerte)
+                .where(Alerte.statut == StatutAlerte.nouvelle)
+                .order_by(Alerte.horodatage.desc())
+                .limit(5)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     items: list[NotificationItem] = []
     for d in recent_demandes:

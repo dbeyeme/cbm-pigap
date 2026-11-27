@@ -10,6 +10,8 @@ export type MapToolbarItem<T extends string> = {
   icon: IconComponent;
   /** Compteur affiché sur le bouton (navires suivis, zones). */
   count?: number;
+  /** Compteur à signaler (sorties en retard) : pastille d'alerte. */
+  alerte?: boolean;
   hint?: string;
 };
 
@@ -56,7 +58,7 @@ export default function MapToolbar<T extends string>({
               <Icon size={16} />
               <span>{it.label}</span>
               {it.count != null && it.count > 0 ? (
-                <span className="map-bar-count">{it.count}</span>
+                <span className={`map-bar-count${it.alerte ? ' map-bar-count--alerte' : ''}`}>{it.count}</span>
               ) : null}
             </button>
           );

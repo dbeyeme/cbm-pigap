@@ -11,6 +11,8 @@ import {
   getGfwEvenements,
   listAisLive,
   listAlertes,
+  listSorties,
+  type SortieRead,
   getBulletinMeteo,
   getPortPresence,
   getZonesCalculees,
@@ -32,6 +34,7 @@ import {
 import AppSidebar from './components/AppSidebar';
 import AisPanel from './components/AisPanel';
 import PortPresencePanel from './components/PortPresencePanel';
+import SortiesPanel from './components/SortiesPanel';
 import VesselDetailDrawer from './components/VesselDetailDrawer';
 import PirogueDetailDrawer from './components/PirogueDetailDrawer';
 import GfwFiche from './components/GfwFiche';
@@ -44,6 +47,7 @@ import {
   IconAnchor,
   IconLayers,
   IconLogin,
+  IconPirogue,
   IconShield,
   IconShip,
   IconWaves,
@@ -150,7 +154,18 @@ function ecrireSession(cle: string, valeur: string | null): void {
 }
 
 /** Panneaux de la carte ; un seul ouvert à la fois, aucun par défaut (carte dégagée). */
-type MapPanelId = 'couches' | 'navires' | 'mer' | 'ports';
+type MapPanelId = 'couches' | 'navires' | 'sorties' | 'mer' | 'ports';
+
+/** Sorties en mer : lecture par les rôles de suivi ; constat du retour par l'agent et l'administrateur. */
+function peutLireSorties(role: string | null): boolean {
+  return role === 'admin' || role === 'autorite' || role === 'agent_controle';
+}
+
+function peutConstaterRetour(role: string | null): boolean {
+  return role === 'admin' || role === 'agent_controle';
+}
+
+const SORTIES_POLL_MS = 60_000;
 
 function vesselKind(type: string | null | undefined): VesselKind {
   const t = (type ?? '').toLowerCase();
@@ -249,6 +264,7 @@ export default function App() {
   const [aisNote, setAisNote] = useState('');
   const [aisLive, setAisLive] = useState<AisLiveResponse | null>(null);
   const [portPresence, setPortPresence] = useState<PortPresenceResponse | null>(null);
+  const [nbSortiesRetard, setNbSortiesRetard] = useState(0);
   const [selectedMmsi, setSelectedMmsi] = useState<string | null>(null);
   const [selectedEmbarcation, setSelectedEmbarcation] = useState<string | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<AisTrackPoint[]>([]);
@@ -1214,6 +1230,26 @@ export default function App() {
     };
   }, [token, onMap, liveMode]);
 
+  // Indicateur des sorties en retard sur la barre d'outils de la carte.
+  useEffect(() => {
+    if (!token || !onMap || !peutLireSorties(meRole)) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await listSorties(token, { statut: 'en_retard' });
+        if (!cancelled) setNbSortiesRetard(res.length);
+      } catch {
+        /* indicateur facultatif : conserve la dernière valeur */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), SORTIES_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [token, onMap, meRole]);
+
   useEffect(() => {
     if (!token || !onMap || !aisOverlay) return;
     let cancelled = false;
@@ -1640,6 +1676,21 @@ export default function App() {
                     count: liveMode ? liveVessels.length : segments.length,
                     hint: 'Embarcations suivies et navires AIS',
                   },
+                  ...(peutLireSorties(meRole)
+                    ? [
+                        {
+                          id: 'sorties' as const,
+                          label: 'Sorties',
+                          icon: IconPirogue,
+                          count: nbSortiesRetard,
+                          alerte: true,
+                          hint:
+                            nbSortiesRetard > 0
+                              ? `Sorties en mer · ${nbSortiesRetard} en retard`
+                              : 'Sorties en mer déclarées par les pêcheurs',
+                        },
+                      ]
+                    : []),
                   { id: 'mer', label: 'Mer', icon: IconWaves, hint: 'État de la mer et des fleuves' },
                   { id: 'ports', label: 'Ports', icon: IconAnchor, hint: 'Présence au port' },
                 ]}
@@ -1961,6 +2012,32 @@ export default function App() {
                       }}
                     />
                   ) : null}
+                </MapPanel>
+              ) : null}
+
+              {mapPanel === 'sorties' && token && peutLireSorties(meRole) ? (
+                <MapPanel
+                  title="Sorties en mer"
+                  subtitle="Départs et retours déclarés par les pêcheurs."
+                  className="map-panel--large"
+                  onClose={() => setMapPanel(null)}
+                >
+                  <SortiesPanel
+                    token={token}
+                    peutConstater={peutConstaterRetour(meRole)}
+                    ports={(portPresence?.ports ?? []).map((p) => ({ id: p.id, nom: p.nom }))}
+                    nbEnRetard={nbSortiesRetard}
+                    onEnRetard={setNbSortiesRetard}
+                    onSelect={(sortie: SortieRead) => {
+                      const pos = sortie.derniere_position ?? sortie.position_depart;
+                      if (pos) mapObj.current?.flyTo({ center: pos.coordinates, zoom: 11 });
+                      setSelectedMmsi(null);
+                      setSelectedGfwId(null);
+                      setBoatFilter(sortie.embarcation_id);
+                      setSelectedEmbarcation(sortie.embarcation_id);
+                      closePanelOnSmallScreen();
+                    }}
+                  />
                 </MapPanel>
               ) : null}
 

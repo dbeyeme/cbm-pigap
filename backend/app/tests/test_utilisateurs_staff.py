@@ -34,9 +34,7 @@ async def admin_headers(engine) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_admin_crud_agent(
-    client: AsyncClient, admin_headers: dict[str, str]
-) -> None:
+async def test_admin_crud_agent(client: AsyncClient, admin_headers: dict[str, str]) -> None:
     suffix = uuid.uuid4().hex[:8]
     create = await client.post(
         "/api/v1/utilisateurs",
@@ -82,9 +80,7 @@ async def test_admin_crud_agent(
 
 
 @pytest.mark.asyncio
-async def test_admin_can_create_admin(
-    client: AsyncClient, admin_headers: dict[str, str]
-) -> None:
+async def test_admin_can_create_admin(client: AsyncClient, admin_headers: dict[str, str]) -> None:
     suffix = uuid.uuid4().hex[:8]
     res = await client.post(
         "/api/v1/utilisateurs",

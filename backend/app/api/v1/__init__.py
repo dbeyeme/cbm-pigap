@@ -28,6 +28,7 @@ from app.modules.profils.router import router as profils_router
 from app.modules.quotas.router import router as quotas_router
 from app.modules.redevances.router import router as redevances_router
 from app.modules.referentiels.router import router as referentiels_router
+from app.modules.sorties.router import router as sorties_router
 from app.modules.utilisateurs.router import router as utilisateurs_router
 from app.modules.zones.router import router as zones_router
 from fastapi import APIRouter
@@ -63,3 +64,4 @@ api_router.include_router(profils_router)
 api_router.include_router(profils_public_router)
 api_router.include_router(identite_router)
 api_router.include_router(perimetre_router)
+api_router.include_router(sorties_router)

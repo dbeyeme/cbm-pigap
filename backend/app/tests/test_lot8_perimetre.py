@@ -47,9 +47,7 @@ async def test_l8_seul_admin_patch(client: AsyncClient, agent_headers: dict, eng
     refus = await client.patch(f"{BASE}/{zone_id}", headers=agent_headers, json={"actif": False})
     assert refus.status_code == 403
     _, admin_headers = await creer_compte(engine, RoleUtilisateur.admin)
-    ok = await client.patch(
-        f"{BASE}/{zone_id}", headers=admin_headers, json={"actif": False}
-    )
+    ok = await client.patch(f"{BASE}/{zone_id}", headers=admin_headers, json={"actif": False})
     assert ok.status_code == 200, ok.text
     assert ok.json()["actif"] is False
     # Restaurer pour les autres tests de la session
@@ -61,14 +59,14 @@ async def test_l8_alembic_head() -> None:
     racine = Path(__file__).resolve().parents[2]
     cfg = Config(str(racine / "alembic.ini"))
     script = ScriptDirectory.from_config(cfg)
-    assert script.get_heads() == ["a1b2c3d4e580"]
+    # Tête actuelle : sorties du lot 11 (ADR-016), posée sur la chaîne du lot 8
+    assert script.get_heads() == ["b7c8d9e0f611"]
+    assert script.get_revision("b7c8d9e0f611").down_revision == "a1b2c3d4e580"
     assert script.get_revision("a1b2c3d4e580").down_revision == "f5b8c9d0e371"
     assert script.get_revision("f5b8c9d0e371").down_revision == "e4a7b8c9d260"
 
 
-async def _desactiver_sauf(
-    client: AsyncClient, admin_headers: dict, *, garder: str
-) -> list[str]:
+async def _desactiver_sauf(client: AsyncClient, admin_headers: dict, *, garder: str) -> list[str]:
     liste = await client.get(f"{BASE}", headers=admin_headers)
     assert liste.status_code == 200
     desactivees: list[str] = []
@@ -90,9 +88,7 @@ async def _tout_activer(client: AsyncClient, admin_headers: dict) -> None:
     liste = await client.get(BASE, headers=admin_headers)
     for z in liste.json():
         if not z["actif"]:
-            p = await client.patch(
-                f"{BASE}/{z['id']}", headers=admin_headers, json={"actif": True}
-            )
+            p = await client.patch(f"{BASE}/{z['id']}", headers=admin_headers, json={"actif": True})
             assert p.status_code == 200
 
 
@@ -142,9 +138,7 @@ async def test_l8_filtre_geo_perimetre_libreville_seul(
 
         zones = await client.get(BASE, headers=agent_headers)
         lib_id = next(z["id"] for z in zones.json() if z["code"] == "libreville")
-        off = await client.patch(
-            f"{BASE}/{lib_id}", headers=admin_headers, json={"actif": False}
-        )
+        off = await client.patch(f"{BASE}/{lib_id}", headers=admin_headers, json={"actif": False})
         assert off.status_code == 200
         live_vide = await client.get(
             "/api/v1/positions/live",
@@ -154,9 +148,7 @@ async def test_l8_filtre_geo_perimetre_libreville_seul(
         assert live_vide.status_code == 200
         assert live_vide.json() == []
 
-        on = await client.patch(
-            f"{BASE}/{lib_id}", headers=admin_headers, json={"actif": True}
-        )
+        on = await client.patch(f"{BASE}/{lib_id}", headers=admin_headers, json={"actif": True})
         assert on.status_code == 200
         live_retabli = await client.get(
             "/api/v1/positions/live",

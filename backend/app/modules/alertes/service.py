@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import ApiError, not_found
-from app.db.enums import NiveauGravite, StatutAlerte, TypeAlerte, TypeZone
+from app.core.log_acces import enregistrer as journaliser_acces
+from app.db.enums import NiveauGravite, RoleUtilisateur, StatutAlerte, TypeAlerte, TypeZone
 from app.db.models import (
     Alerte,
     Capture,
@@ -141,7 +142,17 @@ async def list_alertes(
         .all()
     )
     bateaux = await _embarcations(db, rows)
-    return [_lecture(r, bateaux.get(r.embarcation_id), regle, descriptions) for r in rows], total
+    lectures = [_lecture(r, bateaux.get(r.embarcation_id), regle, descriptions) for r in rows]
+    if user is not None and user.role != RoleUtilisateur.pecheur:
+        await journaliser_acces(
+            db,
+            utilisateur_id=user.id,
+            ressource="alertes",
+            action="consultation",
+            detail=f"total={total};page={len(lectures)}",
+            commit=True,
+        )
+    return lectures, total
 
 
 async def detail_alerte(db: AsyncSession, alerte_id: UUID) -> AlerteDetailRead:

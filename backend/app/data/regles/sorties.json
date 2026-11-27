@@ -1,0 +1,32 @@
+{
+  "version": "2026-11-27",
+  "statut": "Proposé",
+  "valideurs": ["Christian", "expert halieutique", "DGPA"],
+  "note": "Sorties en mer déclarées et lieu de pêche proposé (lot 11, ADR-016). Aucune valeur n'est validée : chaque paramètre est une proposition à confirmer au pilote. Modifier ce fichier change le résultat sans toucher au code.",
+  "sorties": {
+    "tolerance_retard_minutes": 60,
+    "gravite_alerte": "critique",
+    "duree_max_heures": 72,
+    "avance_depart_max_minutes": 15,
+    "verification_minutes": 5
+  },
+  "lieu_de_peche": {
+    "fenetre_heures": 24,
+    "rayon_regroupement_km": 2,
+    "intervalle_max_minutes": 65,
+    "vitesse_max_noeuds": null,
+    "releves_min": 2
+  },
+  "explications": {
+    "tolerance_retard_minutes": "Délai accordé après l'heure de retour prévue avant que la sortie passe « en retard » et qu'une alerte parte. Proposé à 60 minutes : une marée, un détour ou un retard de déclaration ne doivent pas déclencher une alerte de sécurité.",
+    "gravite_alerte": "Gravité de l'alerte « sortie non rentrée » : info, attention ou critique. Proposée à critique : il s'agit potentiellement de personnes en mer.",
+    "duree_max_heures": "Durée maximale acceptée entre le départ et le retour prévu. Proposée à 72 heures : la pêche artisanale se fait surtout à la journée ; une valeur plus grande signale en général une erreur de saisie.",
+    "avance_depart_max_minutes": "Écart toléré entre l'heure de départ déclarée et l'heure du serveur, pour absorber l'horloge d'un téléphone mal réglée. Un départ plus lointain dans le futur est refusé.",
+    "verification_minutes": "Fréquence de la vérification des retards par le serveur.",
+    "fenetre_heures": "Sans sortie déclarée, durée de trace lue avant l'heure de la capture pour proposer un lieu de pêche.",
+    "rayon_regroupement_km": "Rayon autour d'un relevé dans lequel le temps passé est cumulé : le lieu proposé est le relevé autour duquel le bateau est resté le plus longtemps. Proposé à 2 km, à rapprocher de l'étendue d'un poste de pêche.",
+    "intervalle_max_minutes": "Durée maximale entre deux relevés pour que l'intervalle compte, alignée sur la règle des heures d'activité (activite_zones.json).",
+    "vitesse_max_noeuds": "Vitesse moyenne maximale d'un intervalle compté. Laissée vide comme pour les heures d'activité : l'étude du 2026-10-30 (section 4.6) renvoie le choix d'un seuil aux traces du pilote.",
+    "releves_min": "Nombre minimal de relevés hors des abords des ports pour proposer un lieu."
+  }
+}

@@ -108,7 +108,11 @@ def _verrou() -> asyncio.Lock:
     return _verrou_rapport[1]
 
 
-def _cle(chemin: str, params: Sequence[tuple[str, str]], corps: dict[str, Any] | None = None) -> str:
+def _cle(
+    chemin: str,
+    params: Sequence[tuple[str, str]],
+    corps: dict[str, Any] | None = None,
+) -> str:
     base = chemin + "?" + "&".join(f"{k}={v}" for k, v in sorted(params))
     if corps:
         base += "|" + json.dumps(corps, sort_keys=True, default=str)

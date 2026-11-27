@@ -1,6 +1,7 @@
 import { API_URL } from './config';
 import { deviceId } from './device';
 import type { ComplementsEmbarcation } from './lib/inscription';
+import type { OrigineLieu } from './offline/db';
 import type { LimitesProfil, TarifSaisi } from './lib/profil';
 import {
   ApiError,
@@ -274,6 +275,8 @@ export type CaptureRead = {
   point_debarquement: string | null;
   date_capture: string;
   prix_fcfa_kg?: number | null;
+  /** Provenance du lieu de pêche (lot 11), `null` sans lieu. */
+  origine_lieu?: OrigineLieu | null;
   synchronise_a: string | null;
 };
 
@@ -293,6 +296,8 @@ export type CaptureCreatePayload = {
   point_debarquement: string;
   date_capture: string;
   position_capture?: { type: 'Point'; coordinates: [number, number] };
+  /** Provenance du lieu ; envoyée seulement avec `position_capture`. */
+  origine_lieu?: OrigineLieu;
   prix_fcfa_kg?: number | null;
 };
 
@@ -316,6 +321,77 @@ export function syncCapturesBatch(token: string, captures: CaptureCreatePayload[
     token,
     body: JSON.stringify({ captures }),
   });
+}
+
+/* Sorties en mer et lieu de pêche proposé (lot 11, ADR-016) */
+
+type GeoPoint = { type: 'Point'; coordinates: [number, number] };
+
+/** Déclaration de sortie, création ou complément : renvoyer la même sortie est sans danger. */
+export type SortiePayload = {
+  client_id: string;
+  embarcation_id: string;
+  port_depart_id: string | null;
+  position_depart: GeoPoint | null;
+  depart_a: string;
+  retour_prevu_a: string;
+  secteur_vise: string | null;
+  retour_a: string | null;
+  port_retour_id: string | null;
+  position_retour: GeoPoint | null;
+};
+
+export type SortieRead = {
+  id: string;
+  client_id: string;
+  embarcation_id: string;
+  embarcation_nom: string;
+  immatriculation: string;
+  pecheur_id: string;
+  pecheur_nom: string;
+  port_depart_id: string | null;
+  port_depart_nom: string | null;
+  position_depart: GeoPoint | null;
+  depart_a: string;
+  retour_prevu_a: string;
+  secteur_vise: string | null;
+  secteur_vise_nom: string | null;
+  retour_a: string | null;
+  port_retour_id: string | null;
+  port_retour_nom: string | null;
+  position_retour: GeoPoint | null;
+  statut: 'en_cours' | 'en_retard' | 'terminee';
+  retard_minutes: number;
+  alerte_emise: boolean;
+  retour_constate_par: 'pecheur' | 'agent_controle' | 'admin' | null;
+  derniere_position: GeoPoint | null;
+  derniere_position_a: string | null;
+};
+
+/** `201` à la création, `200` si le serveur connaît déjà cette sortie. */
+export function postSortie(token: string, payload: SortiePayload) {
+  return request<SortieRead>('/api/v1/sorties', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload),
+  });
+}
+
+export type LieuDePeche = {
+  disponible: boolean;
+  position: GeoPoint | null;
+  debut: string | null;
+  fin: string | null;
+  releves: number;
+  duree_minutes: number;
+  motif: string;
+  regle?: { version: string; statut: string; valideurs: string[] };
+};
+
+/** Point où le bateau est resté le plus longtemps pendant la sortie qui couvre `avant`. */
+export function getLieuDePeche(token: string, embarcationId: string, avant: string) {
+  const params = new URLSearchParams({ embarcation_id: embarcationId, avant });
+  return request<LieuDePeche>(`/api/v1/sorties/lieu-de-peche?${params}`, { token });
 }
 
 export type PointCourbePrix = {

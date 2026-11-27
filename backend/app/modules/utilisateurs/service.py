@@ -144,10 +144,10 @@ async def delete_staff(db: AsyncSession, actor: Utilisateur, user_id: UUID) -> N
         raise forbidden("Impossible de supprimer son propre compte", "SELF_DELETE")
     if user.role == RoleUtilisateur.admin:
         count = (
-            await db.execute(
-                select(Utilisateur).where(Utilisateur.role == RoleUtilisateur.admin)
-            )
-        ).scalars().all()
+            (await db.execute(select(Utilisateur).where(Utilisateur.role == RoleUtilisateur.admin)))
+            .scalars()
+            .all()
+        )
         if len(count) <= 1:
             raise forbidden("Impossible de supprimer le dernier administrateur", "LAST_ADMIN")
     await db.delete(user)

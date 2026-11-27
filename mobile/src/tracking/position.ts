@@ -39,3 +39,12 @@ export async function readCurrentPosition(): Promise<Location.LocationObject> {
   if (last) return last;
   throw new Error('Position introuvable. Placez-vous à découvert, puis réessayez.');
 }
+
+/**
+ * Dernière position connue du téléphone, sans attendre le GPS ni demander quoi
+ * que ce soit : `null` si elle est trop ancienne ou inconnue.
+ */
+export async function readRecentPosition(maxAgeMs: number = AGE_MAX_MS): Promise<[number, number] | null> {
+  const last = await Location.getLastKnownPositionAsync({ maxAge: maxAgeMs }).catch(() => null);
+  return last ? [last.coords.longitude, last.coords.latitude] : null;
+}

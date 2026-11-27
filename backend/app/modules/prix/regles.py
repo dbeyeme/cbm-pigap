@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.core.errors import ApiError
 from app.core.regles import charger_regles, entete_regle, regle_indisponible, regle_invalide
-from fastapi import status
 
 FICHIER = "prix_marche"
 

@@ -32,7 +32,9 @@ def _periode_key(ts: datetime) -> str:
     return ts.astimezone(UTC).date().isoformat()
 
 
-def _valeur_ligne(quantite: float, prix: int | None, espece: str) -> tuple[float | None, SourceValeur]:
+def _valeur_ligne(
+    quantite: float, prix: int | None, espece: str
+) -> tuple[float | None, SourceValeur]:
     if prix is not None:
         return round(quantite * prix, 0), "declare"
     ref = referentiels.prix_moyen_fcfa_kg(espece)
@@ -168,9 +170,7 @@ async def courbes(
     )
 
 
-async def _pecheur_cible(
-    db: AsyncSession, user: Utilisateur, pecheur_id: UUID | None
-) -> Pecheur:
+async def _pecheur_cible(db: AsyncSession, user: Utilisateur, pecheur_id: UUID | None) -> Pecheur:
     if user.role == RoleUtilisateur.pecheur:
         result = await db.execute(select(Pecheur).where(Pecheur.utilisateur_id == user.id))
         own = result.scalar_one_or_none()

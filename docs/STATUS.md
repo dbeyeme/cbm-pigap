@@ -10,12 +10,12 @@
 | **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
-| **Branche active** | `main` |
+| **Branche active** | `feature/lot-11-sorties-zones-favorables` (PR) |
 | **Dernière mise à jour** | 2026-11-27 |
-| **Prochain jalon** | APK → Phase 3 terrain |
-| **Bloqueurs** | Aucun (GFW production vérifié) |
-| **Chantier en cours** | Lots 7–8 et GFW OK en production ; APK à mettre à jour pour Phase 3. |
-| **Note récente** | 2026-11-27 : GFW `/peche-apparente` HTTP 200 (~4158 h) ; jeton via env seulement |
+| **Prochain jalon** | Fusion PR #1 → migration lot 11 → APK avec sync sorties → Phase 3 |
+| **Bloqueurs** | Aucun (GFW production vérifié ; APK 0.2.1 publiée hors lot 11) |
+| **Chantier en cours** | Lot 11 + sécurité en PR (conflits main résolus) ; règles ADR-016 « Proposé ». |
+| **Note récente** | 2026-11-27 : GFW OK ; APK 0.2.1 ; lot 11 sorties/zones favorables en revue |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -81,6 +81,7 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 - ~~Lot 8~~ : ADR-015 accepté (admin seul ; désactivation masque l'historique)
 - Lot 9 (alertes) : liste des états de traitement, à décider (questions posées le 2026-11-25)
 - Lot 10, un appareil, un seul compte pêcheur (ADR-012) : règle R1 décidée le 2026-11-25 ; règles R2 à R6 « Proposé » ; mise en service après fixation de la clé de signature de l'application
+- Lot 11 (ADR-016) : sorties, lieu de pêche, zones favorables — livré en code ; seuils « Proposé » à valider (Christian / expert / DGPA)
 - Décidé le 2026-11-24 : commandes sans paiement en ligne (réservation gratuite indiquant le montant prévu), page de profil visible des comptes connectés et ouvrable au public par l'acteur, bannières du portail conservées · restent « Proposé » : informations d'inscription à ajouter, espèces du profil tirées des captures
 
 ## Comment mettre à jour

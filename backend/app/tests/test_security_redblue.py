@@ -9,11 +9,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import settings
+from app.core.rate_limit import fo_limiter, login_limiter
 from app.core.security import create_access_token, hash_password
 from app.db.enums import RoleUtilisateur, StatutPecheur
 from app.db.models import Pecheur, Utilisateur
-from app.core.rate_limit import fo_limiter, login_limiter
-from app.main import assert_live_payment_security, assert_production_security, app as fastapi_app
+from app.main import app as fastapi_app
+from app.main import assert_live_payment_security, assert_production_security
 from app.modules.geolocalisation.schemas import POSITION_BATCH_MAX
 
 
@@ -95,7 +96,8 @@ async def _creer_pecheur(engine, tag: str) -> tuple[str, dict[str, str]]:
 async def test_webhook_mm_refuse_sans_secret_en_live(
     client: AsyncClient, engine, admin_headers: dict[str, str], monkeypatch
 ) -> None:
-    monkeypatch.setattr(settings, "mobile_money_mode", "live")
+    # Init en démo (pas de jeton PawaPay) ; le contrôle « live sans secret » porte sur le webhook.
+    monkeypatch.setattr(settings, "mobile_money_mode", "demo")
     monkeypatch.setattr(settings, "mobile_money_webhook_secret", None)
     pecheur_id, _ = await _creer_pecheur(engine, "WhLive")
 
@@ -113,6 +115,7 @@ async def test_webhook_mm_refuse_sans_secret_en_live(
     assert init.status_code == 201, init.text
     ref = init.json()["paiement"]["reference_interne"]
 
+    monkeypatch.setattr(settings, "mobile_money_mode", "live")
     wh = await client.post(
         "/api/v1/abonnements/webhook/mobile-money",
         json={"reference_interne": ref, "statut": "reussi", "reference_operateur": "X"},
@@ -159,9 +162,7 @@ async def test_webhook_mm_exige_secret_si_configure(
 
 
 @pytest.mark.asyncio
-async def test_webhook_pawapay_refuse_sans_bearer_en_live(
-    client: AsyncClient, monkeypatch
-) -> None:
+async def test_webhook_pawapay_refuse_sans_bearer_en_live(client: AsyncClient, monkeypatch) -> None:
     monkeypatch.setattr(settings, "mobile_money_mode", "live")
     monkeypatch.setattr(settings, "pawapay_api_token", "jeton-pawa")
     monkeypatch.setattr(settings, "mobile_money_webhook_secret", None)
@@ -200,9 +201,7 @@ def test_docs_ouverts_hors_production() -> None:
 
 
 @pytest.mark.asyncio
-async def test_chercheur_ne_peut_pas_ecrire_gps(
-    client: AsyncClient, engine
-) -> None:
+async def test_chercheur_ne_peut_pas_ecrire_gps(client: AsyncClient, engine) -> None:
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         user = Utilisateur(
@@ -251,7 +250,9 @@ async def test_fo_demande_licence_rate_limit(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_batch_gps_refuse_au_dela_du_plafond(client: AsyncClient, admin_headers: dict[str, str]) -> None:
+async def test_batch_gps_refuse_au_dela_du_plafond(
+    client: AsyncClient, admin_headers: dict[str, str]
+) -> None:
     """H4 : un batch trop gros est rejeté avant traitement (422)."""
     emb_id = str(uuid.uuid4())
     point = {"type": "Point", "coordinates": [9.45, 0.42]}

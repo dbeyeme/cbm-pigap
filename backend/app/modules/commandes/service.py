@@ -60,9 +60,7 @@ async def _ensure_unique_contact(db: AsyncSession, *, email: str, telephone: str
     clauses = [Utilisateur.email == email.lower()]
     if telephone:
         clauses.append(Utilisateur.telephone == telephone)
-    existant = (
-        await db.execute(select(Utilisateur).where(or_(*clauses)))
-    ).scalar_one_or_none()
+    existant = (await db.execute(select(Utilisateur).where(or_(*clauses)))).scalar_one_or_none()
     if existant is not None:
         raise conflict("Un compte existe déjà avec cet e-mail ou ce téléphone", "COMPTE_EXISTANT")
 
@@ -110,13 +108,17 @@ def _filtre_liste(stmt, user: Utilisateur, pecheur: Pecheur | None):
 async def lister_pecheurs_vitrine(db: AsyncSession) -> list[PecheurVitrineRead]:
     """Pêcheurs actifs visibles pour une réservation client (id, nom, licence)."""
     rows = (
-        await db.execute(
-            select(Pecheur)
-            .where(Pecheur.statut == StatutPecheur.actif)
-            .order_by(Pecheur.nom, Pecheur.prenom)
-            .limit(500)
+        (
+            await db.execute(
+                select(Pecheur)
+                .where(Pecheur.statut == StatutPecheur.actif)
+                .order_by(Pecheur.nom, Pecheur.prenom)
+                .limit(500)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [PecheurVitrineRead.model_validate(p) for p in rows]
 
 
@@ -170,9 +172,7 @@ async def creer_commande(db: AsyncSession, user: Utilisateur, data: CommandeCrea
     return _to_read(commande)
 
 
-async def _charger_et_verifier(
-    db: AsyncSession, user: Utilisateur, commande_id: UUID
-) -> Commande:
+async def _charger_et_verifier(db: AsyncSession, user: Utilisateur, commande_id: UUID) -> Commande:
     commande = await db.get(Commande, commande_id)
     if commande is None:
         raise not_found("Commande introuvable", "COMMANDE_NOT_FOUND")
@@ -196,9 +196,7 @@ async def accepter_commande(db: AsyncSession, user: Utilisateur, commande_id: UU
     return _to_read(commande)
 
 
-async def confirmer_vendeur(
-    db: AsyncSession, user: Utilisateur, commande_id: UUID
-) -> CommandeRead:
+async def confirmer_vendeur(db: AsyncSession, user: Utilisateur, commande_id: UUID) -> CommandeRead:
     commande = await _charger_et_verifier(db, user, commande_id)
     pecheur = await _pecheur_du_compte(db, user)
     if pecheur is None or commande.pecheur_id != pecheur.id:

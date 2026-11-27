@@ -15,12 +15,14 @@ import {
 import type { MobileMode } from '../auth/roles';
 import { GlassPanel } from '../components/GlassPanel';
 import { GlowButton } from '../components/GlowButton';
+import { RetourSheet, SortieSheet, type DepartSortie } from '../components/SortieSheet';
 import { TrajectoryNativeMap } from '../components/TrajectoryNativeMap';
 import {
   Chip,
   HelpTip,
   IconBadge,
   InfoSheet,
+  ListRow,
   Notice,
   PhotoBanner,
   SectionTitle,
@@ -31,21 +33,30 @@ import {
 import { MODE_DEMO } from '../config';
 import { GABON_MARITIME_ROUTES, MaritimeRouteId, isInGabonZone } from '../geo/gabonMaritimeRoutes';
 import { friendlyApiError, isNetworkError, isSessionExpired } from '../lib/apiErrors';
+import { newClientId } from '../lib/clientId';
 import { formatDate, formatHeure, formatMoment, pluriel } from '../lib/format';
+import { retourDepasse } from '../lib/sorties';
 import {
   cacheEmbarcations,
   countPendingPositions,
   countPositionsSince,
+  currentSortie,
+  declareRetourLocal,
+  deleteRejectedSortie,
   enqueuePosition,
+  enqueueSortie,
   getSetting,
   listCachedEmbarcations,
   listPendingPositionsForBoat,
+  listRejectedSorties,
   setSetting,
   type LocalPosition,
+  type LocalSortie,
 } from '../offline/db';
+import { secteurNom } from '../offline/secteurs';
 import { readSyncState, subscribeSync, syncAll, syncQuietly, type SyncState } from '../offline/sync';
 import { PHOTOS } from '../photos';
-import { readCurrentPosition } from '../tracking/position';
+import { readCurrentPosition, readRecentPosition } from '../tracking/position';
 import {
   TRACKING_IDLE,
   hasSeenTrackingNotice,
@@ -87,7 +98,11 @@ const INTERVAL_SETTING = 'geoloc_intervalle_min';
 
 type PendingAction = 'suivi' | 'position';
 
+/** Le temps de fermer une feuille avant d'en ouvrir une autre. */
+const SHEET_DELAY_MS = 400;
+
 const HELP_POINTS: ReadonlyArray<InfoPoint> = [
+  { icon: 'boat-outline', text: 'Déclarez votre sortie avant de partir, et votre retour en arrivant. Sans retour déclaré après l’heure prévue, une alerte est signalée sur la plateforme.' },
   { icon: 'navigate-outline', text: 'Démarrez le suivi en quittant le quai : la position du bateau est relevée toute seule, même écran éteint.' },
   { icon: 'notifications-outline', text: 'Une notification reste affichée tant que le suivi tourne. Vous l’arrêtez ici, au retour.' },
   { icon: 'cloud-offline-outline', text: 'Sans réseau, les relevés restent sur le téléphone et partent dès que le réseau revient.' },
@@ -152,6 +167,11 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [showDemo, setShowDemo] = useState(false);
   const [showAllPoints, setShowAllPoints] = useState(false);
+  const [sortie, setSortie] = useState<LocalSortie | null>(null);
+  const [sortieRefusee, setSortieRefusee] = useState<LocalSortie | null>(null);
+  const [showSortie, setShowSortie] = useState(false);
+  const [showRetour, setShowRetour] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const boatIdRef = useRef<string | null>(null);
 
   const intervalMs =
@@ -172,6 +192,12 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
       setTracking(state);
       setPendingCount(count);
       setLocalPending(local);
+      const [enCours, refusees] = await Promise.all([
+        id ? currentSortie(userId, id) : Promise.resolve(null),
+        listRejectedSorties(userId),
+      ]);
+      setSortie(enCours);
+      setSortieRefusee(refusees[0] ?? null);
       setSyncState(sync);
       setNotifVisible(visible);
       setServicesOn(services);
@@ -312,6 +338,14 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
     };
   }, [refreshLocal, loadTrajectory]);
 
+  // Pendant une sortie, l'heure affichée avance seule : le dépassement apparaît sans geste
+  useEffect(() => {
+    if (!sortie) return;
+    setNow(new Date());
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, [sortie]);
+
   function resetMessages() {
     setError(null);
     setInfo(null);
@@ -389,6 +423,103 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
         await loadTrajectory(boatId);
       }
     } catch (err) {
+      setError(friendlyApiError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Point de départ d'une sortie : la feuille de déclaration explique l'usage avant la demande. */
+  async function releverDepart(): Promise<{ position: [number, number] } | { erreur: string }> {
+    let current = await locationAccess();
+    if (current === 'a_demander') current = await requestLocationAccess();
+    setAccess(current);
+    if (current === 'approximative') return { erreur: MESSAGE_POSITION_APPROXIMATIVE };
+    if (current !== 'accordee') {
+      return {
+        erreur:
+          'Localisation non autorisée : autorisez-la dans les réglages du téléphone pour relever votre point de départ.',
+      };
+    }
+    try {
+      const location = await readCurrentPosition();
+      const { longitude, latitude } = location.coords;
+      if (!isInGabonZone(longitude, latitude)) {
+        return { erreur: 'Votre position est hors des eaux gabonaises : la sortie ne peut pas partir d’ici.' };
+      }
+      return { position: [longitude, latitude] };
+    } catch (err) {
+      return { erreur: friendlyApiError(err) };
+    }
+  }
+
+  /** Départ enregistré sur le téléphone d'abord, envoi ensuite. */
+  async function confirmerDepart(depart: DepartSortie) {
+    const boat = boats.find((b) => b.id === boatId);
+    if (!boat) return;
+    resetMessages();
+    try {
+      await enqueueSortie({
+        client_id: newClientId(),
+        utilisateur_id: userId,
+        embarcation_id: boat.id,
+        embarcation_nom: boat.nom,
+        port_depart_id: depart.port_depart_id,
+        position_depart: depart.position_depart,
+        depart_a: new Date().toISOString(),
+        retour_prevu_a: depart.retour_prevu_a.toISOString(),
+        secteur_vise: depart.secteur_vise,
+      });
+    } catch (err) {
+      setError(friendlyApiError(err));
+      return;
+    }
+    setShowSortie(false);
+    await refreshLocal();
+    setInfo(`Sortie déclarée. Retour prévu ${formatMoment(depart.retour_prevu_a)}.`);
+    void syncQuietly(sessionRef.current).then(() => refreshLocal());
+    if (depart.demarrerSuivi && !tracking.actif) {
+      // La feuille de départ se ferme avant que celle du suivi ne s'ouvre
+      setTimeout(() => void request('suivi'), SHEET_DELAY_MS);
+    }
+  }
+
+  /** Dernière position récente du téléphone, sans demande d'accès : sert à proposer le port le plus proche. */
+  async function positionRecente(): Promise<[number, number] | null> {
+    const current = await locationAccess().catch(() => 'a_demander' as const);
+    if (current !== 'accordee') return null;
+    const lieu = await readRecentPosition().catch(() => null);
+    return lieu && isInGabonZone(lieu[0], lieu[1]) ? lieu : null;
+  }
+
+  const arreterSuiviAuRetour =
+    !!sortie && tracking.actif && tracking.embarcationId === sortie.embarcation_id;
+
+  /**
+   * Clôt la sortie maintenant ; arrête aussi le suivi de ce bateau s'il tourne.
+   * Avec un port d'arrivée, le serveur prend ses coordonnées ; sans port, la
+   * dernière position récente du téléphone sert de lieu de retour.
+   */
+  async function confirmerRetour(retour: { port_retour_id: string | null }) {
+    const current = sortie;
+    if (!current) return;
+    const arreterSuivi = arreterSuiviAuRetour;
+    resetMessages();
+    setBusy(true);
+    try {
+      const lieu = retour.port_retour_id ? null : await positionRecente();
+      await declareRetourLocal(userId, current.client_id, {
+        retour_a: new Date().toISOString(),
+        port_retour_id: retour.port_retour_id,
+        position_retour: lieu,
+      });
+      setShowRetour(false);
+      if (arreterSuivi) await stopTracking();
+      await syncQuietly(sessionRef.current);
+      await refreshLocal();
+      setInfo(arreterSuivi ? 'Retour enregistré, suivi arrêté.' : 'Retour enregistré.');
+    } catch (err) {
+      setShowRetour(false);
       setError(friendlyApiError(err));
     } finally {
       setBusy(false);
@@ -479,6 +610,8 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
   }
 
   const selected = boats.find((b) => b.id === boatId);
+  const enRetard = sortie ? retourDepasse(sortie.retour_prevu_a, now) : false;
+  const secteurSortie = sortie ? secteurNom(sortie.secteur_vise) : null;
   const trackedHere = tracking.actif && tracking.embarcationId === boatId;
   const shown = useMemo(
     () =>
@@ -598,6 +731,56 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
             </View>
           ) : null}
 
+          {canTrack && sortie ? (
+            <>
+              {enRetard ? (
+                <Notice
+                  tone="warn"
+                  icon="alarm-outline"
+                  text={`Heure de retour dépassée (${formatHeure(sortie.retour_prevu_a)}). Déclarez votre retour dès que vous êtes à terre.`}
+                />
+              ) : (
+                <ListRow
+                  icon="fa6:sailboat"
+                  tone="ok"
+                  title={`Retour prévu ${formatMoment(sortie.retour_prevu_a, now)}`}
+                  meta={[
+                    `En mer depuis ${formatMoment(sortie.depart_a, now).replace(/^à /, '')}`,
+                    secteurSortie,
+                    sortie.sync_status === 'pending' ? 'envoi dès que le réseau revient' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+              )}
+              <GlowButton
+                label={busy ? 'Un instant…' : 'Je suis rentré'}
+                icon="home-outline"
+                variant={enRetard ? 'primary' : 'ghost'}
+                onPress={() => {
+                  resetMessages();
+                  setShowRetour(true);
+                }}
+                disabled={busy}
+              />
+            </>
+          ) : null}
+          {canTrack && sortieRefusee ? (
+            <Pressable
+              onPress={() => {
+                void deleteRejectedSortie(userId, sortieRefusee.client_id).then(refreshLocal);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Masquer ce message"
+            >
+              <Notice
+                tone="error"
+                icon="close-circle-outline"
+                text={`Sortie du ${formatDate(sortieRefusee.depart_a)} refusée : ${(sortieRefusee.last_error ?? 'déclaration non acceptée').replace(/[.\s]+$/, '')}. Touchez pour masquer.`}
+              />
+            </Pressable>
+          ) : null}
+
           <TrajectoryNativeMap points={shown} />
 
           <StatRow>
@@ -622,6 +805,18 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
 
           {canTrack ? (
             <View style={styles.actions}>
+              {!sortie && boatId ? (
+                <GlowButton
+                  label="Partir en mer"
+                  icon="boat-outline"
+                  variant="accent"
+                  onPress={() => {
+                    resetMessages();
+                    setShowSortie(true);
+                  }}
+                  disabled={busy}
+                />
+              ) : null}
               {tracking.actif ? (
                 <GlowButton
                   label={busy ? 'Arrêt en cours…' : 'Arrêter le suivi'}
@@ -840,6 +1035,28 @@ export function TrackingScreen({ token, user, mode = 'agent', onBack }: Props) {
           </>
         ) : null}
       </ScrollView>
+
+      {canTrack && selected ? (
+        <SortieSheet
+          visible={showSortie}
+          onClose={() => setShowSortie(false)}
+          boatName={selected.nom}
+          suiviActif={tracking.actif}
+          relever={releverDepart}
+          positionRecente={positionRecente}
+          onConfirm={confirmerDepart}
+        />
+      ) : null}
+      {canTrack && sortie ? (
+        <RetourSheet
+          visible={showRetour}
+          onClose={() => setShowRetour(false)}
+          boatName={sortie.embarcation_nom ?? selected?.nom ?? ''}
+          arreterSuivi={arreterSuiviAuRetour}
+          positionRecente={positionRecente}
+          onConfirm={confirmerRetour}
+        />
+      ) : null}
 
       <InfoSheet
         visible={pendingAction !== null}

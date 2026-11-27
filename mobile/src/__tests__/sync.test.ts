@@ -3,6 +3,7 @@ import type { Session } from '../auth/session';
 import { syncAll } from '../offline/sync';
 import { syncPendingCaptures } from '../offline/syncCaptures';
 import { syncPendingPositions } from '../offline/syncPositions';
+import { syncPendingSorties } from '../offline/syncSorties';
 
 jest.mock('../offline/db', () => ({
   getSetting: jest.fn(async () => null),
@@ -10,9 +11,22 @@ jest.mock('../offline/db', () => ({
 }));
 jest.mock('../offline/syncCaptures', () => ({ syncPendingCaptures: jest.fn() }));
 jest.mock('../offline/syncPositions', () => ({ syncPendingPositions: jest.fn() }));
+jest.mock('../offline/syncSorties', () => ({
+  syncPendingSorties: jest.fn(),
+  EMPTY_SORTIES_REPORT: {
+    pushed: 0,
+    accepted: 0,
+    rejected: 0,
+    rejectMessage: null,
+    error: null,
+    stopped: null,
+  },
+}));
 
 const captures = syncPendingCaptures as jest.MockedFunction<typeof syncPendingCaptures>;
 const positions = syncPendingPositions as jest.MockedFunction<typeof syncPendingPositions>;
+const sorties = syncPendingSorties as jest.MockedFunction<typeof syncPendingSorties>;
+const noSorties = { pushed: 0, accepted: 0, rejected: 0, rejectMessage: null, error: null, stopped: null };
 
 const session = { token: 'jeton', user: { id: 'u1', role: 'pecheur' } } as unknown as Session;
 
@@ -33,7 +47,9 @@ function positionReport(accepted: number) {
 beforeEach(() => {
   captures.mockReset();
   positions.mockReset();
+  sorties.mockReset();
   captures.mockResolvedValue(noCaptures);
+  sorties.mockResolvedValue(noSorties);
 });
 
 describe('syncAll', () => {
@@ -68,5 +84,19 @@ describe('syncAll', () => {
     const summary = await syncAll(session);
     expect(positions).not.toHaveBeenCalled();
     expect(summary.sessionExpired).toBe(true);
+  });
+
+  it('envoie les sorties avant les captures et s’arrête si la session est refusée', async () => {
+    const order: string[] = [];
+    sorties.mockImplementationOnce(async () => {
+      order.push('sorties');
+      return { ...noSorties, stopped: 'session', error: 'Votre session a expiré.' };
+    });
+    const summary = await syncAll(session);
+    expect(order).toEqual(['sorties']);
+    expect(captures).not.toHaveBeenCalled();
+    expect(positions).not.toHaveBeenCalled();
+    expect(summary.sessionExpired).toBe(true);
+    expect(summary.message).toBe('Votre session a expiré.');
   });
 });

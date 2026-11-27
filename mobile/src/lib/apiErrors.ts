@@ -13,6 +13,13 @@ const FIELD_LABELS: Record<string, string> = {
   volume_kg: 'Volume (kg)',
   point_debarquement: 'Lieu de débarquement',
   position_capture: 'Lieu de pêche',
+  origine_lieu: 'Provenance du lieu',
+  depart_a: 'Heure de départ',
+  retour_prevu_a: 'Heure de retour prévue',
+  retour_a: 'Heure de retour',
+  secteur_vise: 'Secteur visé',
+  position_depart: 'Point de départ',
+  port_depart_id: 'Port de départ',
 };
 
 /** Codes métier du serveur dont le message d'origine parle le langage des développeurs. */
@@ -36,6 +43,12 @@ const CODE_MESSAGES: Record<string, string> = {
     'Un autre téléphone assure déjà le suivi de ce bateau. Adressez-vous à un agent de contrôle si ce n’est pas le vôtre.',
   APPAREIL_REQUIS:
     'Cette version de l’application n’est plus acceptée. Mettez-la à jour, ou adressez-vous à un agent de contrôle.',
+  // Lot 11 : sorties en mer. SORTIE_INVALIDE garde le motif précis du serveur.
+  SORTIE_DEJA_EN_COURS:
+    'Une autre sortie est déjà en cours pour ce bateau sur la plateforme. Adressez-vous à un agent de contrôle pour la clore.',
+  SORTIE_DEJA_TERMINEE: 'Cette sortie était déjà close sur la plateforme.',
+  SORTIE_CLIENT_ID_REUTILISE:
+    'Cette déclaration de sortie n’a pas pu être enregistrée. Déclarez de nouveau votre départ.',
   APPAREIL_ID_INVALIDE:
     'Ce téléphone n’a pas pu être reconnu. Mettez l’application à jour, ou adressez-vous à un agent de contrôle.',
 };

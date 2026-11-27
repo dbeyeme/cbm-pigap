@@ -53,9 +53,7 @@ async def _login(client: AsyncClient, email: str, password: str = "PecheurPass1!
 
 
 @pytest.mark.asyncio
-async def test_capture_idempotence_idor_blocked(
-    client: AsyncClient, admin_headers: dict
-) -> None:
+async def test_capture_idempotence_idor_blocked(client: AsyncClient, admin_headers: dict) -> None:
     """POST /captures avec UUID d'une autre capture → 409, pas de fuite."""
     p1, e1, _, email1 = await _create_pecheur_embarcation(client, admin_headers, tag="A")
     p2, e2, _, _ = await _create_pecheur_embarcation(client, admin_headers, tag="B")
@@ -120,9 +118,7 @@ async def test_capture_idempotence_idor_blocked(
 async def test_dossier_pecheur_cannot_see_other_licence(
     client: AsyncClient, admin_headers: dict
 ) -> None:
-    _, _, licence_a, email_a = await _create_pecheur_embarcation(
-        client, admin_headers, tag="DOSA"
-    )
+    _, _, licence_a, email_a = await _create_pecheur_embarcation(client, admin_headers, tag="DOSA")
     _, _, licence_b, _ = await _create_pecheur_embarcation(client, admin_headers, tag="DOSB")
 
     headers_a = await _login(client, email_a)

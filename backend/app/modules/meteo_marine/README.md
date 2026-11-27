@@ -17,6 +17,8 @@ du croisement de données ouvertes et des données PIGAP.
 
 ## Sources et croisements
 
+- Chlorophylle a quotidienne sans lacune, 9 km (NOAA CoastWatch, ERDDAP, CC0-1.0,
+  sans clé), une requête pour tous les secteurs, cache de 12 heures (lot 11).
 - Open-Meteo Marine / Prévisions / Flood (CC BY 4.0, sans clé) : houle, période,
   courant, température, hauteur d'eau, vent, rafales, pluie, visibilité, débit GloFAS.
 - PIGAP : captures déclarées sur 30 jours dans le rayon du secteur, quotas des
@@ -30,7 +32,7 @@ du croisement de données ouvertes et des données PIGAP.
 | Risque navire | rouge seulement au-delà de houle ≥ 4 m ; orange pour rafales ≥ 30 nd ou courant ≥ 2 nd |
 | Danger | risque pirogue rouge ou zone interdite active |
 | Surexploitée | un quota du secteur consommé à ≥ 90 % |
-| Favorable | score ≥ 65 : mer praticable, température 23,5–28,5 °C, captures récentes au-dessus de la médiane, quota < 75 %, marée montante |
+| Favorable | score ≥ 65 et au moins un signe de ressource (refroidissement récent, chlorophylle riche ou en hausse, captures élevées) ; points : mer praticable, température dans la plage, écart de température sur 30 jours, chlorophylle, captures récentes au-dessus de la médiane, quota < 75 %, marée montante. Jamais en aire protégée. Seuils dans `data/regles/zones_favorables.json` (lot 11, Proposé) |
 | Crue | débit moyen prévu ≥ 1,4 × débit du jour dans la semaine |
 
 Les alertes automatiques (type `anomalie`, règles `meteo_marine` et

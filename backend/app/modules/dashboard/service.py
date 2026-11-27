@@ -129,7 +129,9 @@ async def _indicateurs_effort(
     couvert = 0.0
     captures_prix = (
         await db.execute(
-            select(Capture.espece, Capture.quantite_kg, Capture.prix_fcfa_kg).where(*capture_filters)
+            select(Capture.espece, Capture.quantite_kg, Capture.prix_fcfa_kg).where(
+                *capture_filters
+            )
         )
     ).all()
     for espece, vol, prix_declare in captures_prix:

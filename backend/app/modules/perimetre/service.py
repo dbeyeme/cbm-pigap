@@ -6,13 +6,12 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from geoalchemy2.functions import ST_AsGeoJSON
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import bad_request, not_found
 from app.db.enums import RoleUtilisateur
 from app.db.models import AgentZone, PerimetreZone, Utilisateur
-from app.modules.zones.geo import geojson_text_to_polygon
 from app.modules.perimetre import filtre
 from app.modules.perimetre.schemas import (
     AgentZonesRead,
@@ -21,6 +20,7 @@ from app.modules.perimetre.schemas import (
     PerimetreZonePatch,
     PerimetreZoneRead,
 )
+from app.modules.zones.geo import geojson_text_to_polygon
 
 
 def _to_read(zone: PerimetreZone, emprise_geojson: str | None) -> PerimetreZoneRead:
@@ -39,14 +39,17 @@ def _to_read(zone: PerimetreZone, emprise_geojson: str | None) -> PerimetreZoneR
 
 async def list_zones(db: AsyncSession) -> list[PerimetreZoneRead]:
     result = await db.execute(
-        select(PerimetreZone, ST_AsGeoJSON(PerimetreZone.emprise).label("emprise_geojson")).order_by(
-            PerimetreZone.code
-        )
+        select(
+            PerimetreZone,
+            ST_AsGeoJSON(PerimetreZone.emprise).label("emprise_geojson"),
+        ).order_by(PerimetreZone.code)
     )
     return [_to_read(zone, geo) for zone, geo in result.all()]
 
 
-async def patch_zone(db: AsyncSession, zone_id: UUID, data: PerimetreZonePatch) -> PerimetreZoneRead:
+async def patch_zone(
+    db: AsyncSession, zone_id: UUID, data: PerimetreZonePatch
+) -> PerimetreZoneRead:
     zone = await db.get(PerimetreZone, zone_id)
     if zone is None:
         raise not_found("Zone de périmètre introuvable", "PERIMETRE_NOT_FOUND")
@@ -54,7 +57,9 @@ async def patch_zone(db: AsyncSession, zone_id: UUID, data: PerimetreZonePatch) 
     zone.date_mise_a_jour = datetime.now(UTC)
     await db.flush()
     geo = (
-        await db.execute(select(ST_AsGeoJSON(PerimetreZone.emprise)).where(PerimetreZone.id == zone_id))
+        await db.execute(
+            select(ST_AsGeoJSON(PerimetreZone.emprise)).where(PerimetreZone.id == zone_id)
+        )
     ).scalar_one()
     await db.commit()
     await db.refresh(zone)
@@ -104,11 +109,8 @@ async def remplacer_zones_agent(
         if zone is None:
             raise not_found(f"Zone de périmètre inconnue : {code}", "PERIMETRE_NOT_FOUND")
         zones.append(zone)
-    existants = (
-        await db.execute(select(AgentZone).where(AgentZone.utilisateur_id == utilisateur_id))
-    ).scalars().all()
-    for row in existants:
-        await db.delete(row)
+    await db.execute(delete(AgentZone).where(AgentZone.utilisateur_id == utilisateur_id))
+    await db.flush()
     for zone in zones:
         db.add(AgentZone(utilisateur_id=utilisateur_id, zone_id=zone.id))
     await db.commit()
@@ -146,8 +148,18 @@ async def assurer_seed_defaut(db: AsyncSession) -> None:
             "ville",
             "POLYGON((9.35 0.35, 9.55 0.35, 9.55 0.55, 9.35 0.55, 9.35 0.35))",
         ),
-        ("owendo", "Owendo", "ville", "POLYGON((9.45 0.25, 9.55 0.25, 9.55 0.40, 9.45 0.40, 9.45 0.25))"),
-        ("akanda", "Akanda", "ville", "POLYGON((9.40 0.55, 9.60 0.55, 9.60 0.75, 9.40 0.75, 9.40 0.55))"),
+        (
+            "owendo",
+            "Owendo",
+            "ville",
+            "POLYGON((9.45 0.25, 9.55 0.25, 9.55 0.40, 9.45 0.40, 9.45 0.25))",
+        ),
+        (
+            "akanda",
+            "Akanda",
+            "ville",
+            "POLYGON((9.40 0.55, 9.60 0.55, 9.60 0.75, 9.40 0.75, 9.40 0.55))",
+        ),
         (
             "cap_esterias",
             "Cap Estérias",

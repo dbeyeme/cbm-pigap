@@ -18,6 +18,14 @@ const RETENTION_POSITIONS_MS = 7 * 86_400_000;
  */
 export type CaptureStatus = 'pending' | 'synced' | 'rejected';
 
+/**
+ * Provenance du lieu de pêche (lot 11) : `gps` (position du téléphone),
+ * `saisie` (coordonnées tapées), `trace` (point proposé depuis la trace de la
+ * sortie). `null` sans lieu, ou pour une déclaration enregistrée avant que
+ * l'application ne note la provenance.
+ */
+export type OrigineLieu = 'gps' | 'saisie' | 'trace';
+
 export type LocalCapture = {
   id: string;
   pecheur_id: string;
@@ -31,6 +39,7 @@ export type LocalCapture = {
   prix_fcfa_kg: number | null;
   /** Lieu de pêche [longitude, latitude], si le pêcheur l'a joint. */
   position: [number, number] | null;
+  origine_lieu: OrigineLieu | null;
   sync_status: CaptureStatus;
   created_at: string;
   last_error: string | null;
@@ -110,6 +119,32 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
       await ensureColumn(db, 'captures_local', 'position_lat', 'REAL');
       await ensureColumn(db, 'captures_local', 'prix_fcfa_kg', 'INTEGER');
       await ensureColumn(db, 'positions_local', 'utilisateur_id', 'TEXT');
+      await ensureColumn(db, 'captures_local', 'origine_lieu', 'TEXT');
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS sorties_local (
+          client_id TEXT PRIMARY KEY NOT NULL,
+          utilisateur_id TEXT NOT NULL,
+          embarcation_id TEXT NOT NULL,
+          embarcation_nom TEXT,
+          port_depart_id TEXT,
+          depart_lon REAL,
+          depart_lat REAL,
+          depart_a TEXT NOT NULL,
+          retour_prevu_a TEXT NOT NULL,
+          secteur_vise TEXT,
+          retour_a TEXT,
+          port_retour_id TEXT,
+          retour_lon REAL,
+          retour_lat REAL,
+          revision INTEGER NOT NULL DEFAULT 1,
+          sync_status TEXT NOT NULL,
+          server_id TEXT,
+          created_at TEXT NOT NULL,
+          last_error TEXT
+        );
+        CREATE INDEX IF NOT EXISTS ix_sorties_local_owner
+          ON sorties_local (utilisateur_id, depart_a);
+      `);
       return db;
     })().catch((err) => {
       // Une ouverture ratée ne doit pas condamner les appels suivants
@@ -169,6 +204,10 @@ export async function claimOrphanRows(utilisateurId: string, estPecheur: boolean
   }
 }
 
+function asOrigineLieu(value: unknown): OrigineLieu | null {
+  return value === 'gps' || value === 'saisie' || value === 'trace' ? value : null;
+}
+
 function rowToCapture(row: Record<string, unknown>): LocalCapture {
   const lon = row.position_lon == null ? null : Number(row.position_lon);
   const lat = row.position_lat == null ? null : Number(row.position_lat);
@@ -188,6 +227,7 @@ function rowToCapture(row: Record<string, unknown>): LocalCapture {
         : Number(row.prix_fcfa_kg),
     position:
       lon != null && lat != null && Number.isFinite(lon) && Number.isFinite(lat) ? [lon, lat] : null,
+    origine_lieu: asOrigineLieu(row.origine_lieu),
     sync_status: status === 'synced' ? 'synced' : status === 'rejected' ? 'rejected' : 'pending',
     created_at: String(row.created_at),
     last_error: row.last_error == null ? null : String(row.last_error),
@@ -207,17 +247,20 @@ export async function enqueueCapture(input: {
   prix_fcfa_kg?: number | null;
   /** Lieu de pêche [longitude, latitude] ; absent si le pêcheur l'a retiré. */
   position?: [number, number] | null;
+  /** Provenance du lieu ; ignorée sans lieu. */
+  origine_lieu?: OrigineLieu | null;
 }): Promise<LocalCapture> {
   const db = await getDb();
   const created_at = new Date().toISOString();
   const position = input.position ?? null;
+  const origine = position ? (input.origine_lieu ?? null) : null;
   const prix = input.prix_fcfa_kg ?? null;
   await db.runAsync(
     `INSERT INTO captures_local (
       id, utilisateur_id, pecheur_id, embarcation_id, espece, quantite_kg, methode,
       point_debarquement, date_capture, position_lon, position_lat, prix_fcfa_kg,
-      sync_status, created_at, last_error
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL)`,
+      origine_lieu, sync_status, created_at, last_error
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL)`,
     [
       input.id,
       input.utilisateur_id,
@@ -231,6 +274,7 @@ export async function enqueueCapture(input: {
       position ? position[0] : null,
       position ? position[1] : null,
       prix,
+      origine,
       created_at,
     ],
   );
@@ -245,6 +289,7 @@ export async function enqueueCapture(input: {
     date_capture: input.date_capture,
     prix_fcfa_kg: prix,
     position,
+    origine_lieu: origine,
     sync_status: 'pending',
     created_at,
     last_error: null,
@@ -531,6 +576,267 @@ export async function markPositionsRejected(ids: string[], message: string): Pro
     [message.slice(0, 500), ...ids],
   );
   await purgeOldPositions(db);
+}
+
+
+/* Sorties en mer (lot 11, ADR-016) */
+
+/** Durée de conservation locale d'une sortie close et reçue par le serveur. */
+const RETENTION_SORTIES_MS = 7 * 86_400_000;
+
+export type SortieStatus = 'pending' | 'synced' | 'rejected';
+
+export type LocalSortie = {
+  /** Identifiant tiré sur le téléphone : un renvoi ne crée jamais de doublon. */
+  client_id: string;
+  embarcation_id: string;
+  embarcation_nom: string | null;
+  port_depart_id: string | null;
+  /** Point de départ [longitude, latitude], à défaut de port. */
+  position_depart: [number, number] | null;
+  depart_a: string;
+  retour_prevu_a: string;
+  secteur_vise: string | null;
+  retour_a: string | null;
+  port_retour_id: string | null;
+  position_retour: [number, number] | null;
+  /** Augmente à chaque changement local : un envoi ne marque reçue que la version envoyée. */
+  revision: number;
+  sync_status: SortieStatus;
+  /** Identifiant donné par le serveur, une fois la sortie reçue. */
+  server_id: string | null;
+  created_at: string;
+  last_error: string | null;
+};
+
+function pointFrom(lon: unknown, lat: unknown): [number, number] | null {
+  if (lon == null || lat == null) return null;
+  const x = Number(lon);
+  const y = Number(lat);
+  return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null;
+}
+
+function optText(value: unknown): string | null {
+  return value == null || value === '' ? null : String(value);
+}
+
+function rowToSortie(row: Record<string, unknown>): LocalSortie {
+  const status = String(row.sync_status);
+  return {
+    client_id: String(row.client_id),
+    embarcation_id: String(row.embarcation_id),
+    embarcation_nom: optText(row.embarcation_nom),
+    port_depart_id: optText(row.port_depart_id),
+    position_depart: pointFrom(row.depart_lon, row.depart_lat),
+    depart_a: String(row.depart_a),
+    retour_prevu_a: String(row.retour_prevu_a),
+    secteur_vise: optText(row.secteur_vise),
+    retour_a: optText(row.retour_a),
+    port_retour_id: optText(row.port_retour_id),
+    position_retour: pointFrom(row.retour_lon, row.retour_lat),
+    revision: Number(row.revision ?? 1),
+    sync_status: status === 'synced' ? 'synced' : status === 'rejected' ? 'rejected' : 'pending',
+    server_id: optText(row.server_id),
+    created_at: String(row.created_at),
+    last_error: optText(row.last_error),
+  };
+}
+
+/** Écrit la sortie sur le téléphone avant toute tentative d'envoi. */
+export async function enqueueSortie(input: {
+  client_id: string;
+  utilisateur_id: string;
+  embarcation_id: string;
+  embarcation_nom?: string | null;
+  port_depart_id?: string | null;
+  position_depart?: [number, number] | null;
+  depart_a: string;
+  retour_prevu_a: string;
+  secteur_vise?: string | null;
+}): Promise<LocalSortie> {
+  const db = await getDb();
+  const created_at = new Date().toISOString();
+  const depart = input.position_depart ?? null;
+  await db.runAsync(
+    `INSERT INTO sorties_local (
+      client_id, utilisateur_id, embarcation_id, embarcation_nom, port_depart_id,
+      depart_lon, depart_lat, depart_a, retour_prevu_a, secteur_vise,
+      revision, sync_status, created_at, last_error
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending', ?, NULL)`,
+    [
+      input.client_id,
+      input.utilisateur_id,
+      input.embarcation_id,
+      input.embarcation_nom ?? null,
+      input.port_depart_id ?? null,
+      depart ? depart[0] : null,
+      depart ? depart[1] : null,
+      input.depart_a,
+      input.retour_prevu_a,
+      input.secteur_vise ?? null,
+      created_at,
+    ],
+  );
+  return {
+    client_id: input.client_id,
+    embarcation_id: input.embarcation_id,
+    embarcation_nom: input.embarcation_nom ?? null,
+    port_depart_id: input.port_depart_id ?? null,
+    position_depart: depart,
+    depart_a: input.depart_a,
+    retour_prevu_a: input.retour_prevu_a,
+    secteur_vise: input.secteur_vise ?? null,
+    retour_a: null,
+    port_retour_id: null,
+    position_retour: null,
+    revision: 1,
+    sync_status: 'pending',
+    server_id: null,
+    created_at,
+    last_error: null,
+  };
+}
+
+/**
+ * Clôt la sortie sur le téléphone ; elle repart, complète, au prochain envoi.
+ * Sans effet sur une sortie déjà close ou refusée.
+ */
+export async function declareRetourLocal(
+  utilisateurId: string,
+  clientId: string,
+  retour: {
+    retour_a: string;
+    port_retour_id?: string | null;
+    position_retour?: [number, number] | null;
+  },
+): Promise<boolean> {
+  const db = await getDb();
+  const point = retour.position_retour ?? null;
+  const result = await db.runAsync(
+    `UPDATE sorties_local
+     SET retour_a = ?, port_retour_id = ?, retour_lon = ?, retour_lat = ?,
+         revision = revision + 1, sync_status = 'pending', last_error = NULL
+     WHERE client_id = ? AND ${OWNER_FILTER} AND retour_a IS NULL AND sync_status != 'rejected'`,
+    [
+      retour.retour_a,
+      retour.port_retour_id ?? null,
+      point ? point[0] : null,
+      point ? point[1] : null,
+      clientId,
+      utilisateurId,
+    ],
+  );
+  return result.changes > 0;
+}
+
+/** Sortie en cours du compte (la plus récente non close), pour un bateau ou pour tous. */
+export async function currentSortie(
+  utilisateurId: string,
+  embarcationId?: string | null,
+): Promise<LocalSortie | null> {
+  const db = await getDb();
+  const row = embarcationId
+    ? await db.getFirstAsync<Record<string, unknown>>(
+        `SELECT * FROM sorties_local
+         WHERE ${OWNER_FILTER} AND embarcation_id = ? AND retour_a IS NULL AND sync_status != 'rejected'
+         ORDER BY depart_a DESC LIMIT 1`,
+        [utilisateurId, embarcationId],
+      )
+    : await db.getFirstAsync<Record<string, unknown>>(
+        `SELECT * FROM sorties_local
+         WHERE ${OWNER_FILTER} AND retour_a IS NULL AND sync_status != 'rejected'
+         ORDER BY depart_a DESC LIMIT 1`,
+        [utilisateurId],
+      );
+  return row ? rowToSortie(row) : null;
+}
+
+/** Sorties à envoyer, dans l'ordre des départs : un départ ne double jamais le précédent. */
+export async function listPendingSorties(utilisateurId: string): Promise<LocalSortie[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM sorties_local
+     WHERE sync_status = 'pending' AND ${OWNER_FILTER}
+     ORDER BY depart_a ASC, created_at ASC`,
+    [utilisateurId],
+  );
+  return rows.map(rowToSortie);
+}
+
+export async function countPendingSorties(utilisateurId: string): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM sorties_local WHERE sync_status = 'pending' AND ${OWNER_FILTER}`,
+    [utilisateurId],
+  );
+  return Number(row?.c ?? 0);
+}
+
+/** Sorties refusées pour de bon, montrées jusqu'à ce que leur auteur les retire. */
+export async function listRejectedSorties(utilisateurId: string): Promise<LocalSortie[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM sorties_local
+     WHERE sync_status = 'rejected' AND ${OWNER_FILTER}
+     ORDER BY depart_a DESC`,
+    [utilisateurId],
+  );
+  return rows.map(rowToSortie);
+}
+
+export async function deleteRejectedSortie(utilisateurId: string, clientId: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `DELETE FROM sorties_local WHERE client_id = ? AND sync_status = 'rejected' AND ${OWNER_FILTER}`,
+    [clientId, utilisateurId],
+  );
+}
+
+/**
+ * Le serveur a reçu la sortie. Elle n'est marquée reçue que si rien n'a changé
+ * sur le téléphone depuis l'envoi (retour déclaré entre-temps, par exemple) ;
+ * sinon elle repartira, complète, au prochain envoi. Un retour constaté par un
+ * agent est reporté sur le téléphone.
+ */
+export async function markSortieSynced(
+  clientId: string,
+  revision: number,
+  serveur: { id: string | null; retour_a: string | null },
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE sorties_local SET server_id = COALESCE(?, server_id), retour_a = COALESCE(retour_a, ?)
+     WHERE client_id = ?`,
+    [serveur.id, serveur.retour_a, clientId],
+  );
+  await db.runAsync(
+    `UPDATE sorties_local SET sync_status = 'synced', last_error = NULL
+     WHERE client_id = ? AND revision = ?`,
+    [clientId, revision],
+  );
+  const cutoff = new Date(Date.now() - RETENTION_SORTIES_MS).toISOString();
+  await db.runAsync(
+    `DELETE FROM sorties_local WHERE sync_status = 'synced' AND retour_a IS NOT NULL AND retour_a < ?`,
+    [cutoff],
+  );
+}
+
+/** Erreur passagère : la sortie reste à envoyer, le motif est gardé. */
+export async function markSortieError(clientId: string, message: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(`UPDATE sorties_local SET last_error = ? WHERE client_id = ?`, [
+    message.slice(0, 500),
+    clientId,
+  ]);
+}
+
+/** Refus définitif du serveur : la sortie ne sera pas renvoyée. */
+export async function markSortieRejected(clientId: string, message: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE sorties_local SET sync_status = 'rejected', last_error = ? WHERE client_id = ?`,
+    [message.slice(0, 500), clientId],
+  );
 }
 
 

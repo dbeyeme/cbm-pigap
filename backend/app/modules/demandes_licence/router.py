@@ -4,7 +4,17 @@ import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
@@ -35,6 +45,7 @@ def _exiger_fo_rate_limit(request: Request, cle: str) -> None:
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Trop de soumissions ; réessayez dans une minute",
         )
+
 
 StaffRoles = Annotated[
     Utilisateur,
