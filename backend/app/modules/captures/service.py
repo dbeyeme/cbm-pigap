@@ -91,6 +91,7 @@ def _to_read(
         quantite_kg=capture.quantite_kg,
         methode=capture.methode,
         position_capture=point,
+        origine_lieu=capture.origine_lieu,
         point_debarquement=capture.point_debarquement,
         date_capture=capture.date_capture,
         prix_fcfa_kg=None if masquer_prix else capture.prix_fcfa_kg,
@@ -126,6 +127,8 @@ def _build_row(data: CaptureCreate, *, now: datetime) -> Capture:
         quantite_kg=data.quantite_kg,
         methode=data.methode,
         position_capture=geom,
+        # Sans lieu, aucune origine : le champ ne décrit que le point retenu
+        origine_lieu=data.origine_lieu if geom is not None else None,
         point_debarquement=data.point_debarquement,
         date_capture=data.date_capture,
         prix_fcfa_kg=valider_prix_fcfa_kg(data.prix_fcfa_kg),
@@ -253,9 +256,7 @@ async def get_capture(db: AsyncSession, user: Utilisateur, capture_id: UUID) -> 
     if row is None:
         raise not_found("Capture introuvable", "CAPTURE_NOT_FOUND")
     await _assert_can_read(db, user, row[0])
-    return _to_read(
-        row[0], row[1], masquer_prix=user.role == RoleUtilisateur.chercheur
-    )
+    return _to_read(row[0], row[1], masquer_prix=user.role == RoleUtilisateur.chercheur)
 
 
 async def _get_capture_row(db: AsyncSession, capture_id: UUID) -> Capture:
@@ -288,6 +289,11 @@ async def update_capture(
     if "position_capture" in payload:
         point = payload.pop("position_capture")
         capture.position_capture = point_to_wkt(point) if point is not None else None
+        if point is None:
+            payload["origine_lieu"] = None
+    if capture.position_capture is None:
+        payload.pop("origine_lieu", None)
+        capture.origine_lieu = None
 
     especes_before = {capture.espece}
     for key, value in payload.items():

@@ -5,6 +5,25 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Lot 11 — sorties, lieu de pêche, zones favorables
+
+**Ce qui a été construit :**
+- Objet `Sortie` (déclaration / retour idempotents, une sortie en cours par embarcation)
+- Alerte `sortie_non_rentree` (une fois, tolérance paramétrée)
+- `GET /sorties/lieu-de-peche` : point le plus fréquenté hors ports
+- Champ `origine_lieu` (`gps` / `saisie` / `trace`) sur les captures
+- Score de secteur : écart SST 30 j, chlorophylle NOAA, jamais favorable en aire protégée
+- Application (SortieSheet + sync) et portail (SortiesPanel)
+- ADR-016 (Proposé), règles `sorties.json` / `zones_favorables.json`
+
+**Pourquoi :** étude localisation 2026-10-30 ; écart cahier §5.2 / §5.7 documenté en ADR
+
+**Tests réalisés :** `pytest app/tests/test_lot11_sorties.py app/tests/test_lot11_zones_favorables.py` → 20 passed
+
+**Points ouverts :** validation des seuils « Proposé » ; republier l'APK avec sync sorties ; déploiement migration
+
+---
+
 ## [2026-11-27] Portail affectation agents + LogAcces élargi
 
 **Ce qui a été construit :**
@@ -17,7 +36,7 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 **Tests réalisés :** pytest log_acces + agent_zones → 6 passed ; `npx tsc --noEmit` web OK
 
-**Points ouverts :** GFW_API_TOKEN Railway ; consultation live flotte (LogAcces) encore partielle
+**Points ouverts :** consultation live flotte (LogAcces) encore partielle ; GFW production OK (voir entrée suivante)
 
 ---
 
@@ -47,6 +66,20 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Tests réalisés :** `pytest app/tests/test_security_redblue.py` → 17 passed
 
 **Points ouverts :** vue agent par zone ; écriture GPS agent/autorité encore autorisée (ops MVP)
+
+---
+
+## [2026-11-27] GFW actif en local et en production (env seulement)
+
+**Ce qui a été construit :**
+- `GFW_ENABLED=true` et `GFW_API_TOKEN` posés sur Railway (`cbm-pigap`) et en local (hors git)
+- Vérification : `/api/v1/gfw/etat` actif avec jeton ; `/gfw/peche-apparente` HTTP 200 (~4158 h, période 2026-08-01 → 2026-11-01)
+
+**Pourquoi :** décision 5b du porteur ; ADR-011 (interrupteur env, jeton serveur)
+
+**Tests réalisés :** curl authentifié agent démo sur l'API de production
+
+**Points ouverts :** rotation des secrets exposés par un affichage CLI antérieur ; accord écrit éditeur GFW reste à la charge du porteur
 
 ---
 

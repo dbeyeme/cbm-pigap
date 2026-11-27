@@ -1,0 +1,46 @@
+{
+  "version": "2026-11-27",
+  "statut": "Proposé",
+  "valideurs": [
+    "Christian",
+    "expert halieutique"
+  ],
+  "note": "Indicateurs océanographiques du score de secteur favorable (lot 11, ADR-016). La fenêtre de température reprend les valeurs codées jusqu'ici dans meteo_marine ; les autres seuils sont des propositions à calibrer sur une saison avec l'expert halieutique. Modifier ce fichier change le résultat sans toucher au code.",
+  "temperature": {
+    "propice_min_c": 23.5,
+    "propice_max_c": 28.5,
+    "points_propice": 10,
+    "points_fraiche": 5,
+    "jours_reference": 30,
+    "refroidissement_min_c": 0.5,
+    "points_refroidissement": 10
+  },
+  "chlorophylle": {
+    "actif": true,
+    "jeu": "noaacwNPPN20S3ASCIDINEOFDaily",
+    "adresse": "https://coastwatch.noaa.gov/erddap/griddap",
+    "jours_reference": 30,
+    "riche_min_mg_m3": 1.0,
+    "points_riche": 10,
+    "enrichissement_min_ratio": 1.3,
+    "points_enrichissement": 5,
+    "delai_reponse_secondes": 40,
+    "cache_heures": 12
+  },
+  "aires_protegees": {
+    "jamais_favorable": true
+  },
+  "explications": {
+    "propice_min_c": "Bas de la plage de température de surface jugée propice aux espèces côtières (valeur reprise du code existant, non sourcée).",
+    "propice_max_c": "Haut de la même plage (valeur reprise du code existant, non sourcée).",
+    "points_fraiche": "Points donnés quand l'eau est plus fraîche que la plage propice : signe possible d'une remontée d'eaux riches (Mbang Essome et al., Ocean Science 2026 : remontée de mai à août, surface vers 20 °C).",
+    "jours_reference": "Nombre de jours de la moyenne de comparaison.",
+    "refroidissement_min_c": "Écart minimal sous la moyenne des jours de référence pour signaler un refroidissement récent. Proposé à 0,5 °C, à calibrer.",
+    "jeu": "Chlorophylle a quotidienne sans lacune, 9 km, VIIRS et OLCI, licence CC0-1.0, sans clé (vérifié le 2026-11-27).",
+    "riche_min_mg_m3": "Concentration à partir de laquelle le secteur est dit riche en plancton. Proposée à 1 mg/m³, à calibrer.",
+    "enrichissement_min_ratio": "Rapport minimal entre la dernière image et la moyenne des jours de référence pour signaler un enrichissement récent. Proposé à 1,3.",
+    "delai_reponse_secondes": "Au-delà, la chlorophylle est marquée indisponible et le bulletin part sans elle.",
+    "jamais_favorable": "Un secteur dont le centre est dans une zone réglementée active de type « protégée » n'est jamais présenté comme une opportunité de pêche.",
+    "cache_heures": "Durée de conservation de la dernière lecture de chlorophylle : l'image ne change qu'une fois par jour au plus, et la lecture de 31 images prend une dizaine de secondes."
+  }
+}

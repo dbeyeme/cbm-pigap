@@ -254,6 +254,71 @@ class Position(Base):
     embarcation: Mapped[Embarcation] = relationship(back_populates="positions")
 
 
+class Sortie(Base):
+    """Sortie en mer déclarée par le pêcheur (lot 11, ADR-016, statut Proposé).
+
+    Situe une embarcation même sans trace GPS : port ou point de départ, heure de
+    retour prévue, secteur visé. Une sortie sans retour est « en cours » ; au-delà de
+    l'heure prévue et de la tolérance du paramétrage `sorties.json`, « en retard ».
+    """
+
+    __tablename__ = "sorties"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Identifiant donné par le téléphone : un renvoi hors ligne complète la même sortie
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    pecheur_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pecheurs.id", ondelete="CASCADE"), nullable=False
+    )
+    embarcation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("embarcations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    declare_par_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    # Identifiant du référentiel des ports (`ports.json`), ou vide si départ hors port
+    port_depart_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    position_depart = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=False)
+    depart_a: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    retour_prevu_a: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    # Identifiant du référentiel des secteurs de mer (`secteurs_mer.json`), facultatif
+    secteur_vise: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    retour_a: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    port_retour_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    position_retour = mapped_column(Geometry(geometry_type="POINT", srid=4326), nullable=True)
+    # Rôle et compte de la personne qui a déclaré ou constaté le retour
+    retour_constate_par: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    retour_constate_par_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True
+    )
+    # Alerte « sortie non rentrée » émise pour cette sortie (une seule par sortie)
+    alerte_retard_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("alertes.id", ondelete="SET NULL"), nullable=True
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("pecheur_id", "client_id", name="uq_sorties_pecheur_client"),
+        # Une seule sortie en cours par embarcation
+        Index(
+            "uq_sorties_embarcation_en_cours",
+            "embarcation_id",
+            unique=True,
+            postgresql_where=text("retour_a IS NULL"),
+        ),
+    )
+
+    embarcation: Mapped[Embarcation] = relationship()
+    pecheur: Mapped[Pecheur] = relationship()
+
+
 class Appareil(Base):
     """Appareil rattaché à un compte pêcheur (ADR-012).
 

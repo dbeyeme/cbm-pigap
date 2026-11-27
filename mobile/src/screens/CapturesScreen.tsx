@@ -5,6 +5,7 @@ import {
   Embarcation,
   getCarnetDeclarations,
   getCourbesPrix,
+  getLieuDePeche,
   listTrackedEmbarcations,
   type CarnetRead,
   type CourbesPrixRead,
@@ -31,7 +32,8 @@ import {
   type Step,
 } from '../components/ui';
 import { isInGabonZone } from '../geo/gabonMaritimeRoutes';
-import { friendlyApiError } from '../lib/apiErrors';
+import { friendlyApiError, isNetworkError } from '../lib/apiErrors';
+import { newClientId } from '../lib/clientId';
 import {
   formatCoordonnees,
   formatDateHeure,
@@ -64,6 +66,7 @@ import {
   enqueueCapture,
   listCachedEmbarcations,
   listLocalCaptures,
+  type OrigineLieu,
 } from '../offline/db';
 import { subscribeSync, syncAll, syncQuietly } from '../offline/sync';
 import { PHOTOS } from '../photos';
@@ -99,11 +102,25 @@ const GROUPES: ReadonlyArray<GroupeEspece> = ['pelagique', 'demersal', 'crustace
 /** Lieu de pêche joint à la déclaration. */
 type Lieu = {
   position: [number, number];
-  /** `gps` : relevé par le téléphone ; `saisie` : coordonnées tapées par le pêcheur. */
-  origine: 'gps' | 'saisie';
+  /**
+   * `gps` : relevé par le téléphone ; `saisie` : coordonnées tapées par le
+   * pêcheur ; `trace` : point de pêche proposé depuis la trace de la sortie.
+   */
+  origine: OrigineLieu;
   releveA: string;
   precisionM: number | null;
+  /** Point proposé : temps passé par le bateau autour de ce point. */
+  dureeMinutes?: number | null;
 };
+
+/** « 2 h 15 », « 40 min » */
+function dureeLisible(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return `${m}\u00a0min`;
+  const h = Math.floor(m / 60);
+  const reste = m % 60;
+  return reste ? `${h}\u00a0h\u00a0${String(reste).padStart(2, '0')}` : `${h}\u00a0h`;
+}
 
 type LieuEtat = 'vide' | 'recherche' | 'pret';
 
@@ -118,20 +135,10 @@ const HELP_CAPTURES: ReadonlyArray<InfoPoint> = [
 const HELP_LIEU: ReadonlyArray<InfoPoint> = [
   { icon: 'locate-outline', text: 'Le téléphone relève sa position au moment où vous déclarez.' },
   { icon: 'create-outline', text: 'Vous déclarez au port ? Saisissez les coordonnées du lieu de pêche, ou retirez le lieu.' },
+  { icon: 'mci:map-marker-path', text: 'Le point de pêche de la sortie reprend l’endroit où le bateau est resté le plus longtemps, d’après son suivi GPS.' },
   { icon: 'map-outline', text: 'Ce lieu sert aux cartes d’activité par zone des services des pêches.' },
   { icon: 'hand-left-outline', text: 'Rien n’est joint sans que vous le voyiez ici.' },
 ];
-
-function newClientId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
 
 function asBoats(cached: CachedEmbarcation[]): Embarcation[] {
   return cached.map((b) => ({
@@ -178,6 +185,8 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
   const [lieuEtat, setLieuEtat] = useState<LieuEtat>('vide');
   const [lieuNote, setLieuNote] = useState<string | null>(null);
   const [lieuRetire, setLieuRetire] = useState(false);
+  /** La recherche en cours vise le point de pêche de la sortie, pas la position du téléphone. */
+  const [rechercheTrace, setRechercheTrace] = useState(false);
   const [explainLocation, setExplainLocation] = useState(false);
   const [editing, setEditing] = useState(false);
   const [latText, setLatText] = useState('');
@@ -369,6 +378,52 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- déclenché par l'arrivée sur l'étape
   }, [view, step]);
 
+  /** Propose le point où le bateau est resté le plus longtemps pendant la sortie. */
+  async function proposeLieuSortie() {
+    if (!selectedBoat) return;
+    const avant = dateEdited
+      ? new Date(dateCapture.includes('T') ? dateCapture : `${dateCapture}T00:00`)
+      : new Date();
+    const avantIso = Number.isNaN(avant.getTime()) ? new Date().toISOString() : avant.toISOString();
+    const avait = lieu;
+    setRechercheTrace(true);
+    setLieuEtat('recherche');
+    setLieuNote(null);
+    setEditing(false);
+    try {
+      const reponse = await getLieuDePeche(token, selectedBoat.id, avantIso);
+      if (reponse.disponible && reponse.position) {
+        const [lon, lat] = reponse.position.coordinates;
+        setLieu({
+          position: [lon, lat],
+          origine: 'trace',
+          releveA: reponse.fin ?? reponse.debut ?? avantIso,
+          precisionM: null,
+          dureeMinutes: reponse.duree_minutes,
+        });
+        setLieuRetire(false);
+        setLieuEtat('pret');
+      } else {
+        setLieuEtat(avait ? 'pret' : 'vide');
+        setLieuNote(reponse.motif || 'Aucun point de pêche n’est disponible pour cette sortie.');
+      }
+    } catch (err) {
+      setLieuEtat(avait ? 'pret' : 'vide');
+      setLieuNote(
+        isNetworkError(err)
+          ? 'Pas de réseau : le point de pêche de la sortie n’est pas disponible. Utilisez votre position ou saisissez les coordonnées.'
+          : friendlyApiError(err),
+      );
+    } finally {
+      setRechercheTrace(false);
+    }
+  }
+
+  // Le point proposé vaut pour un bateau : changer de bateau le retire
+  useEffect(() => {
+    setLieu((prev) => (prev?.origine === 'trace' ? null : prev));
+  }, [boatId]);
+
   function openEditor() {
     setLieuNote(null);
     if (lieu) {
@@ -488,6 +543,7 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
         date_capture: parsedDate.toISOString(),
         prix_fcfa_kg,
         position: lieu ? lieu.position : null,
+        origine_lieu: lieu ? lieu.origine : null,
       });
       setPrixKg('');
       await refresh();
@@ -681,7 +737,9 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
                   {lieuEtat === 'recherche' ? (
                     <View style={styles.lieuCard}>
                       <ActivityIndicator color={colors.tide} />
-                      <Text style={styles.lieuTitle}>Recherche de votre position…</Text>
+                      <Text style={styles.lieuTitle}>
+                        {rechercheTrace ? 'Recherche du point de pêche…' : 'Recherche de votre position…'}
+                      </Text>
                     </View>
                   ) : lieu ? (
                     <View style={styles.lieuCard}>
@@ -690,13 +748,20 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
                         <Text style={styles.lieuTitle}>
                           {lieu.origine === 'gps'
                             ? `Position relevée à ${formatHeure(lieu.releveA)}`
-                            : 'Coordonnées saisies'}
+                            : lieu.origine === 'trace'
+                              ? 'Point de pêche de la sortie'
+                              : 'Coordonnées saisies'}
                         </Text>
                         <Text style={styles.lieuCoords} selectable>
                           {formatCoordonnees(lieu.position[0], lieu.position[1])}
                         </Text>
                         {lieu.precisionM != null ? (
                           <Text style={styles.lieuMeta}>Précision : environ {lieu.precisionM} m</Text>
+                        ) : null}
+                        {lieu.origine === 'trace' && lieu.dureeMinutes ? (
+                          <Text style={styles.lieuMeta}>
+                            Bateau resté environ {dureeLisible(lieu.dureeMinutes)} autour de ce point
+                          </Text>
                         ) : null}
                       </View>
                     </View>
@@ -780,6 +845,14 @@ export function CapturesScreen({ token, user, mode = 'agent', onBack }: Props) {
                         variant="ghost"
                         onPress={() => void askLocation()}
                       />
+                      {selectedBoat && lieu?.origine !== 'trace' ? (
+                        <GlowButton
+                          label="Point de pêche de la sortie"
+                          icon="git-commit-outline"
+                          variant="ghost"
+                          onPress={() => void proposeLieuSortie()}
+                        />
+                      ) : null}
                       <GlowButton
                         label={lieu ? 'Corriger les coordonnées' : 'Saisir les coordonnées'}
                         icon="create-outline"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -24,6 +25,10 @@ def methodes_valides() -> tuple[str, ...]:
     ref = referentiels.load_referentiels()
     return tuple(e["code"] for e in referentiels.engins()) + tuple(ref.get("engins_generiques", []))
 
+
+# Origine du lieu de pêche (demande S7, ADR-016) : relevé du téléphone, coordonnées
+# saisies, ou point proposé depuis la trace de la sortie
+OrigineLieu = Literal["gps", "saisie", "trace"]
 
 ESPECES_MVP = especes_valides()
 METHODES_MVP = methodes_valides()
@@ -60,6 +65,9 @@ class CaptureCreate(BaseModel):
     quantite_kg: float = Field(..., gt=0)
     methode: str = Field(..., min_length=1, max_length=128)
     position_capture: PointGeoJSON | None = None
+    origine_lieu: OrigineLieu | None = Field(
+        None, description="Origine du lieu de pêche : gps, saisie ou trace ; ignorée sans lieu"
+    )
     point_debarquement: str = Field(..., min_length=1, max_length=255)
     date_capture: datetime
     prix_fcfa_kg: int | None = Field(
@@ -98,6 +106,7 @@ class CaptureUpdate(BaseModel):
     quantite_kg: float | None = Field(None, gt=0)
     methode: str | None = Field(None, min_length=1, max_length=128)
     position_capture: PointGeoJSON | None = None
+    origine_lieu: OrigineLieu | None = None
     point_debarquement: str | None = Field(None, min_length=1, max_length=255)
     date_capture: datetime | None = None
     prix_fcfa_kg: int | None = Field(
@@ -133,6 +142,7 @@ class CaptureRead(OrmModel):
     quantite_kg: float
     methode: str | None
     position_capture: PointGeoJSON | None
+    origine_lieu: str | None = None
     point_debarquement: str | None
     date_capture: datetime
     prix_fcfa_kg: int | None = None

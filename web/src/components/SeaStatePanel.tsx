@@ -36,6 +36,25 @@ function fmtTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
+const nf1 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** −1,2 → « 1,2 °C sous la moyenne des 30 jours » ; écart nul ou absent : rien. */
+function libelleEcart(ecart: number | null | undefined): string | null {
+  if (ecart == null || !Number.isFinite(ecart)) return null;
+  if (Math.abs(ecart) < 0.05) return 'Conforme à la moyenne des 30 jours';
+  return `${nf1.format(Math.abs(ecart))} °C ${ecart < 0 ? 'sous' : 'au-dessus de'} la moyenne des 30 jours`;
+}
+
+/** « 2026-11-05 » → « 5 novembre » (année ajoutée si elle diffère de l'année en cours). */
+function dateImage(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const memeAnnee = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('fr-FR', memeAnnee ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 function shortName(nom: string): string {
   return nom.split(' (')[0].split(' et ')[0];
 }
@@ -124,8 +143,18 @@ export default function SeaStatePanel({ bulletin, loading, onRefresh, onLocate }
         <article className={`sea-card sea-card--${current.risque.niveau_pirogue}`}>
           <header>
             <strong>{current.nom}</strong>
-            <span className={`sea-badge sea-badge--${current.opportunite.classe}`}>
-              {CLASSE_LABELS[current.opportunite.classe] ?? current.opportunite.classe}
+            <span className="sea-badges">
+              {current.opportunite.aire_protegee ? (
+                <span
+                  className="sea-badge sea-badge--protegee"
+                  title="Le secteur se trouve dans une aire protégée : il n’est jamais présenté comme favorable."
+                >
+                  Aire protégée
+                </span>
+              ) : null}
+              <span className={`sea-badge sea-badge--${current.opportunite.classe}`}>
+                {CLASSE_LABELS[current.opportunite.classe] ?? current.opportunite.classe}
+              </span>
             </span>
           </header>
           <p className="sea-conseil">{current.conseil}</p>
@@ -192,8 +221,34 @@ export default function SeaStatePanel({ bulletin, loading, onRefresh, onLocate }
                   ? `${current.conditions.temperature_mer_c.toFixed(1)} °C`
                   : '—'}
                 {current.conditions.visibilite_km != null ? ` · visibilité ${current.conditions.visibilite_km} km` : ''}
+                {libelleEcart(current.opportunite.ecart_temperature_c) ? (
+                  <span className="sea-dd-note">{libelleEcart(current.opportunite.ecart_temperature_c)}</span>
+                ) : null}
               </dd>
             </div>
+            {current.opportunite.chlorophylle_mg_m3 != null ? (
+              <div>
+                <dt>
+                  Chlorophylle
+                  <HelpTip title="Chlorophylle" side="right">
+                    Concentration de phytoplancton en surface, mesurée par satellite. Une valeur
+                    supérieure à la moyenne des trente jours signale une eau plus riche, souvent
+                    favorable aux poissons. L’image date de quelques semaines : sa date est indiquée.
+                  </HelpTip>
+                </dt>
+                <dd>
+                  {nf2.format(current.opportunite.chlorophylle_mg_m3)} mg/m³
+                  {current.opportunite.chlorophylle_moyenne_30j_mg_m3 != null
+                    ? ` · moyenne 30 jours ${nf2.format(current.opportunite.chlorophylle_moyenne_30j_mg_m3)}`
+                    : ''}
+                  {dateImage(current.opportunite.chlorophylle_date) ? (
+                    <span className="sea-dd-note">
+                      image satellite du {dateImage(current.opportunite.chlorophylle_date)}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt>
                 Activité

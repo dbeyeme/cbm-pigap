@@ -10,6 +10,7 @@ import {
   listCaptures,
   listEmbarcations,
   listPecheurs,
+  ORIGINE_LIEU_LIBELLES,
   Pecheur,
   updateCapture,
 } from '../api';
@@ -31,6 +32,15 @@ function toLocalDatetimeValue(iso: string): string {
 
 function fromLocalDatetimeValue(local: string): string {
   return new Date(local).toISOString();
+}
+
+/** Coordonnées lisibles pour l'infobulle du lieu de pêche. */
+function coordonnees(c: CaptureRead): string | undefined {
+  const pos = c.position_capture?.coordinates;
+  if (!pos) return undefined;
+  const [lon, lat] = pos;
+  const f = (v: number) => Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 4 });
+  return `${f(lat)}° ${lat >= 0 ? 'N' : 'S'}, ${f(lon)}° ${lon >= 0 ? 'E' : 'O'}`;
 }
 
 const GROUPES_ORDER = ['pelagique', 'demersal', 'crustace', 'autre'];
@@ -433,6 +443,7 @@ export default function CapturesPage({ token, onError }: Props) {
                   <th scope="col">Quantité</th>
                   <th scope="col">Prix</th>
                   <th scope="col">Pêcheur</th>
+                  <th scope="col">Lieu de pêche</th>
                   <th scope="col">Date</th>
                   <th scope="col">Actions</th>
                 </tr>
@@ -448,6 +459,13 @@ export default function CapturesPage({ token, onError }: Props) {
                         : '—'}
                     </td>
                     <td data-label="Pêcheur">{pecheurLabel(c.pecheur_id)}</td>
+                    <td data-label="Lieu de pêche" title={coordonnees(c)}>
+                      {c.origine_lieu && ORIGINE_LIEU_LIBELLES[c.origine_lieu]
+                        ? ORIGINE_LIEU_LIBELLES[c.origine_lieu]
+                        : c.position_capture
+                          ? 'Renseigné'
+                          : null}
+                    </td>
                     <td
                       data-label="Date"
                       title={new Date(c.date_capture).toLocaleString('fr-FR')}

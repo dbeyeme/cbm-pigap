@@ -2,7 +2,7 @@
   "expo": {
     "name": "CBM-PIGAP",
     "slug": "cbm-pigap",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -22,7 +22,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.kimbaconnect.cbmpigap",
-      "versionCode": 4,
+      "versionCode": 5,
       "allowBackup": false,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS"

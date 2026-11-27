@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -51,6 +51,17 @@ class OpportuniteSecteur(BaseModel):
         None, description="Taux de consommation max des quotas du secteur"
     )
     especes_sous_pression: list[str] = Field(default_factory=list)
+    # Indicateurs océanographiques (lot 11, ADR-016), vides quand la source manque
+    temperature_moyenne_30j_c: float | None = Field(
+        None, description="Moyenne de la température de surface des jours de référence"
+    )
+    ecart_temperature_c: float | None = Field(
+        None, description="Température du jour moins la moyenne de référence"
+    )
+    chlorophylle_mg_m3: float | None = Field(None, description="Médiane du secteur, dernière image")
+    chlorophylle_moyenne_30j_mg_m3: float | None = None
+    chlorophylle_date: date | None = Field(None, description="Date de la dernière image")
+    aire_protegee: bool = False
 
 
 class SecteurBulletin(BaseModel):

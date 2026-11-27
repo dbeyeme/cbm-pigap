@@ -10,12 +10,12 @@
 | **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
-| **Branche active** | `main` |
+| **Branche active** | `feature/lot-11-sorties-zones-favorables` (PR) · `main` à jour hors lot 11 |
 | **Dernière mise à jour** | 2026-11-27 |
-| **Prochain jalon** | GFW env (local + production) → APK → Phase 3 terrain → commit / publier / déployer |
-| **Bloqueurs** | `GFW_API_TOKEN` absent sur Railway (`cbm-pigap`) : à poser avant `GFW_ENABLED=true` |
-| **Chantier en cours** | Lots 7 et 8 livrés en code (ADR-014, ADR-015) ; GFW à activer via variables d'environnement seulement. |
-| **Note récente** | 2026-11-27 : UI affectation zones agents + LogAcces (login, dossier, trajectoire, alertes) |
+| **Prochain jalon** | Fusion PR lot 11 + sécurité → APK → Phase 3 terrain |
+| **Bloqueurs** | Aucun (GFW production vérifié) |
+| **Chantier en cours** | Lot 11 livré en code (tests 20 passed) ; règles ADR-016 encore « Proposé ». |
+| **Note récente** | 2026-11-27 : sorties / lieu-de-peche / zones favorables + durcissement sécurité sur la même PR |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -81,6 +81,7 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 - ~~Lot 8~~ : ADR-015 accepté (admin seul ; désactivation masque l'historique)
 - Lot 9 (alertes) : liste des états de traitement, à décider (questions posées le 2026-11-25)
 - Lot 10, un appareil, un seul compte pêcheur (ADR-012) : règle R1 décidée le 2026-11-25 ; règles R2 à R6 « Proposé » ; mise en service après fixation de la clé de signature de l'application
+- Lot 11 (ADR-016) : sorties, lieu de pêche, zones favorables — livré en code ; seuils « Proposé » à valider (Christian / expert / DGPA)
 - Décidé le 2026-11-24 : commandes sans paiement en ligne (réservation gratuite indiquant le montant prévu), page de profil visible des comptes connectés et ouvrable au public par l'acteur, bannières du portail conservées · restent « Proposé » : informations d'inscription à ajouter, espèces du profil tirées des captures
 
 ## Comment mettre à jour

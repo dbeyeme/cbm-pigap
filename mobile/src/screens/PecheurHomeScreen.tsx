@@ -16,8 +16,15 @@ import {
   PhotoBanner,
   type InfoPoint,
 } from '../components/ui';
-import { formatHeure, pluriel } from '../lib/format';
-import { countByStatus, countPendingPositions } from '../offline/db';
+import { formatHeure, formatMoment, pluriel } from '../lib/format';
+import { retourDepasse } from '../lib/sorties';
+import {
+  countByStatus,
+  countPendingPositions,
+  countPendingSorties,
+  currentSortie,
+  type LocalSortie,
+} from '../offline/db';
 import { subscribeSync } from '../offline/sync';
 import { PHOTOS } from '../photos';
 import { readTrackingState, TRACKING_IDLE, type TrackingState } from '../tracking/state';
@@ -80,7 +87,8 @@ export function PecheurHomeScreen({
   const first = userName.trim().split(/\s+/)[0] || '';
   const [avis, setAvis] = useState<AvisMer | null>(null);
   const [tracking, setTracking] = useState<TrackingState>(TRACKING_IDLE);
-  const [pending, setPending] = useState({ captures: 0, positions: 0 });
+  const [pending, setPending] = useState({ captures: 0, positions: 0, sorties: 0 });
+  const [sortie, setSortie] = useState<LocalSortie | null>(null);
   /** Première connexion sur ce téléphone : le pêcheur est informé du rattachement. */
   const [attachmentInfo, setAttachmentInfo] = useState(false);
 
@@ -111,13 +119,16 @@ export function PecheurHomeScreen({
   /** État du suivi et saisies en attente : lus sur le téléphone, sans réseau. */
   const refreshLocal = useCallback(async () => {
     try {
-      const [state, captures, positions] = await Promise.all([
+      const [state, captures, positions, sorties, enCours] = await Promise.all([
         readTrackingState(),
         countByStatus(userId),
         countPendingPositions(userId),
+        countPendingSorties(userId),
+        currentSortie(userId),
       ]);
       setTracking(state);
-      setPending({ captures: captures.pending, positions });
+      setPending({ captures: captures.pending, positions, sorties });
+      setSortie(enCours);
     } catch {
       // stockage local indisponible : l'accueil reste utilisable
     }
@@ -134,7 +145,8 @@ export function PecheurHomeScreen({
   }, [refreshLocal]);
 
   const trackingMine = tracking.actif && tracking.utilisateurId === userId;
-  const waiting = pending.captures + pending.positions;
+  const waiting = pending.captures + pending.positions + pending.sorties;
+  const sortieEnRetard = sortie ? retourDepasse(sortie.retour_prevu_a) : false;
 
   return (
     <View style={styles.root}>
@@ -188,6 +200,25 @@ export function PecheurHomeScreen({
             meta="Touchez pour ouvrir le suivi et le redémarrer si vous êtes encore en mer."
             onPress={onTracking}
             style={styles.interruptedRow}
+          />
+        ) : null}
+
+        {sortie ? (
+          <ListRow
+            icon={sortieEnRetard ? 'alarm-outline' : 'fa6:sailboat'}
+            tone={sortieEnRetard ? 'warn' : 'ok'}
+            title={
+              sortieEnRetard
+                ? 'Heure de retour dépassée'
+                : `Retour prévu ${formatMoment(sortie.retour_prevu_a)}`
+            }
+            meta={
+              sortieEnRetard
+                ? 'Touchez pour déclarer votre retour dès que vous êtes à terre.'
+                : `${sortie.embarcation_nom ?? 'Votre bateau'} · en mer`
+            }
+            onPress={onTracking}
+            style={sortieEnRetard ? styles.interruptedRow : styles.trackingRow}
           />
         ) : null}
 

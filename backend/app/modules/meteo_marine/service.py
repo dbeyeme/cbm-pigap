@@ -36,6 +36,13 @@ from app.core.config import settings
 from app.core.datafiles import data_path
 from app.db.enums import NiveauGravite, TypeAlerte
 from app.db.models import Capture, Quota, ZoneReglementee
+from app.modules.meteo_marine.oceano import (
+    Chlorophylle,
+    RegleZonesFavorables,
+    fetch_chlorophylle,
+    fetch_temperature_reference,
+    regle_zones_favorables,
+)
 from app.modules.meteo_marine.schemas import (
     AvisMer,
     BulletinMeteoMarine,
@@ -308,9 +315,28 @@ def evaluer_opportunite(
     quota_max_taux: float | None,
     especes_pression: list[str],
     zone_interdite: bool,
+    aire_protegee: bool = False,
+    temperature_reference_c: float | None = None,
+    chlorophylle: Chlorophylle | None = None,
+    regle: RegleZonesFavorables | None = None,
 ) -> OpportuniteSecteur:
+    regle = regle or regle_zones_favorables()
+    rt, rc = regle.temperature, regle.chlorophylle
     motifs: list[str] = []
     score = 50
+    ecart = (
+        round(c.temperature_mer_c - temperature_reference_c, 2)
+        if c.temperature_mer_c is not None and temperature_reference_c is not None
+        else None
+    )
+    indicateurs: dict[str, Any] = {
+        "temperature_moyenne_30j_c": temperature_reference_c,
+        "ecart_temperature_c": ecart,
+        "chlorophylle_mg_m3": chlorophylle.valeur_mg_m3 if chlorophylle else None,
+        "chlorophylle_moyenne_30j_mg_m3": chlorophylle.moyenne_mg_m3 if chlorophylle else None,
+        "chlorophylle_date": chlorophylle.date_image if chlorophylle else None,
+        "aire_protegee": aire_protegee,
+    }
     if zone_interdite:
         return OpportuniteSecteur(
             score=0,
@@ -320,6 +346,7 @@ def evaluer_opportunite(
             sorties_30j=sorties,
             quota_max_taux=quota_max_taux,
             especes_sous_pression=especes_pression,
+            **indicateurs,
         )
     if risque.niveau_pirogue == "rouge":
         return OpportuniteSecteur(
@@ -331,6 +358,7 @@ def evaluer_opportunite(
             sorties_30j=sorties,
             quota_max_taux=quota_max_taux,
             especes_sous_pression=especes_pression,
+            **indicateurs,
         )
     if quota_max_taux is not None and quota_max_taux >= settings.meteo_quota_surexploitation:
         motifs.append(
@@ -345,6 +373,7 @@ def evaluer_opportunite(
             sorties_30j=sorties,
             quota_max_taux=quota_max_taux,
             especes_sous_pression=especes_pression,
+            **indicateurs,
         )
     if risque.niveau_pirogue == "orange":
         score -= 20
@@ -353,15 +382,38 @@ def evaluer_opportunite(
         score += 15
         motifs.append("Mer praticable pour les pirogues")
     if c.temperature_mer_c is not None:
-        if 23.5 <= c.temperature_mer_c <= 28.5:
-            score += 10
+        if rt.propice_min_c <= c.temperature_mer_c <= rt.propice_max_c:
+            score += rt.points_propice
             motifs.append(
                 f"Température de surface {c.temperature_mer_c:.1f} °C, propice aux espèces côtières"
             )
-        elif c.temperature_mer_c < 23.5:
-            score += 5
+        elif c.temperature_mer_c < rt.propice_min_c:
+            score += rt.points_fraiche
             motifs.append(
                 f"Eaux fraîches ({c.temperature_mer_c:.1f} °C) : remontée d'eaux riches possible"
+            )
+    if ecart is not None and ecart <= -rt.refroidissement_min_c:
+        score += rt.points_refroidissement
+        motifs.append(
+            f"Eau de surface {abs(ecart):.1f} °C sous sa moyenne des {rt.jours_reference} "
+            "derniers jours : remontée d'eaux riches probable"
+        )
+    if chlorophylle is not None:
+        date_image = chlorophylle.date_image.strftime("%d/%m")
+        if chlorophylle.valeur_mg_m3 >= rc.riche_min_mg_m3:
+            score += rc.points_riche
+            motifs.append(
+                f"Eaux riches en plancton ({chlorophylle.valeur_mg_m3:.1f} mg/m³ de "
+                f"chlorophylle, image du {date_image})"
+            )
+        if (
+            chlorophylle.moyenne_mg_m3
+            and chlorophylle.valeur_mg_m3
+            >= chlorophylle.moyenne_mg_m3 * rc.enrichissement_min_ratio
+        ):
+            score += rc.points_enrichissement
+            motifs.append(
+                f"Plancton en hausse par rapport aux semaines précédentes (image du {date_image})"
             )
     if mediane_kg > 0 and captures_kg >= mediane_kg * 1.3:
         score += 15
@@ -384,6 +436,13 @@ def evaluer_opportunite(
         classe = "prudence"
     else:
         classe = "neutre"
+    if aire_protegee and regle.aires_protegees.jamais_favorable:
+        motifs.append(
+            "Aire protégée : secteur jamais proposé comme zone de pêche, "
+            "réglementation de l'aire à respecter"
+        )
+        if classe == "favorable":
+            classe = "neutre"
     return OpportuniteSecteur(
         score=score,
         classe=classe,
@@ -392,6 +451,7 @@ def evaluer_opportunite(
         sorties_30j=sorties,
         quota_max_taux=quota_max_taux,
         especes_sous_pression=especes_pression,
+        **indicateurs,
     )
 
 
@@ -494,7 +554,14 @@ async def _contexte_pigap(db: AsyncSession, secteurs: list[dict]) -> dict[str, d
     """Captures 30 j, quotas et zones interdites par secteur (une requête par type)."""
     since = datetime.now(UTC) - timedelta(days=30)
     out: dict[str, dict[str, Any]] = {
-        s["id"]: {"kg": 0.0, "sorties": 0, "quota_max": None, "especes": [], "interdite": False}
+        s["id"]: {
+            "kg": 0.0,
+            "sorties": 0,
+            "quota_max": None,
+            "especes": [],
+            "interdite": False,
+            "protegee": False,
+        }
         for s in secteurs
     }
     today = datetime.now(UTC).date()
@@ -526,6 +593,8 @@ async def _contexte_pigap(db: AsyncSession, secteurs: list[dict]) -> dict[str, d
                     continue
                 if z.type.value == "interdite":
                     out[s["id"]]["interdite"] = True
+                if z.type.value == "protegee":
+                    out[s["id"]]["protegee"] = True
             zone_ids = [z.id for z in zone_rows]
             if zone_ids:
                 quotas = await db.execute(
@@ -592,6 +661,22 @@ async def build_bulletin(db: AsyncSession | None, *, force: bool = False) -> Bul
             _cache, _cache_at = bulletin, now
             return bulletin
 
+        regle_zf = regle_zones_favorables()
+        points = [(s["lon"], s["lat"]) for s in secteurs_ref]
+        reference, chloro = await asyncio.gather(
+            fetch_temperature_reference(points, regle_zf.temperature.jours_reference, now),
+            fetch_chlorophylle(secteurs_ref, regle_zf.chlorophylle, now),
+            return_exceptions=True,
+        )
+        if isinstance(reference, BaseException):
+            logger.warning("meteo_temperature_reference_failed", error=str(reference))
+            reference = []
+            note_parts.append("moyenne de température indisponible")
+        if isinstance(chloro, BaseException):
+            logger.warning("meteo_chlorophylle_failed", error=type(chloro).__name__)
+            chloro = {}
+            note_parts.append("chlorophylle indisponible")
+
         try:
             flood_list = _as_list(await fetch_flood([(f["lon"], f["lat"]) for f in fleuves_ref]))
         except Exception as exc:  # noqa: BLE001
@@ -609,6 +694,7 @@ async def build_bulletin(db: AsyncSession | None, *, force: bool = False) -> Bul
                     "quota_max": None,
                     "especes": [],
                     "interdite": False,
+                    "protegee": False,
                 }
                 for s in secteurs_ref
             }
@@ -632,6 +718,10 @@ async def build_bulletin(db: AsyncSession | None, *, force: bool = False) -> Bul
                 quota_max_taux=ctx["quota_max"],
                 especes_pression=ctx["especes"],
                 zone_interdite=ctx["interdite"],
+                aire_protegee=ctx.get("protegee", False),
+                temperature_reference_c=reference[idx] if idx < len(reference) else None,
+                chlorophylle=chloro.get(s["id"]),
+                regle=regle_zf,
             )
             secteurs.append(
                 SecteurBulletin(

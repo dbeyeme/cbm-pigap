@@ -566,6 +566,10 @@ export type CaptureRead = {
   espece: string;
   quantite_kg: number;
   methode: string | null;
+  /** Lieu de pêche déclaré, ou null. */
+  position_capture?: { type: 'Point'; coordinates: [number, number] } | null;
+  /** Provenance du lieu de pêche (lot 11). */
+  origine_lieu?: OrigineLieu | null;
   point_debarquement: string | null;
   date_capture: string;
   prix_fcfa_kg?: number | null;
@@ -574,6 +578,15 @@ export type CaptureRead = {
   taxe_taux_kg?: number | null;
   taxe_statut?: string | null;
   quittance_id?: string | null;
+};
+
+/** `gps` : position du téléphone ; `saisie` : coordonnées tapées ; `trace` : point proposé depuis la sortie. */
+export type OrigineLieu = 'gps' | 'saisie' | 'trace';
+
+export const ORIGINE_LIEU_LIBELLES: Record<OrigineLieu, string> = {
+  gps: 'Position du téléphone',
+  saisie: 'Coordonnées saisies',
+  trace: 'Point de la sortie',
 };
 
 export type EspeceCatalogItem = {
@@ -602,6 +615,8 @@ export type CaptureCreate = {
   point_debarquement: string;
   date_capture: string;
   prix_fcfa_kg?: number | null;
+  position_capture?: { type: 'Point'; coordinates: [number, number] } | null;
+  origine_lieu?: OrigineLieu | null;
   id?: string;
 };
 
@@ -614,6 +629,8 @@ export type CaptureUpdate = {
   point_debarquement?: string;
   date_capture?: string;
   prix_fcfa_kg?: number | null;
+  position_capture?: { type: 'Point'; coordinates: [number, number] } | null;
+  origine_lieu?: OrigineLieu | null;
 };
 
 export function getCapturesCatalog(token: string) {
@@ -1653,9 +1670,20 @@ export type SecteurBulletin = {
     sorties_30j: number;
     quota_max_taux: number | null;
     especes_sous_pression: string[];
+    /** Indicateurs océanographiques facultatifs (lot 11) : absents si la source est indisponible. */
+    temperature_moyenne_30j_c?: number | null;
+    /** Température du jour moins la moyenne des 30 jours : négatif = eau plus froide. */
+    ecart_temperature_c?: number | null;
+    chlorophylle_mg_m3?: number | null;
+    chlorophylle_moyenne_30j_mg_m3?: number | null;
+    /** Date de l'image satellite de chlorophylle (AAAA-MM-JJ). */
+    chlorophylle_date?: string | null;
+    aire_protegee?: boolean | null;
   };
   conseil: string;
 };
+
+export type OpportuniteSecteur = SecteurBulletin['opportunite'];
 
 export type FleuveBulletin = {
   id: string;
@@ -2656,4 +2684,134 @@ export function putAgentZones(token: string, utilisateurId: string, codes: strin
     method: 'PUT',
     body: JSON.stringify({ codes }),
   });
+}
+
+/* Sorties en mer (lot 11, ADR-016) */
+
+export type PointGeo = { type: 'Point'; coordinates: [number, number] };
+
+export type SortieStatut = 'en_cours' | 'en_retard' | 'terminee';
+
+export type SortieRead = {
+  id: string;
+  client_id: string;
+  embarcation_id: string;
+  embarcation_nom: string;
+  immatriculation: string;
+  pecheur_id: string;
+  pecheur_nom: string;
+  port_depart_id: string | null;
+  port_depart_nom: string | null;
+  position_depart: PointGeo | null;
+  depart_a: string;
+  retour_prevu_a: string;
+  secteur_vise: string | null;
+  secteur_vise_nom: string | null;
+  retour_a: string | null;
+  port_retour_id: string | null;
+  port_retour_nom: string | null;
+  position_retour: PointGeo | null;
+  statut: SortieStatut;
+  /** Minutes au-delà de l'heure de retour prévue, 0 sinon. */
+  retard_minutes: number;
+  alerte_emise: boolean;
+  retour_constate_par: 'pecheur' | 'agent_controle' | 'admin' | null;
+  derniere_position: PointGeo | null;
+  derniere_position_a: string | null;
+};
+
+export type SortieRetour = {
+  retour_a?: string | null;
+  port_retour_id?: string | null;
+  position_retour?: PointGeo | null;
+};
+
+export type LieuDePecheRegle = { version: string; statut: string; valideurs: string[] };
+
+export type LieuDePecheProposition = {
+  disponible: boolean;
+  position: PointGeo | null;
+  debut: string;
+  fin: string;
+  releves: number;
+  duree_minutes: number;
+  motif: string;
+  regle: LieuDePecheRegle;
+};
+
+/** Erreur du serveur qui conserve le code métier (`SORTIE_DEJA_TERMINEE`, etc.). */
+export class ErreurApi extends Error {
+  status: number;
+  code: string | null;
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message);
+    this.name = 'ErreurApi';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function requestAvecCode<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let code: string | null = null;
+    try {
+      const j = JSON.parse(text) as { code?: unknown };
+      if (typeof j.code === 'string') code = j.code;
+    } catch {
+      /* corps non JSON */
+    }
+    throw new ErreurApi(parseApiError(text), res.status, code);
+  }
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+export function listSorties(
+  token: string,
+  filtre: {
+    statut?: SortieStatut;
+    embarcation_id?: string;
+    depuis?: string;
+    jusqu_a?: string;
+    limit?: number;
+  } = {},
+) {
+  const params = new URLSearchParams();
+  if (filtre.statut) params.set('statut', filtre.statut);
+  if (filtre.embarcation_id) params.set('embarcation_id', filtre.embarcation_id);
+  if (filtre.depuis) params.set('depuis', filtre.depuis);
+  if (filtre.jusqu_a) params.set('jusqu_a', filtre.jusqu_a);
+  params.set('limit', String(filtre.limit ?? 100));
+  return requestAvecCode<SortieRead[]>(`/api/v1/sorties?${params}`, token);
+}
+
+export function getSortie(token: string, id: string) {
+  return requestAvecCode<SortieRead>(`/api/v1/sorties/${encodeURIComponent(id)}`, token);
+}
+
+/** Retour constaté par un agent de contrôle ou un administrateur ; `retour_a` vide vaut maintenant. */
+export function constaterRetourSortie(token: string, id: string, data: SortieRetour) {
+  return requestAvecCode<SortieRead>(`/api/v1/sorties/${encodeURIComponent(id)}/retour`, token, {
+    method: 'POST',
+    body: JSON.stringify({
+      retour_a: data.retour_a ?? null,
+      port_retour_id: data.port_retour_id ?? null,
+      position_retour: data.position_retour ?? null,
+    }),
+  });
+}
+
+export function getLieuDePechePropose(token: string, embarcationId: string, avant?: string) {
+  const params = new URLSearchParams({ embarcation_id: embarcationId });
+  if (avant) params.set('avant', avant);
+  return requestAvecCode<LieuDePecheProposition>(`/api/v1/sorties/lieu-de-peche?${params}`, token);
 }

@@ -80,7 +80,7 @@ const APK = {
   url:
     import.meta.env.VITE_APK_URL ??
     'https://github.com/dbeyeme/cbm-pigap/releases/latest/download/CBM-PIGAP.apk',
-  version: '0.2.0',
+  version: '0.2.1',
   taille: '120 Mo',
   android: 'Android 7.0 ou plus récent',
 };

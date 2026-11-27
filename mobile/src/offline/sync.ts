@@ -1,6 +1,6 @@
 /**
- * Envoi de tout ce qui attend sur le téléphone : déclarations de captures et
- * positions GPS. Appelé à l'ouverture, au retour de l'application au premier
+ * Envoi de tout ce qui attend sur le téléphone : sorties en mer, déclarations
+ * de captures et positions GPS. Appelé à l'ouverture, au retour de l'application au premier
  * plan, après chaque saisie et par la tâche de suivi GPS. Un seul envoi tourne
  * à la fois ; les appels simultanés partagent le même résultat.
  */
@@ -8,9 +8,11 @@ import type { Session } from '../auth/session';
 import { getSetting, setSetting } from './db';
 import { syncPendingCaptures, type SyncReport } from './syncCaptures';
 import { syncPendingPositions, type PositionSyncReport } from './syncPositions';
+import { EMPTY_SORTIES_REPORT, syncPendingSorties, type SortieSyncReport } from './syncSorties';
 
 export type SyncSummary = {
   at: string;
+  sorties: SortieSyncReport;
   captures: SyncReport;
   positions: PositionSyncReport;
   /** Le serveur a refusé la session : il faut se reconnecter pour envoyer. */
@@ -58,6 +60,7 @@ async function run(session: Session): Promise<SyncSummary> {
   const at = new Date().toISOString();
   const userId = session.user.id;
 
+  let sorties: SortieSyncReport = EMPTY_SORTIES_REPORT;
   let captures: SyncReport = EMPTY_CAPTURES;
   let positions: PositionSyncReport = {
     pushed: 0,
@@ -70,14 +73,19 @@ async function run(session: Session): Promise<SyncSummary> {
     exclusiveBoats: [],
   };
 
-  captures = await syncPendingCaptures(session.token, userId);
-  if (captures.stopped !== 'session') {
+  // Les sorties d'abord : peu nombreuses, elles servent à la sécurité en mer
+  sorties = await syncPendingSorties(session.token, userId);
+  if (sorties.stopped !== 'session') {
+    captures = await syncPendingCaptures(session.token, userId);
+  }
+  if (sorties.stopped !== 'session' && captures.stopped !== 'session') {
     positions = await syncPendingPositions(session.token, userId);
   }
 
-  const sessionExpired = captures.stopped === 'session' || positions.stopped === 'session';
-  const message = captures.error ?? positions.error;
-  const summary: SyncSummary = { at, captures, positions, sessionExpired, message };
+  const sessionExpired =
+    sorties.stopped === 'session' || captures.stopped === 'session' || positions.stopped === 'session';
+  const message = sorties.error ?? captures.error ?? positions.error;
+  const summary: SyncSummary = { at, sorties, captures, positions, sessionExpired, message };
 
   try {
     await setSetting(KEY_ATTEMPT, at);

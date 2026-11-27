@@ -61,6 +61,8 @@ function toPayload(c: LocalCapture): CaptureCreatePayload {
     point_debarquement: c.point_debarquement,
     date_capture: c.date_capture,
     ...(c.position ? { position_capture: { type: 'Point' as const, coordinates: c.position } } : {}),
+    // Provenance du lieu : seulement avec un lieu, et seulement si elle est connue
+    ...(c.position && c.origine_lieu ? { origine_lieu: c.origine_lieu } : {}),
     ...(c.prix_fcfa_kg != null ? { prix_fcfa_kg: c.prix_fcfa_kg } : {}),
   };
 }
