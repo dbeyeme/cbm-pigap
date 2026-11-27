@@ -24,6 +24,13 @@ class RegleAppareils(BaseModel):
     appareils_max: int = Field(..., ge=1, le=50)
     # Faux pendant la transition : l'ancienne application, sans en-tête, reste acceptée
     entete_obligatoire: bool
+    # Comptes de démonstration exemptés (adresses e-mail), liste vide = aucun
+    comptes_exemptes: list[str]
+
+    def est_exempte(self, email: str | None) -> bool:
+        if not email:
+            return False
+        return email.strip().lower() in {e.strip().lower() for e in self.comptes_exemptes}
 
 
 def regle_appareils() -> RegleAppareils:

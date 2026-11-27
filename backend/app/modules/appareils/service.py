@@ -155,6 +155,9 @@ async def rattacher_a_la_connexion(
     if user.role != RoleUtilisateur.pecheur:
         return None
     regle = regle_appareils()
+    if regle.est_exempte(user.email):
+        logger.info("appareil_compte_exempte", etape="connexion", utilisateur_id=str(user.id))
+        return None
     lu = lire_identifiant(brut)
     if lu is None:
         if regle.entete_obligatoire:
@@ -236,6 +239,9 @@ async def appareil_pour_envoi(
     if user.role != RoleUtilisateur.pecheur:
         return None
     regle = regle_appareils()
+    if regle.est_exempte(user.email):
+        logger.info("appareil_compte_exempte", etape="positions", utilisateur_id=str(user.id))
+        return None
     lu = lire_identifiant(brut)
     if lu is None:
         if regle.entete_obligatoire:

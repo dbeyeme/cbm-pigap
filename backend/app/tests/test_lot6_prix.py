@@ -368,5 +368,8 @@ def test_l6_parametrage_et_migration() -> None:
     config = Config(str(racine / "alembic.ini"))
     config.set_main_option("script_location", str(racine / "alembic"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["f5b8c9d0e371"]
+    # Une seule tête, dont la chaîne contient la migration du lot (les lots suivants
+    # ajoutent leurs migrations par-dessus : la tête exacte n'est pas figée ici).
+    (tete,) = script.get_heads()
+    assert "f5b8c9d0e371" in {r.revision for r in script.walk_revisions(base="base", head=tete)}
     assert script.get_revision("e4a7b8c9d260").down_revision == "d3f6a8b9c150"

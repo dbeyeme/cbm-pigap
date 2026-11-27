@@ -44,6 +44,7 @@ REGLE_DE_TEST = {
         "appareils_par_defaut": 1,
         "appareils_max": 3,
         "entete_obligatoire": False,
+        "comptes_exemptes": [],
     }
 }
 
@@ -384,12 +385,13 @@ async def test_l10_c_reference_de_l_appareil_sur_chaque_position(
     assert (
         await _envoyer(client, sans_entete, e["id"], t0 + timedelta(minutes=15))
     ).status_code == 201
-    # Un agent qui saisit une position n'est pas concerné (R6)
+    # Depuis le correctif de sécurité du 2026-11-27, un agent n'écrit plus de position :
+    # refus par rôle, avant tout contrôle d'appareil (R6 sans objet pour lui)
     assert (
         await _envoyer(
             client, {**agent_headers, ENTETE: _appareil()}, e["id"], t0 + timedelta(minutes=20)
         )
-    ).status_code == 201
+    ).status_code == 403
 
     (rattache,) = await _appareils_du_compte(engine, p["utilisateur_id"])
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -401,7 +403,7 @@ async def test_l10_c_reference_de_l_appareil_sur_chaque_position(
                 .order_by(Position.horodatage)
             )
         ).all()
-    assert [ligne[0] for ligne in lignes] == [rattache.id, rattache.id, rattache.id, None, None]
+    assert [ligne[0] for ligne in lignes] == [rattache.id, rattache.id, rattache.id, None]
 
     regle(entete_obligatoire=True)
     refus = await _envoyer(client, sans_entete, e["id"], t0 + timedelta(minutes=25))
@@ -841,3 +843,47 @@ async def test_l10_e_parametrage_absent_echec_ferme(
     monkeypatch.setenv("PIGAP_REGLES_DIR", str(tmp_path))
     resp = await _connecter(client, p["email"], _appareil())
     assert resp.status_code == 503 and resp.json()["code"] == "REGLE_INDISPONIBLE"
+
+
+@pytest.mark.asyncio
+async def test_l10_f_comptes_de_demonstration_exemptes(
+    client: AsyncClient, agent_headers: dict, engine, regle, sans_regles_m7
+) -> None:
+    """Décision du 2026-11-25 : un compte exempté se connecte et émet depuis plusieurs
+    téléphones ; un téléphone passe d'un compte exempté à un autre ; les autres comptes
+    restent soumis à la règle. Le paramètre seul change le comportement."""
+    demo_a, emb_a = await _pecheur(client, agent_headers)
+    demo_b, _ = await _pecheur(client, agent_headers)
+    reel, _ = await _pecheur(client, agent_headers)
+    regle(comptes_exemptes=[demo_a["email"].upper(), demo_b["email"]])
+
+    tel_1, tel_2 = _appareil(), _appareil()
+    for tel in (tel_1, tel_2):
+        resp = await _connecter(client, demo_a["email"], tel)
+        assert resp.status_code == 200, resp.text
+    assert (await _connecter(client, demo_b["email"], tel_1)).status_code == 200
+    assert await _appareils_du_compte(engine, demo_a["utilisateur_id"]) == []
+
+    # Deux téléphones émettent pour la même embarcation sans conflit
+    quand = instant_isole()
+    for tel in (tel_1, tel_2):
+        session = _session(await _connecter(client, demo_a["email"], tel), tel)
+        envoi = await _envoyer(client, session, emb_a["id"], quand)
+        assert envoi.status_code == 201, envoi.text
+
+    # Un compte réel reste soumis à la règle
+    assert (await _connecter(client, reel["email"], tel_1)).status_code == 200
+    second = await _connecter(client, reel["email"], tel_2)
+    assert second.status_code == 409
+    assert second.json()["code"] == "COMPTE_RATTACHE_AUTRE_APPAREIL"
+
+    # Liste vide : le compte de démonstration retombe sous la règle
+    regle(comptes_exemptes=[])
+    assert (await _connecter(client, demo_b["email"], tel_1)).status_code == 409
+
+
+def test_l10_f_exemption_du_depot_decidee() -> None:
+    contenu = charger_regles("appareils")
+    assert regle_appareils().comptes_exemptes, "comptes de démonstration attendus"
+    assert all(e.endswith("@example.com") for e in regle_appareils().comptes_exemptes)
+    assert contenu["regles"]["exemption_demonstration"]["statut"].startswith("Décidée")

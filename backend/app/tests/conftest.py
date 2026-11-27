@@ -106,3 +106,15 @@ async def agent_headers(engine) -> dict[str, str]:
 async def admin_headers(engine) -> dict[str, str]:
     """Admin : écriture GPS outillage + administration périmètre."""
     return await _headers_pour_role(engine, RoleUtilisateur.admin, "Admin Test")
+
+
+@pytest.fixture(autouse=True)
+def _limiteurs_remis_a_zero():
+    """Chaque test part de limiteurs vides : le limiteur de connexions (20 par minute
+    et par adresse) est partagé par tout le processus, et des tests qui se connectent
+    souvent atteignaient le plafond de leurs voisins."""
+    from app.core.rate_limit import fo_limiter, login_limiter
+
+    login_limiter.reset()
+    fo_limiter.reset()
+    yield
