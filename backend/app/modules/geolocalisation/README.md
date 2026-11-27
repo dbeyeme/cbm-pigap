@@ -24,8 +24,8 @@ Géométries GeoJSON Point SRID 4326. Source `mobile` (MVP) ou `balise` (extensi
 cd backend
 pytest app/tests/test_m2_geoloc.py -q
 
-# Semis historique + ping live
-python scripts/seed_maritime_scenarios.py
+# Semis lisible : 5 pêcheurs, 1 organisation, 12 mois de sorties côte / intérieur
+python scripts/seed_production_demo.py --reset
 # Optionnel : flotte qui avance toutes les 20 s
 python scripts/simulate_live_fleet.py
 
@@ -46,7 +46,7 @@ python scripts/fetch_gabon_opendata.py
 # Reconstruire masque/routes sans retélécharger
 python scripts/fetch_gabon_opendata.py --offline
 
-python scripts/seed_maritime_scenarios.py
+# Ne plus lancer seed_maritime_scenarios.py : il effaçait l'année de GPS.
 ```
 
 Hors eau → `POSITION_HORS_EAU` ; segment terre → `TRAJECTOIRE_PASSAGE_TERRESTRE`.  

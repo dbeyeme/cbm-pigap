@@ -83,6 +83,8 @@ import {
 import { canAccessPage, type NavId, type Page } from './nav';
 import ActeursHub from './pages/ActeursHub';
 import AlertesPage from './pages/AlertesPage';
+import CommandesPage from './pages/CommandesPage';
+import PerimetrePage from './pages/PerimetrePage';
 import ControlesPage from './pages/ControlesPage';
 import DashboardPage from './pages/DashboardPage';
 import LandingPage from './pages/LandingPage';
@@ -1316,6 +1318,8 @@ export default function App() {
       setMeRole(me.role);
       if (me.role === 'organisation') {
         setPage('org');
+      } else if (me.role === 'client') {
+        setPage('commandes');
       } else {
         setPage('dashboard');
         await loadTrajectories(res.access_token);
@@ -1383,6 +1387,26 @@ export default function App() {
         onPassword={setPassword}
         onLogin={onLogin}
       />
+    );
+  }
+
+  if (meRole === 'client') {
+    return (
+      <div className="app app-cmd ds-app">
+        <header className="ds-topbar" style={{ padding: '12px 20px', display: 'flex', gap: 16 }}>
+          <strong>PIGAP · Client</strong>
+          <span className="ds-muted">{meNom}</span>
+          <button type="button" className="btn ghost" onClick={logout} style={{ marginLeft: 'auto' }}>
+            <IconLogin size={16} /> Déconnexion
+          </button>
+        </header>
+        <main className="ds-main" style={{ padding: 20 }}>
+          {error ? <p className="error-banner">{error}</p> : null}
+          {token ? (
+            <CommandesPage token={token} role={meRole} onError={setError} modeClient />
+          ) : null}
+        </main>
+      </div>
     );
   }
 
@@ -1983,7 +2007,11 @@ export default function App() {
             </section>
           ) : null}
 
-          {page === 'peches' || page === 'captures' || page === 'quotas' || page === 'redevances' ? (
+          {page === 'peches' ||
+          page === 'captures' ||
+          page === 'quotas' ||
+          page === 'redevances' ||
+          page === 'commandes' ? (
             <>
               {error ? (
                 <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
@@ -1993,8 +2021,17 @@ export default function App() {
               <PechesHub
                 key={pechesTab}
                 token={token}
+                role={meRole}
                 onError={setError}
-                initialTab={page === 'quotas' ? 'quotas' : page === 'redevances' ? 'redevances' : pechesTab}
+                initialTab={
+                  page === 'quotas'
+                    ? 'quotas'
+                    : page === 'redevances'
+                      ? 'redevances'
+                      : page === 'commandes'
+                        ? 'commandes'
+                        : pechesTab
+                }
               />
             </>
           ) : null}
@@ -2043,14 +2080,17 @@ export default function App() {
             </>
           ) : null}
 
-          {(page === 'admin' || page === 'users') && meRole === 'admin' ? (
+          {(page === 'admin' || page === 'users' || page === 'perimetre') && meRole === 'admin' ? (
             <>
               {error ? (
                 <p className="error pad" style={{ paddingInline: 22, marginBottom: 0 }}>
                   {error}
                 </p>
               ) : null}
-              <UsersPage token={token} currentUserId={meId} onError={setError} />
+              {page !== 'perimetre' ? (
+                <UsersPage token={token} currentUserId={meId} onError={setError} />
+              ) : null}
+              <PerimetrePage token={token} role={meRole} onError={setError} />
             </>
           ) : null}
 

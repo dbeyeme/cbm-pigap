@@ -36,6 +36,7 @@ from app.modules.alertes.schemas import (
     JournalRead,
 )
 from app.modules.geolocalisation.geo import point_to_wkt
+from app.modules.perimetre.filtre import clause_alerte_visible
 from app.schemas.common import PointGeoJSON
 
 
@@ -120,6 +121,9 @@ async def list_alertes(
         filtres.append(Alerte.horodatage >= depuis)
     if jusqu_a is not None:
         filtres.append(Alerte.horodatage < jusqu_a)
+    clause_geo = clause_alerte_visible()
+    if clause_geo is not None:
+        filtres.append(clause_geo)
 
     total = int((await db.execute(select(func.count(Alerte.id)).where(*filtres))).scalar_one() or 0)
     rows = list(

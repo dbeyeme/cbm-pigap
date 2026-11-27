@@ -10,6 +10,7 @@ class RoleUtilisateur(enum.StrEnum):
     chercheur = "chercheur"
     admin = "admin"
     organisation = "organisation"
+    client = "client"
 
 
 class StatutPecheur(enum.StrEnum):
@@ -128,3 +129,23 @@ class EtatAppareil(enum.StrEnum):
 
     actif = "actif"
     libere = "libere"
+
+
+class TypePerimetre(enum.StrEnum):
+    """Typologie d'une zone de périmètre de suivi (lot 8, ADR-015)."""
+
+    pays = "pays"
+    province = "province"
+    ville = "ville"
+    cote = "cote"
+    fleuve = "fleuve"
+
+
+class StatutCommande(enum.StrEnum):
+    """Réservation client vers pêcheur (ADR-014, lot 7)."""
+
+    reservee = "reservee"
+    acceptee = "acceptee"
+    confirmee_vendeur = "confirmee_vendeur"
+    confirmee_client = "confirmee_client"
+    annulee = "annulee"

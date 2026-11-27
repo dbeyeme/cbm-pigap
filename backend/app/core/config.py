@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     # changer oblige à refaire tous les rattachements. Fenêtre, nombre d'appareils et
     # obligation de l'en-tête : `app/data/regles/appareils.json`.
     appareil_secret: SecretStr | None = None
+    # Lot 8 (ADR-015) : filtre géographique sur lectures positions / trajectoires / alertes
+    perimetre_filtre_actif: bool = True
 
     @field_validator("database_url", mode="before")
     @classmethod

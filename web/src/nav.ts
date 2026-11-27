@@ -20,6 +20,8 @@ export type Page =
   | 'captures'
   | 'quotas'
   | 'redevances'
+  | 'commandes'
+  | 'perimetre'
   | 'map'
   | 'zones'
   | 'users';
@@ -114,6 +116,7 @@ export function navItemsForRole(role: string | null | undefined): NavItem[] {
 
 export function canAccessPage(role: string | null | undefined, page: Page): boolean {
   if (role === 'organisation') return page === 'org';
+  if (role === 'client') return page === 'commandes';
   if (role === 'pecheur') return false;
   const items = navItemsForRole(role);
   const allowed = new Set(items.map((i) => i.id));
@@ -127,12 +130,18 @@ export function canAccessPage(role: string | null | undefined, page: Page): bool
     return allowed.has('acteurs');
   }
   if (page === 'map' || page === 'navires') return allowed.has('navires');
-  if (page === 'captures' || page === 'quotas' || page === 'redevances' || page === 'peches') {
+  if (
+    page === 'captures' ||
+    page === 'quotas' ||
+    page === 'redevances' ||
+    page === 'peches' ||
+    page === 'commandes'
+  ) {
     return allowed.has('peches');
   }
   if (page === 'controles') return allowed.has('controles');
   if (page === 'zones' || page === 'cartographie') return allowed.has('cartographie');
-  if (page === 'users' || page === 'admin') return allowed.has('admin');
+  if (page === 'users' || page === 'admin' || page === 'perimetre') return allowed.has('admin');
   if (page === 'surveillance') return allowed.has('surveillance');
   if (page === 'alertes') return allowed.has('alertes');
   if (page === 'rapports') return allowed.has('rapports');
@@ -155,6 +164,8 @@ export function roleLabelFr(role: string | null | undefined): string {
       return 'Organisation';
     case 'pecheur':
       return 'Pêcheur';
+    case 'client':
+      return 'Client';
     default:
       return 'Utilisateur';
   }

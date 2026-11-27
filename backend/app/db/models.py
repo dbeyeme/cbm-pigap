@@ -38,6 +38,8 @@ from app.db.enums import (
     SourcePosition,
     StatutAbonnement,
     StatutAlerte,
+    StatutCommande,
+    TypePerimetre,
     StatutDemandeLicence,
     StatutMission,
     StatutPaiement,
@@ -846,3 +848,94 @@ class Controle(Base):
     date_creation: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class Commande(Base):
+    """Réservation client vers pêcheur (ADR-014, lot 7) ; aucun paiement sur la plateforme."""
+
+    __tablename__ = "commandes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    pecheur_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pecheurs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    capture_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("captures.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    espece: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    quantite_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    montant_prevu_fcfa: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    statut: Mapped[StatutCommande] = mapped_column(
+        Enum(StatutCommande, name="statut_commande", native_enum=True),
+        nullable=False,
+        default=StatutCommande.reservee,
+        server_default="reservee",
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    date_mise_a_jour: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    date_acceptee: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    date_confirmee_vendeur: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    date_confirmee_client: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    date_annulee: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    client: Mapped[Utilisateur] = relationship(foreign_keys=[client_id])
+    pecheur: Mapped[Pecheur] = relationship()
+    capture: Mapped[Capture | None] = relationship()
+
+
+class PerimetreZone(Base):
+    """Zones activables de périmètre de suivi cartographique (lot 8, ADR-015).
+
+    Emprises approximatives (fictif, à valider DGPA). La désactivation masque
+    l'historique des positions et alertes dans l'emprise, sans suppression physique.
+    """
+
+    __tablename__ = "perimetre_zones"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    libelle: Mapped[str] = mapped_column(String(255), nullable=False)
+    type_zone: Mapped[TypePerimetre] = mapped_column(
+        Enum(TypePerimetre, name="type_perimetre", native_enum=True),
+        nullable=False,
+    )
+    actif: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    emprise = mapped_column(
+        Geometry(geometry_type="POLYGON", srid=4326),
+        nullable=False,
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    date_mise_a_jour: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (Index("ix_perimetre_zones_emprise", "emprise", postgresql_using="gist"),)

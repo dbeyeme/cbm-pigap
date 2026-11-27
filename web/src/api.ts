@@ -2548,3 +2548,96 @@ export function getProfilOrganisation(token: string, organisationId: string) {
 export function getProfilPublic(jeton: string) {
   return requestDetaille<ProfilPublic>(`/api/v1/public/profils/${encodeURIComponent(jeton)}`);
 }
+
+/* --- Lot 7 : commandes client → pêcheur (ADR-014) --- */
+
+export type CommandeRead = {
+  id: string;
+  client_id: string;
+  pecheur_id: string;
+  capture_id: string | null;
+  espece: string | null;
+  quantite_kg: number | null;
+  montant_prevu_fcfa: number | null;
+  message: string | null;
+  statut: string;
+  date_creation: string;
+  date_mise_a_jour: string;
+  date_acceptee: string | null;
+  date_confirmee_vendeur: string | null;
+  date_confirmee_client: string | null;
+  date_annulee: string | null;
+};
+
+export type PecheurVitrine = {
+  id: string;
+  nom: string;
+  prenom: string;
+  numero_licence: string;
+};
+
+export type CommandeCreate = {
+  pecheur_id: string;
+  capture_id?: string | null;
+  espece?: string | null;
+  quantite_kg?: number | null;
+  montant_prevu_fcfa?: number | null;
+  message?: string | null;
+};
+
+export function inscrireClient(data: {
+  nom: string;
+  email: string;
+  mot_de_passe: string;
+  telephone?: string | null;
+}) {
+  return request<{ id: string; nom: string; email: string | null; telephone: string | null }>(
+    '/api/v1/commandes/inscription',
+    undefined,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export function listCommandes(token: string) {
+  return request<CommandeRead[]>('/api/v1/commandes', token);
+}
+
+export function listCommandesPecheurs(token: string) {
+  return request<PecheurVitrine[]>('/api/v1/commandes/pecheurs', token);
+}
+
+export function creerCommande(token: string, data: CommandeCreate) {
+  return request<CommandeRead>('/api/v1/commandes', token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function annulerCommande(token: string, id: string) {
+  return request<CommandeRead>(`/api/v1/commandes/${id}/annuler`, token, { method: 'POST' });
+}
+
+export function confirmerCommandeClient(token: string, id: string) {
+  return request<CommandeRead>(`/api/v1/commandes/${id}/confirmer-client`, token, { method: 'POST' });
+}
+
+/* --- Lot 8 : périmètre de suivi (ADR-015) --- */
+
+export type PerimetreZone = {
+  id: string;
+  code: string;
+  libelle: string;
+  type_zone: string;
+  actif: boolean;
+};
+
+export function listPerimetre(token: string) {
+  return request<PerimetreZone[]>('/api/v1/perimetre', token);
+}
+
+export function patchPerimetre(token: string, id: string, data: { actif: boolean }) {
+  return request<PerimetreZone>(`/api/v1/perimetre/${id}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}

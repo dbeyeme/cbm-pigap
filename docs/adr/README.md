@@ -19,6 +19,8 @@ Décisions techniques structurantes de CBM-PIGAP.
 | [ADR-011](ADR-011-global-fishing-watch-source-differee.md) | Global Fishing Watch : source différée pour les navires industriels | Accepté pour essai hors service | 2026-11-24 |
 | [ADR-012](ADR-012-un-appareil-un-pecheur.md) | Un appareil, un seul compte pêcheur : rattachement côté serveur | Accepté sur le principe, modalités « Proposé » | 2026-11-25 |
 | [ADR-013](ADR-013-base-de-test-dediee.md) | Base PostgreSQL et PostGIS dédiée aux tests du serveur | Proposé | 2026-11-24 |
+| [ADR-014](ADR-014-commandes-client-pecheur.md) | Commandes client → pêcheur, sans paiement (lot 7) | Accepté | 2026-11-27 |
+| [ADR-015](ADR-015-perimetre-suivi-multi-zones.md) | Périmètre de suivi multi-zones activable (lot 8) | Accepté | 2026-11-27 |
 
 ## Convention
 

@@ -7,6 +7,7 @@ from app.modules.ais_gabon.router import router as ais_router
 from app.modules.alertes.router import router as alertes_router
 from app.modules.appareils.router import router as appareils_router
 from app.modules.captures.router import router as captures_router
+from app.modules.commandes.router import router as commandes_router
 from app.modules.controles.router import public_router as public_router
 from app.modules.controles.router import router as controles_router
 from app.modules.dashboard.router import router as dashboard_router
@@ -19,6 +20,7 @@ from app.modules.identite.router import router as identite_router
 from app.modules.meteo_marine.router import router as meteo_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.pecheurs.router import router as pecheurs_router
+from app.modules.perimetre.router import router as perimetre_router
 from app.modules.predictions.router import router as predictions_router
 from app.modules.prix.router import router as prix_router
 from app.modules.profils.router import public_router as profils_public_router
@@ -43,6 +45,7 @@ api_router.include_router(ais_router)
 api_router.include_router(meteo_router)
 api_router.include_router(zones_router)
 api_router.include_router(captures_router)
+api_router.include_router(commandes_router)
 api_router.include_router(quotas_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(documents_router)
@@ -59,3 +62,4 @@ api_router.include_router(appareils_router)
 api_router.include_router(profils_router)
 api_router.include_router(profils_public_router)
 api_router.include_router(identite_router)
+api_router.include_router(perimetre_router)
