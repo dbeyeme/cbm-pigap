@@ -96,7 +96,8 @@ async def _creer_pecheur(engine, tag: str) -> tuple[str, dict[str, str]]:
 async def test_webhook_mm_refuse_sans_secret_en_live(
     client: AsyncClient, engine, admin_headers: dict[str, str], monkeypatch
 ) -> None:
-    monkeypatch.setattr(settings, "mobile_money_mode", "live")
+    # Init en démo (pas de jeton PawaPay) ; le contrôle « live sans secret » porte sur le webhook.
+    monkeypatch.setattr(settings, "mobile_money_mode", "demo")
     monkeypatch.setattr(settings, "mobile_money_webhook_secret", None)
     pecheur_id, _ = await _creer_pecheur(engine, "WhLive")
 
@@ -114,6 +115,7 @@ async def test_webhook_mm_refuse_sans_secret_en_live(
     assert init.status_code == 201, init.text
     ref = init.json()["paiement"]["reference_interne"]
 
+    monkeypatch.setattr(settings, "mobile_money_mode", "live")
     wh = await client.post(
         "/api/v1/abonnements/webhook/mobile-money",
         json={"reference_interne": ref, "statut": "reussi", "reference_operateur": "X"},
