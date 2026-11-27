@@ -9,11 +9,18 @@ from geoalchemy2.functions import ST_AsGeoJSON
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import not_found
-from app.db.models import PerimetreZone
+from app.core.errors import bad_request, not_found
+from app.db.enums import RoleUtilisateur
+from app.db.models import AgentZone, PerimetreZone, Utilisateur
 from app.modules.zones.geo import geojson_text_to_polygon
 from app.modules.perimetre import filtre
-from app.modules.perimetre.schemas import PerimetreFiltreRead, PerimetreZonePatch, PerimetreZoneRead
+from app.modules.perimetre.schemas import (
+    AgentZonesRead,
+    AgentZonesUpdate,
+    PerimetreFiltreRead,
+    PerimetreZonePatch,
+    PerimetreZoneRead,
+)
 
 
 def _to_read(zone: PerimetreZone, emprise_geojson: str | None) -> PerimetreZoneRead:
@@ -67,6 +74,60 @@ async def lire_filtre(db: AsyncSession) -> PerimetreFiltreRead:
 async def zone_par_code(db: AsyncSession, code: str) -> PerimetreZone | None:
     result = await db.execute(select(PerimetreZone).where(PerimetreZone.code == code))
     return result.scalar_one_or_none()
+
+
+async def lire_zones_agent(db: AsyncSession, utilisateur_id: UUID) -> AgentZonesRead:
+    result = await db.execute(
+        select(PerimetreZone.code)
+        .join(AgentZone, AgentZone.zone_id == PerimetreZone.id)
+        .where(AgentZone.utilisateur_id == utilisateur_id)
+        .order_by(PerimetreZone.code)
+    )
+    return AgentZonesRead(utilisateur_id=utilisateur_id, codes=list(result.scalars().all()))
+
+
+async def remplacer_zones_agent(
+    db: AsyncSession, utilisateur_id: UUID, data: AgentZonesUpdate
+) -> AgentZonesRead:
+    user = await db.get(Utilisateur, utilisateur_id)
+    if user is None:
+        raise not_found("Utilisateur introuvable", "USER_NOT_FOUND")
+    if user.role != RoleUtilisateur.agent_controle:
+        raise bad_request(
+            "Seuls les agents de contrôle reçoivent une affectation de zone",
+            "ROLE_NOT_AGENT",
+        )
+    codes = sorted({c.strip() for c in data.codes if c and c.strip()})
+    zones: list[PerimetreZone] = []
+    for code in codes:
+        zone = await zone_par_code(db, code)
+        if zone is None:
+            raise not_found(f"Zone de périmètre inconnue : {code}", "PERIMETRE_NOT_FOUND")
+        zones.append(zone)
+    existants = (
+        await db.execute(select(AgentZone).where(AgentZone.utilisateur_id == utilisateur_id))
+    ).scalars().all()
+    for row in existants:
+        await db.delete(row)
+    for zone in zones:
+        db.add(AgentZone(utilisateur_id=utilisateur_id, zone_id=zone.id))
+    await db.commit()
+    return await lire_zones_agent(db, utilisateur_id)
+
+
+async def assurer_affectation_defaut_agent(db: AsyncSession, utilisateur_id: UUID) -> None:
+    """Si l'agent n'a aucune zone : lui affecter toutes les zones seed (pilote large).
+
+    La lecture réelle reste l'intersection avec les zones encore actives (lot 8).
+    """
+    n = await db.scalar(
+        select(func.count(AgentZone.id)).where(AgentZone.utilisateur_id == utilisateur_id)
+    )
+    if int(n or 0) > 0:
+        return
+    await assurer_seed_defaut(db)
+    codes = await filtre.codes_zones_actives(db)
+    await remplacer_zones_agent(db, utilisateur_id, AgentZonesUpdate(codes=codes))
 
 
 async def assurer_seed_defaut(db: AsyncSession) -> None:

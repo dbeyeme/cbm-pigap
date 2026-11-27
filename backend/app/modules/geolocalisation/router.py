@@ -44,15 +44,13 @@ GeolocUser = Annotated[
     ),
 ]
 
-# Écriture GPS : pêcheur (mobile) + staff opérationnel. Chercheur = lecture seule.
+# Écriture GPS (§7 / audit) : pêcheur (mobile) + admin (outillage). Agent/autorité = lecture.
 GeolocWriteUser = Annotated[
     Utilisateur,
     Depends(
         require_role(
             RoleUtilisateur.pecheur,
-            RoleUtilisateur.agent_controle,
             RoleUtilisateur.admin,
-            RoleUtilisateur.autorite,
         )
     ),
 ]

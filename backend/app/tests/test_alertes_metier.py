@@ -63,12 +63,12 @@ async def _regles(client, headers, emb) -> list[str]:
 
 @pytest.mark.asyncio
 async def test_espece_protegee_declenche_alerte_critique(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
-    pid, emb = await _boat(client, agent_headers)
+    pid, emb = await _boat(client, admin_headers)
     res = await client.post(
         "/api/v1/captures",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": pid,
             "embarcation_id": emb,
@@ -80,42 +80,42 @@ async def test_espece_protegee_declenche_alerte_critique(
         },
     )
     assert res.status_code == 201, res.text
-    r = await client.get("/api/v1/alertes", headers=agent_headers, params={"embarcation_id": emb})
+    r = await client.get("/api/v1/alertes", headers=admin_headers, params={"embarcation_id": emb})
     found = [a for a in r.json() if a["declencheur"].get("regle") == "espece_protegee"]
     assert len(found) == 1 and found[0]["niveau_gravite"] == "critique"
     assert found[0]["declencheur"]["espece"] == "merou_geant"
 
 
 @pytest.mark.asyncio
-async def test_retour_au_port_sans_declaration(client: AsyncClient, agent_headers: dict) -> None:
-    _pid, emb = await _boat(client, agent_headers)
+async def test_retour_au_port_sans_declaration(client: AsyncClient, admin_headers: dict) -> None:
+    _pid, emb = await _boat(client, admin_headers)
     t0 = datetime(2064, 2, 1, 6, 0, tzinfo=UTC) + timedelta(days=uuid.uuid4().int % 300)
     # Sortie en mer (1 h) puis retour à quai à Owendo depuis 3 h : aucune capture déclarée
-    await _position(client, agent_headers, emb, ESTUAIRE_LARGE, t0)
-    await _position(client, agent_headers, emb, ESTUAIRE_LARGE_2, t0 + timedelta(hours=1))
-    await _position(client, agent_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=2))
-    assert "declaration_manquante" not in await _regles(client, agent_headers, emb)
-    await _position(client, agent_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=5))
-    regles = await _regles(client, agent_headers, emb)
+    await _position(client, admin_headers, emb, ESTUAIRE_LARGE, t0)
+    await _position(client, admin_headers, emb, ESTUAIRE_LARGE_2, t0 + timedelta(hours=1))
+    await _position(client, admin_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=2))
+    assert "declaration_manquante" not in await _regles(client, admin_headers, emb)
+    await _position(client, admin_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=5))
+    regles = await _regles(client, admin_headers, emb)
     assert regles.count("declaration_manquante") == 1
 
     # Une nouvelle position à quai ne crée pas de doublon
-    await _position(client, agent_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=6))
-    assert (await _regles(client, agent_headers, emb)).count("declaration_manquante") == 1
+    await _position(client, admin_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=6))
+    assert (await _regles(client, admin_headers, emb)).count("declaration_manquante") == 1
 
 
 @pytest.mark.asyncio
 async def test_retour_au_port_avec_declaration_sans_alerte(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
-    pid, emb = await _boat(client, agent_headers)
+    pid, emb = await _boat(client, admin_headers)
     t0 = datetime(2065, 2, 1, 6, 0, tzinfo=UTC) + timedelta(days=uuid.uuid4().int % 300)
-    await _position(client, agent_headers, emb, ESTUAIRE_LARGE, t0)
-    await _position(client, agent_headers, emb, ESTUAIRE_LARGE_2, t0 + timedelta(hours=1))
-    await _position(client, agent_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=2))
+    await _position(client, admin_headers, emb, ESTUAIRE_LARGE, t0)
+    await _position(client, admin_headers, emb, ESTUAIRE_LARGE_2, t0 + timedelta(hours=1))
+    await _position(client, admin_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=2))
     cap = await client.post(
         "/api/v1/captures",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": pid,
             "embarcation_id": emb,
@@ -127,5 +127,5 @@ async def test_retour_au_port_avec_declaration_sans_alerte(
         },
     )
     assert cap.status_code == 201, cap.text
-    await _position(client, agent_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=5))
-    assert "declaration_manquante" not in await _regles(client, agent_headers, emb)
+    await _position(client, admin_headers, emb, QUAI_OWENDO, t0 + timedelta(hours=5))
+    assert "declaration_manquante" not in await _regles(client, admin_headers, emb)

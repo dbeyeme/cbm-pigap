@@ -16,7 +16,11 @@ from app.db.enums import RoleUtilisateur, SourcePosition
 from app.db.models import Embarcation, Pecheur, Position, Utilisateur
 from app.modules.geolocalisation.gabon_routes import is_on_water, segment_stays_on_water
 from app.modules.geolocalisation.geo import geojson_text_to_point, point_to_wkt
-from app.modules.perimetre.filtre import au_moins_une_zone_active, clause_point_dans_emprise_active
+from app.modules.perimetre.filtre import (
+    agent_id_pour_filtre,
+    au_moins_une_zone_active,
+    clause_point_dans_emprise_active,
+)
 from app.modules.geolocalisation.schemas import (
     BaliseIngestPayload,
     BaliseIngestResult,
@@ -33,8 +37,10 @@ from app.schemas.common import PointGeoJSON
 logger = structlog.get_logger(__name__)
 
 
-def _stmt_filtre_perimetre(stmt):
-    clause = clause_point_dans_emprise_active(Position.position)
+def _stmt_filtre_perimetre(stmt, user: Utilisateur | None = None):
+    clause = clause_point_dans_emprise_active(
+        Position.position, agent_id=agent_id_pour_filtre(user)
+    )
     if clause is not None:
         return stmt.where(clause)
     return stmt
@@ -269,7 +275,7 @@ async def get_trajectory(
         stmt = stmt.where(Position.horodatage >= debut)
     if fin is not None:
         stmt = stmt.where(Position.horodatage <= fin)
-    stmt = _stmt_filtre_perimetre(stmt)
+    stmt = _stmt_filtre_perimetre(stmt, user)
     result = await db.execute(stmt)
     rows = [_to_read(pos, geo) for pos, geo in result.all()]
     # Ne jamais renvoyer de points à terre / hors eau (historique anomal)
@@ -309,7 +315,7 @@ async def list_embarcations_tracked(
         .where(Position.embarcation_id.in_(ids))
         .group_by(Position.embarcation_id)
     )
-    stats_stmt = _stmt_filtre_perimetre(stats_stmt)
+    stats_stmt = _stmt_filtre_perimetre(stats_stmt, user)
     stats = await db.execute(stats_stmt)
     by_id = {row[0]: (int(row[1]), row[2]) for row in stats.all()}
     out: list[tuple[Embarcation, int, datetime | None]] = []
@@ -373,7 +379,7 @@ async def list_trajectory_segments(
         .where(Position.embarcation_id.in_(ids))
         .order_by(Position.embarcation_id, Position.horodatage.asc())
     )
-    traj_stmt = _stmt_filtre_perimetre(traj_stmt)
+    traj_stmt = _stmt_filtre_perimetre(traj_stmt, user)
     result = await db.execute(traj_stmt)
     by_emb: dict[UUID, list[PositionRead]] = {eid: [] for eid in ids}
     for pos, geo in result.all():
@@ -444,7 +450,7 @@ async def list_live_vessels(
         Position.embarcation_id,
         func.max(Position.horodatage).label("max_h"),
     ).where(Position.embarcation_id.in_(ids), Position.horodatage >= cutoff)
-    latest_base = _stmt_filtre_perimetre(latest_base)
+    latest_base = _stmt_filtre_perimetre(latest_base, user)
     latest = latest_base.group_by(Position.embarcation_id).subquery()
     live_stmt = (
         select(Position, ST_AsGeoJSON(Position.position).label("position_geojson"))
@@ -455,7 +461,7 @@ async def list_live_vessels(
         )
         .order_by(Position.horodatage.desc())
     )
-    live_stmt = _stmt_filtre_perimetre(live_stmt)
+    live_stmt = _stmt_filtre_perimetre(live_stmt, user)
     result = await db.execute(live_stmt)
     from app.modules.geolocalisation.regles_carte import age_libelle, regle_carte
     from app.modules.geolocalisation.regularite import regularite_embarcations

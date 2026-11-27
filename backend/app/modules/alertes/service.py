@@ -36,7 +36,7 @@ from app.modules.alertes.schemas import (
     JournalRead,
 )
 from app.modules.geolocalisation.geo import point_to_wkt
-from app.modules.perimetre.filtre import clause_alerte_visible
+from app.modules.perimetre.filtre import agent_id_pour_filtre, clause_alerte_visible
 from app.schemas.common import PointGeoJSON
 
 
@@ -76,6 +76,7 @@ def _refus_filtre(message: str) -> ApiError:
 
 async def list_alertes(
     db: AsyncSession,
+    user: Utilisateur | None = None,
     *,
     type_alerte: TypeAlerte | None = None,
     statut: StatutAlerte | None = None,
@@ -121,7 +122,7 @@ async def list_alertes(
         filtres.append(Alerte.horodatage >= depuis)
     if jusqu_a is not None:
         filtres.append(Alerte.horodatage < jusqu_a)
-    clause_geo = clause_alerte_visible()
+    clause_geo = clause_alerte_visible(agent_id=agent_id_pour_filtre(user))
     if clause_geo is not None:
         filtres.append(clause_geo)
 

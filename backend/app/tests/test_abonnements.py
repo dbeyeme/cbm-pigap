@@ -54,12 +54,12 @@ async def test_catalogue_offres_public(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_initier_et_confirmer_b2c_demo(
-    client: AsyncClient, engine, agent_headers: dict[str, str]
+    client: AsyncClient, engine, admin_headers: dict[str, str]
 ):
     _, pecheur = await _pecheur_headers(engine)
     r = await client.post(
         "/api/v1/abonnements/initier-b2c",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "code_offre": "b2c_annuel",
             "numero_licence": pecheur.numero_licence,
@@ -77,7 +77,7 @@ async def test_initier_et_confirmer_b2c_demo(
 
     r2 = await client.post(
         f"/api/v1/abonnements/paiements/{paiement_id}/confirmer-demo",
-        headers=agent_headers,
+        headers=admin_headers,
         json={},
     )
     assert r2.status_code == 200, r2.text
@@ -86,7 +86,7 @@ async def test_initier_et_confirmer_b2c_demo(
 
     cov = await client.get(
         f"/api/v1/abonnements/couverture/{pecheur.id}",
-        headers=agent_headers,
+        headers=admin_headers,
     )
     assert cov.status_code == 200
     assert cov.json()["couvert"] is True
@@ -95,7 +95,7 @@ async def test_initier_et_confirmer_b2c_demo(
 
 @pytest.mark.asyncio
 async def test_b2b_flotte_couvre_pecheur(
-    client: AsyncClient, engine, agent_headers: dict[str, str]
+    client: AsyncClient, engine, admin_headers: dict[str, str]
 ):
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
@@ -124,7 +124,7 @@ async def test_b2b_flotte_couvre_pecheur(
 
     r = await client.post(
         "/api/v1/abonnements/initier-b2b",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "code_offre": "b2b_flotte_mensuel",
             "organisation_id": str(org.id),
@@ -139,7 +139,7 @@ async def test_b2b_flotte_couvre_pecheur(
 
     cov = await client.get(
         f"/api/v1/abonnements/couverture/{pecheur.id}",
-        headers=agent_headers,
+        headers=admin_headers,
     )
     assert cov.status_code == 200
     assert cov.json()["couvert"] is True
@@ -148,12 +148,12 @@ async def test_b2b_flotte_couvre_pecheur(
 
 @pytest.mark.asyncio
 async def test_webhook_active_abonnement(
-    client: AsyncClient, engine, agent_headers: dict[str, str]
+    client: AsyncClient, engine, admin_headers: dict[str, str]
 ):
     _, pecheur = await _pecheur_headers(engine)
     r = await client.post(
         "/api/v1/abonnements/initier-b2c",
-        headers=agent_headers,
+        headers=admin_headers,
         json={"code_offre": "b2c_mensuel", "pecheur_id": str(pecheur.id)},
     )
     assert r.status_code == 201
@@ -170,7 +170,7 @@ async def test_webhook_active_abonnement(
 
 @pytest.mark.asyncio
 async def test_enforce_bloque_capture_sans_abo(
-    client: AsyncClient, engine, agent_headers: dict[str, str], monkeypatch
+    client: AsyncClient, engine, admin_headers: dict[str, str], monkeypatch
 ):
     monkeypatch.setattr(settings, "abonnement_enforce", True)
     headers, pecheur = await _pecheur_headers(engine)
@@ -178,7 +178,7 @@ async def test_enforce_bloque_capture_sans_abo(
     # Créer embarcation via agent
     emb = await client.post(
         "/api/v1/embarcations",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": str(pecheur.id),
             "nom": "Espoir",

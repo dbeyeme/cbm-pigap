@@ -81,15 +81,15 @@ def test_port_from_text_matches_declared_landing_points() -> None:
 
 @pytest.mark.asyncio
 async def test_presence_a_quai_en_mer_et_declaration(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     now = datetime.now(UTC)
 
     # Pirogue A : immobile à Owendo depuis 40 min → à quai
-    pecheur_a, emb_a = await _pecheur_et_embarcation(client, agent_headers, "Pirogue Quai")
+    pecheur_a, emb_a = await _pecheur_et_embarcation(client, admin_headers, "Pirogue Quai")
     await _positions(
         client,
-        agent_headers,
+        admin_headers,
         emb_a,
         [
             (now - timedelta(minutes=40), OWENDO),
@@ -100,7 +100,7 @@ async def test_presence_a_quai_en_mer_et_declaration(
     # Déclaration de débarquement à Owendo il y a 30 min → cohérente
     cap = await client.post(
         "/api/v1/captures",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": pecheur_a,
             "embarcation_id": emb_a,
@@ -114,10 +114,10 @@ async def test_presence_a_quai_en_mer_et_declaration(
     assert cap.status_code == 201, cap.text
 
     # Pirogue B : à Owendo il y a 3 h, puis au large → en mer, partie d'Owendo
-    _, emb_b = await _pecheur_et_embarcation(client, agent_headers, "Pirogue Large")
+    _, emb_b = await _pecheur_et_embarcation(client, admin_headers, "Pirogue Large")
     await _positions(
         client,
-        agent_headers,
+        admin_headers,
         emb_b,
         [
             (now - timedelta(hours=3), OWENDO),
@@ -128,10 +128,10 @@ async def test_presence_a_quai_en_mer_et_declaration(
     )
 
     # Pirogue C : arrivée à Owendo il y a 3 min → en manœuvre (< seuil)
-    _, emb_c = await _pecheur_et_embarcation(client, agent_headers, "Pirogue Arrivee")
+    _, emb_c = await _pecheur_et_embarcation(client, admin_headers, "Pirogue Arrivee")
     await _positions(
         client,
-        agent_headers,
+        admin_headers,
         emb_c,
         [
             (now - timedelta(minutes=30), LARGE_ESTUAIRE),
@@ -140,7 +140,7 @@ async def test_presence_a_quai_en_mer_et_declaration(
     )
 
     resp = await client.get(
-        "/api/v1/positions/presence-ports", headers=agent_headers, params={"fenetre_heures": 24}
+        "/api/v1/positions/presence-ports", headers=admin_headers, params={"fenetre_heures": 24}
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -176,20 +176,20 @@ async def test_presence_a_quai_en_mer_et_declaration(
 
 @pytest.mark.asyncio
 async def test_declaration_sans_presence_gps_est_signalee(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     now = datetime.now(UTC)
-    pecheur, emb = await _pecheur_et_embarcation(client, agent_headers, "Pirogue Incoherente")
+    pecheur, emb = await _pecheur_et_embarcation(client, admin_headers, "Pirogue Incoherente")
     # GPS uniquement au large ; déclaration de débarquement à Port-Gentil
     await _positions(
         client,
-        agent_headers,
+        admin_headers,
         emb,
         [(now - timedelta(hours=2), LARGE_ESTUAIRE), (now - timedelta(minutes=15), LARGE_ESTUAIRE)],
     )
     cap = await client.post(
         "/api/v1/captures",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": pecheur,
             "embarcation_id": emb,
@@ -201,7 +201,7 @@ async def test_declaration_sans_presence_gps_est_signalee(
         },
     )
     assert cap.status_code == 201, cap.text
-    resp = await client.get("/api/v1/positions/presence-ports", headers=agent_headers)
+    resp = await client.get("/api/v1/positions/presence-ports", headers=admin_headers)
     assert resp.status_code == 200, resp.text
     inc = [i for i in resp.json()["incoherences"] if i["embarcation_id"] == emb]
     assert len(inc) == 1

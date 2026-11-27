@@ -93,7 +93,7 @@ async def _creer_pecheur(engine, tag: str) -> tuple[str, dict[str, str]]:
 
 @pytest.mark.asyncio
 async def test_webhook_mm_refuse_sans_secret_en_live(
-    client: AsyncClient, engine, agent_headers: dict[str, str], monkeypatch
+    client: AsyncClient, engine, admin_headers: dict[str, str], monkeypatch
 ) -> None:
     monkeypatch.setattr(settings, "mobile_money_mode", "live")
     monkeypatch.setattr(settings, "mobile_money_webhook_secret", None)
@@ -101,7 +101,7 @@ async def test_webhook_mm_refuse_sans_secret_en_live(
 
     init = await client.post(
         "/api/v1/abonnements/initier-b2c",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "code_offre": "b2c_mensuel",
             "pecheur_id": pecheur_id,
@@ -123,7 +123,7 @@ async def test_webhook_mm_refuse_sans_secret_en_live(
 
 @pytest.mark.asyncio
 async def test_webhook_mm_exige_secret_si_configure(
-    client: AsyncClient, engine, agent_headers: dict[str, str], monkeypatch
+    client: AsyncClient, engine, admin_headers: dict[str, str], monkeypatch
 ) -> None:
     monkeypatch.setattr(settings, "mobile_money_mode", "demo")
     monkeypatch.setattr(settings, "mobile_money_webhook_secret", "secret-test-mm")
@@ -131,7 +131,7 @@ async def test_webhook_mm_exige_secret_si_configure(
 
     init = await client.post(
         "/api/v1/abonnements/initier-b2c",
-        headers=agent_headers,
+        headers=admin_headers,
         json={"code_offre": "b2c_mensuel", "pecheur_id": pecheur_id},
     )
     assert init.status_code == 201, init.text
@@ -251,7 +251,7 @@ async def test_fo_demande_licence_rate_limit(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_batch_gps_refuse_au_dela_du_plafond(client: AsyncClient, agent_headers: dict[str, str]) -> None:
+async def test_batch_gps_refuse_au_dela_du_plafond(client: AsyncClient, admin_headers: dict[str, str]) -> None:
     """H4 : un batch trop gros est rejeté avant traitement (422)."""
     emb_id = str(uuid.uuid4())
     point = {"type": "Point", "coordinates": [9.45, 0.42]}
@@ -266,7 +266,7 @@ async def test_batch_gps_refuse_au_dela_du_plafond(client: AsyncClient, agent_he
     ]
     r = await client.post(
         "/api/v1/positions/batch",
-        headers=agent_headers,
+        headers=admin_headers,
         json={"positions": trop},
     )
     assert r.status_code == 422
@@ -296,7 +296,7 @@ async def test_login_rate_limit(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_confirmer_demo_refuse_paiement_tiers(
-    client: AsyncClient, engine, agent_headers: dict[str, str]
+    client: AsyncClient, engine, admin_headers: dict[str, str]
 ) -> None:
     """IDOR : un pêcheur ne peut pas confirmer le paiement d'un autre."""
     pecheur_a_id, headers_a = await _creer_pecheur(engine, "idorA")
@@ -304,7 +304,7 @@ async def test_confirmer_demo_refuse_paiement_tiers(
 
     init = await client.post(
         "/api/v1/abonnements/initier-b2c",
-        headers=agent_headers,
+        headers=admin_headers,
         json={"code_offre": "b2c_mensuel", "pecheur_id": pecheur_a_id},
     )
     assert init.status_code == 201, init.text

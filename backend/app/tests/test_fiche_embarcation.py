@@ -12,11 +12,11 @@ OWENDO = (9.505, 0.280)
 
 
 @pytest.mark.asyncio
-async def test_fiche_embarcation_complete(client: AsyncClient, agent_headers: dict) -> None:
+async def test_fiche_embarcation_complete(client: AsyncClient, admin_headers: dict) -> None:
     suffix = uuid.uuid4().hex[:8]
     pecheur = await client.post(
         "/api/v1/pecheurs",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "nom": f"Fiche-{suffix}",
             "prenom": "Test",
@@ -27,7 +27,7 @@ async def test_fiche_embarcation_complete(client: AsyncClient, agent_headers: di
     assert pecheur.status_code == 201, pecheur.text
     emb = await client.post(
         "/api/v1/embarcations",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": pecheur.json()["id"],
             "nom": "Pirogue Fiche",
@@ -41,7 +41,7 @@ async def test_fiche_embarcation_complete(client: AsyncClient, agent_headers: di
     for minutes in (40, 25, 10):
         resp = await client.post(
             "/api/v1/positions",
-            headers=agent_headers,
+            headers=admin_headers,
             json={
                 "embarcation_id": emb_id,
                 "position": {"type": "Point", "coordinates": list(OWENDO)},
@@ -52,7 +52,7 @@ async def test_fiche_embarcation_complete(client: AsyncClient, agent_headers: di
         assert resp.status_code == 201, resp.text
 
     fiche = await client.get(
-        f"/api/v1/positions/embarcations/{emb_id}/fiche", headers=agent_headers
+        f"/api/v1/positions/embarcations/{emb_id}/fiche", headers=admin_headers
     )
     assert fiche.status_code == 200, fiche.text
     body = fiche.json()
@@ -68,8 +68,8 @@ async def test_fiche_embarcation_complete(client: AsyncClient, agent_headers: di
 
 
 @pytest.mark.asyncio
-async def test_fiche_embarcation_inconnue(client: AsyncClient, agent_headers: dict) -> None:
+async def test_fiche_embarcation_inconnue(client: AsyncClient, admin_headers: dict) -> None:
     resp = await client.get(
-        f"/api/v1/positions/embarcations/{uuid.uuid4()}/fiche", headers=agent_headers
+        f"/api/v1/positions/embarcations/{uuid.uuid4()}/fiche", headers=admin_headers
     )
     assert resp.status_code == 404

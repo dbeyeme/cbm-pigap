@@ -1,15 +1,17 @@
-"""Filtre géographique lecture (lot 8) : union des emprises actives via PostGIS."""
+"""Filtre géographique lecture (lot 8 + vue agent §7)."""
 
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from geoalchemy2.functions import ST_AsGeoJSON, ST_Intersects, ST_Union
 from sqlalchemy import ColumnElement, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.models import Alerte, PerimetreZone, Position
+from app.db.enums import RoleUtilisateur
+from app.db.models import AgentZone, Alerte, PerimetreZone, Position, Utilisateur
 
 
 def _sous_requete_union_active() -> Any:
@@ -20,11 +22,38 @@ def _sous_requete_union_active() -> Any:
     )
 
 
-def clause_point_dans_emprise_active(position_col: Any) -> ColumnElement[bool] | None:
-    """Clause SQL `ST_Intersects` sur l'union des zones actives, ou `None` si filtre désactivé."""
+def _sous_requete_union_agent(agent_id: UUID) -> Any:
+    """Union des zones actives affectées à l'agent (vide → aucune lecture)."""
+    return (
+        select(func.ST_Union(PerimetreZone.emprise))
+        .select_from(PerimetreZone)
+        .join(AgentZone, AgentZone.zone_id == PerimetreZone.id)
+        .where(
+            PerimetreZone.actif.is_(True),
+            AgentZone.utilisateur_id == agent_id,
+        )
+        .scalar_subquery()
+    )
+
+
+def agent_id_pour_filtre(user: Utilisateur | None) -> UUID | None:
+    """Identifiant agent si le filtre « sa zone » s'applique ; sinon None (vue large)."""
+    if user is None:
+        return None
+    if user.role == RoleUtilisateur.agent_controle:
+        return user.id
+    return None
+
+
+def clause_point_dans_emprise_active(
+    position_col: Any, *, agent_id: UUID | None = None
+) -> ColumnElement[bool] | None:
+    """Clause SQL `ST_Intersects` sur l'emprise de lecture, ou `None` si filtre désactivé."""
     if not settings.perimetre_filtre_actif:
         return None
-    union = _sous_requete_union_active()
+    union = (
+        _sous_requete_union_agent(agent_id) if agent_id is not None else _sous_requete_union_active()
+    )
     return ST_Intersects(position_col, union)
 
 
@@ -66,11 +95,20 @@ async def au_moins_une_zone_active(db: AsyncSession) -> bool:
     return int(n or 0) > 0
 
 
-def clause_alerte_visible() -> ColumnElement[bool] | None:
-    """Alerte visible si sans embarcation, sans position connue, ou position dans l'emprise active."""
+async def agent_a_au_moins_une_zone(db: AsyncSession, agent_id: UUID) -> bool:
+    n = await db.scalar(
+        select(func.count(AgentZone.id)).where(AgentZone.utilisateur_id == agent_id)
+    )
+    return int(n or 0) > 0
+
+
+def clause_alerte_visible(*, agent_id: UUID | None = None) -> ColumnElement[bool] | None:
+    """Alerte visible si sans embarcation, sans position, ou position dans l'emprise de lecture."""
     if not settings.perimetre_filtre_actif:
         return None
-    union = _sous_requete_union_active()
+    union = (
+        _sous_requete_union_agent(agent_id) if agent_id is not None else _sous_requete_union_active()
+    )
     return or_(
         Alerte.embarcation_id.is_(None),
         ~exists(select(Position.id).where(Position.embarcation_id == Alerte.embarcation_id)),

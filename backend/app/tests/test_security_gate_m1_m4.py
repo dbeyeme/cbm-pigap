@@ -54,16 +54,16 @@ async def _login(client: AsyncClient, email: str, password: str = "PecheurPass1!
 
 @pytest.mark.asyncio
 async def test_capture_idempotence_idor_blocked(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     """POST /captures avec UUID d'une autre capture → 409, pas de fuite."""
-    p1, e1, _, email1 = await _create_pecheur_embarcation(client, agent_headers, tag="A")
-    p2, e2, _, _ = await _create_pecheur_embarcation(client, agent_headers, tag="B")
+    p1, e1, _, email1 = await _create_pecheur_embarcation(client, admin_headers, tag="A")
+    p2, e2, _, _ = await _create_pecheur_embarcation(client, admin_headers, tag="B")
 
     victim_id = str(uuid.uuid4())
     created = await client.post(
         "/api/v1/captures",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "id": victim_id,
             "pecheur_id": p1,
@@ -81,7 +81,7 @@ async def test_capture_idempotence_idor_blocked(
     # Tentative IDOR : réutiliser l'UUID victime avec un autre pêcheur (via agent)
     steal = await client.post(
         "/api/v1/captures",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "id": victim_id,
             "pecheur_id": p2,
@@ -118,12 +118,12 @@ async def test_capture_idempotence_idor_blocked(
 
 @pytest.mark.asyncio
 async def test_dossier_pecheur_cannot_see_other_licence(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     _, _, licence_a, email_a = await _create_pecheur_embarcation(
-        client, agent_headers, tag="DOSA"
+        client, admin_headers, tag="DOSA"
     )
-    _, _, licence_b, _ = await _create_pecheur_embarcation(client, agent_headers, tag="DOSB")
+    _, _, licence_b, _ = await _create_pecheur_embarcation(client, admin_headers, tag="DOSB")
 
     headers_a = await _login(client, email_a)
     own = await client.get(
@@ -144,14 +144,14 @@ async def test_dossier_pecheur_cannot_see_other_licence(
 
 @pytest.mark.asyncio
 async def test_clear_trajectory_forbidden_for_pecheur(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     pecheur_id, emb_id, _, email = await _create_pecheur_embarcation(
-        client, agent_headers, tag="CLR"
+        client, admin_headers, tag="CLR"
     )
     await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb_id,
             "position": {"type": "Point", "coordinates": [9.18, 0.42]},
@@ -169,7 +169,7 @@ async def test_clear_trajectory_forbidden_for_pecheur(
     # Agent peut toujours purger (démo)
     ok = await client.delete(
         f"/api/v1/positions/embarcation/{emb_id}",
-        headers=agent_headers,
+        headers=admin_headers,
     )
     assert ok.status_code == 200, ok.text
     _ = pecheur_id  # utilisé pour clarté fixture

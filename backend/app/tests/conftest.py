@@ -74,20 +74,35 @@ async def client(engine) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture
-async def agent_headers(engine) -> dict[str, str]:
+async def _headers_pour_role(engine, role: RoleUtilisateur, nom: str) -> dict[str, str]:
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
-        email = f"agent-{uuid.uuid4().hex[:8]}@example.com"
-        agent = Utilisateur(
-            nom="Agent Test",
-            role=RoleUtilisateur.agent_controle,
+        email = f"{role.value}-{uuid.uuid4().hex[:8]}@example.com"
+        user = Utilisateur(
+            nom=nom,
+            role=role,
             email=email,
             telephone=f"+2410{uuid.uuid4().int % 10_000_000:07d}",
             mot_de_passe_hash=hash_password("AgentPass123!"),
         )
-        session.add(agent)
+        session.add(user)
         await session.commit()
-        await session.refresh(agent)
-        token = create_access_token(subject=agent.id, role=agent.role.value)
+        await session.refresh(user)
+        if role == RoleUtilisateur.agent_controle:
+            from app.modules.perimetre import service as perimetre_service
+
+            await perimetre_service.assurer_affectation_defaut_agent(session, user.id)
+        token = create_access_token(subject=user.id, role=user.role.value)
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def agent_headers(engine) -> dict[str, str]:
+    """Agent avec zone `gabon` par défaut (lecture flotte ; pas d'écriture GPS)."""
+    return await _headers_pour_role(engine, RoleUtilisateur.agent_controle, "Agent Test")
+
+
+@pytest_asyncio.fixture
+async def admin_headers(engine) -> dict[str, str]:
+    """Admin : écriture GPS outillage + administration périmètre."""
+    return await _headers_pour_role(engine, RoleUtilisateur.admin, "Admin Test")

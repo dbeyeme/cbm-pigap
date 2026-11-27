@@ -40,16 +40,16 @@ async def _create_embarcation(client: AsyncClient, headers: dict) -> str:
 
 
 @pytest.mark.asyncio
-async def test_geoloc_config(client: AsyncClient, agent_headers: dict) -> None:
-    response = await client.get("/api/v1/geoloc/config", headers=agent_headers)
+async def test_geoloc_config(client: AsyncClient, admin_headers: dict) -> None:
+    response = await client.get("/api/v1/geoloc/config", headers=admin_headers)
     assert response.status_code == 200
     assert response.json()["gps_interval_minutes"] >= 1
 
 
 @pytest.mark.asyncio
-async def test_trajectory_10_points_chronological(client: AsyncClient, agent_headers: dict) -> None:
+async def test_trajectory_10_points_chronological(client: AsyncClient, admin_headers: dict) -> None:
     """§5.2 : trajectoire simulée de 10 points GPS dans l'ordre chronologique."""
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     base = datetime(2026, 7, 27, 8, 0, tzinfo=UTC)
     # Corridor maritime Estuaire / large Libreville (en mer, WGS84)
     path = list(ESTUAIRE_LIBREVILLE)
@@ -68,7 +68,7 @@ async def test_trajectory_10_points_chronological(client: AsyncClient, agent_hea
     }
     batch = await client.post(
         "/api/v1/positions/batch",
-        headers=agent_headers,
+        headers=admin_headers,
         json=payload,
     )
     assert batch.status_code == 201, batch.text
@@ -76,7 +76,7 @@ async def test_trajectory_10_points_chronological(client: AsyncClient, agent_hea
 
     traj = await client.get(
         "/api/v1/positions/trajectory",
-        headers=agent_headers,
+        headers=admin_headers,
         params={"embarcation_id": emb_id},
     )
     assert traj.status_code == 200, traj.text
@@ -94,13 +94,13 @@ async def test_trajectory_10_points_chronological(client: AsyncClient, agent_hea
 
 
 @pytest.mark.asyncio
-async def test_trajectory_period_filter(client: AsyncClient, agent_headers: dict) -> None:
-    emb_id = await _create_embarcation(client, agent_headers)
+async def test_trajectory_period_filter(client: AsyncClient, admin_headers: dict) -> None:
+    emb_id = await _create_embarcation(client, admin_headers)
     base = datetime(2026, 7, 27, 10, 0, tzinfo=UTC)
     for i in range(5):
         resp = await client.post(
             "/api/v1/positions",
-            headers=agent_headers,
+            headers=admin_headers,
             json={
                 "embarcation_id": emb_id,
                 "position": {"type": "Point", "coordinates": [9.22 - i * 0.01, 0.41 - i * 0.02]},
@@ -112,7 +112,7 @@ async def test_trajectory_period_filter(client: AsyncClient, agent_headers: dict
 
     filtered = await client.get(
         "/api/v1/positions/trajectory",
-        headers=agent_headers,
+        headers=admin_headers,
         params={
             "embarcation_id": emb_id,
             "debut": (base + timedelta(minutes=15)).isoformat(),
@@ -124,12 +124,12 @@ async def test_trajectory_period_filter(client: AsyncClient, agent_headers: dict
 
 
 @pytest.mark.asyncio
-async def test_reject_position_hors_eau(client: AsyncClient, agent_headers: dict) -> None:
+async def test_reject_position_hors_eau(client: AsyncClient, admin_headers: dict) -> None:
     """Refuse GPS hors eau : San Francisco + centre-ville Libreville."""
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     sf = await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb_id,
             "position": {"type": "Point", "coordinates": [-122.4064, 37.7858]},
@@ -142,7 +142,7 @@ async def test_reject_position_hors_eau(client: AsyncClient, agent_headers: dict
 
     city = await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb_id,
             "position": {"type": "Point", "coordinates": [9.45, 0.39]},
@@ -156,7 +156,7 @@ async def test_reject_position_hors_eau(client: AsyncClient, agent_headers: dict
 
 @pytest.mark.asyncio
 async def test_trajectory_hides_inland_legacy(
-    client: AsyncClient, agent_headers: dict, engine
+    client: AsyncClient, admin_headers: dict, engine
 ) -> None:
     """Les anciens points à terre ne ressortent plus dans la trajectoire."""
     from datetime import UTC as _UTC
@@ -168,10 +168,10 @@ async def test_trajectory_hides_inland_legacy(
     from app.modules.geolocalisation.geo import point_to_wkt
     from app.schemas.common import PointGeoJSON
 
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     ok = await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb_id,
             "position": {"type": "Point", "coordinates": [9.12, 0.38]},
@@ -195,7 +195,7 @@ async def test_trajectory_hides_inland_legacy(
 
     traj = await client.get(
         "/api/v1/positions/trajectory",
-        headers=agent_headers,
+        headers=admin_headers,
         params={"embarcation_id": emb_id},
     )
     assert traj.status_code == 200
@@ -205,11 +205,11 @@ async def test_trajectory_hides_inland_legacy(
 
 
 @pytest.mark.asyncio
-async def test_clear_trajectory(client: AsyncClient, agent_headers: dict) -> None:
-    emb_id = await _create_embarcation(client, agent_headers)
+async def test_clear_trajectory(client: AsyncClient, admin_headers: dict) -> None:
+    emb_id = await _create_embarcation(client, admin_headers)
     await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb_id,
             "position": {"type": "Point", "coordinates": [9.2, 0.42]},
@@ -219,12 +219,12 @@ async def test_clear_trajectory(client: AsyncClient, agent_headers: dict) -> Non
     )
     cleared = await client.delete(
         f"/api/v1/positions/embarcation/{emb_id}",
-        headers=agent_headers,
+        headers=admin_headers,
     )
     assert cleared.status_code == 200
     traj = await client.get(
         "/api/v1/positions/trajectory",
-        headers=agent_headers,
+        headers=admin_headers,
         params={"embarcation_id": emb_id},
     )
     assert traj.json() == []
@@ -232,12 +232,12 @@ async def test_clear_trajectory(client: AsyncClient, agent_headers: dict) -> Non
 
 @pytest.mark.asyncio
 async def test_tracked_embarcations_include_positions_count(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb_id,
             "position": {"type": "Point", "coordinates": [9.22, 0.41]},
@@ -245,7 +245,7 @@ async def test_tracked_embarcations_include_positions_count(
             "source": "mobile",
         },
     )
-    response = await client.get("/api/v1/positions/embarcations", headers=agent_headers)
+    response = await client.get("/api/v1/positions/embarcations", headers=admin_headers)
     assert response.status_code == 200
     match = next(b for b in response.json() if b["id"] == emb_id)
     assert match["positions_count"] == 1
@@ -254,13 +254,13 @@ async def test_tracked_embarcations_include_positions_count(
 
 
 @pytest.mark.asyncio
-async def test_reject_land_crossing_batch(client: AsyncClient, agent_headers: dict) -> None:
+async def test_reject_land_crossing_batch(client: AsyncClient, admin_headers: dict) -> None:
     """Refuse un batch dont le segment traverse la terre."""
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     base = datetime(2026, 7, 27, 8, 0, tzinfo=UTC)
     resp = await client.post(
         "/api/v1/positions/batch",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "positions": [
                 {
@@ -284,13 +284,13 @@ async def test_reject_land_crossing_batch(client: AsyncClient, agent_headers: di
 
 
 @pytest.mark.asyncio
-async def test_dossier_by_licence(client: AsyncClient, agent_headers: dict) -> None:
-    emb_id = await _create_embarcation(client, agent_headers)
+async def test_dossier_by_licence(client: AsyncClient, admin_headers: dict) -> None:
+    emb_id = await _create_embarcation(client, admin_headers)
     # récupérer la licence via trajectoire setup — recreate with known licence
     suffix = uuid.uuid4().hex[:8]
     pecheur = await client.post(
         "/api/v1/pecheurs",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "nom": "Mba",
             "prenom": "Jean",
@@ -302,7 +302,7 @@ async def test_dossier_by_licence(client: AsyncClient, agent_headers: dict) -> N
     assert pecheur.status_code == 201
     emb = await client.post(
         "/api/v1/embarcations",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "pecheur_id": pecheur.json()["id"],
             "nom": "Pirogue Dossier",
@@ -313,7 +313,7 @@ async def test_dossier_by_licence(client: AsyncClient, agent_headers: dict) -> N
     assert emb.status_code == 201
     await client.post(
         "/api/v1/positions",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "embarcation_id": emb.json()["id"],
             "position": {"type": "Point", "coordinates": [9.18, 0.42]},
@@ -323,7 +323,7 @@ async def test_dossier_by_licence(client: AsyncClient, agent_headers: dict) -> N
     )
     dossier = await client.get(
         "/api/v1/positions/dossier",
-        headers=agent_headers,
+        headers=admin_headers,
         params={"licence": f"LIC-DOS-{suffix}"},
     )
     assert dossier.status_code == 200, dossier.text
@@ -336,16 +336,16 @@ async def test_dossier_by_licence(client: AsyncClient, agent_headers: dict) -> N
 
 @pytest.mark.asyncio
 async def test_list_trajectories_multiple_per_boat(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     """Plusieurs sorties pour une même embarcation (écart > 2 h)."""
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     base = datetime(2026, 7, 27, 6, 0, tzinfo=UTC)
     # Sortie 1
     for i in range(3):
         resp = await client.post(
             "/api/v1/positions",
-            headers=agent_headers,
+            headers=admin_headers,
             json={
                 "embarcation_id": emb_id,
                 "position": {
@@ -361,7 +361,7 @@ async def test_list_trajectories_multiple_per_boat(
     for i in range(3):
         resp = await client.post(
             "/api/v1/positions",
-            headers=agent_headers,
+            headers=admin_headers,
             json={
                 "embarcation_id": emb_id,
                 "position": {
@@ -376,7 +376,7 @@ async def test_list_trajectories_multiple_per_boat(
 
     listed = await client.get(
         "/api/v1/positions/trajectories",
-        headers=agent_headers,
+        headers=admin_headers,
         params={"embarcation_id": emb_id},
     )
     assert listed.status_code == 200
@@ -387,14 +387,14 @@ async def test_list_trajectories_multiple_per_boat(
 
 
 @pytest.mark.asyncio
-async def test_live_fleet_last_position(client: AsyncClient, agent_headers: dict) -> None:
+async def test_live_fleet_last_position(client: AsyncClient, admin_headers: dict) -> None:
     """Vue circulation : dernière position par embarcation (eau uniquement)."""
-    emb_id = await _create_embarcation(client, agent_headers)
+    emb_id = await _create_embarcation(client, admin_headers)
     base = datetime.now(UTC)
     for i, (lon, lat) in enumerate(list(ESTUAIRE_LIBREVILLE)[:3]):
         resp = await client.post(
             "/api/v1/positions",
-            headers=agent_headers,
+            headers=admin_headers,
             json={
                 "embarcation_id": emb_id,
                 "position": {"type": "Point", "coordinates": [lon, lat]},
@@ -406,7 +406,7 @@ async def test_live_fleet_last_position(client: AsyncClient, agent_headers: dict
 
     live = await client.get(
         "/api/v1/positions/live",
-        headers=agent_headers,
+        headers=admin_headers,
         params={"since_minutes": 60},
     )
     assert live.status_code == 200, live.text

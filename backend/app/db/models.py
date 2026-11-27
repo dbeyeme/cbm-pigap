@@ -939,3 +939,29 @@ class PerimetreZone(Base):
     )
 
     __table_args__ = (Index("ix_perimetre_zones_emprise", "emprise", postgresql_using="gist"),)
+
+
+class AgentZone(Base):
+    """Affectation d'un agent de contrôle à une ou plusieurs zones de périmètre (§7)."""
+
+    __tablename__ = "agent_zones"
+    __table_args__ = (
+        UniqueConstraint("utilisateur_id", "zone_id", name="uq_agent_zones_user_zone"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    zone_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("perimetre_zones.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    date_creation: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

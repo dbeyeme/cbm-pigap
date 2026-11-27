@@ -34,3 +34,16 @@ class PerimetreFiltreRead(BaseModel):
     codes_actifs: list[str]
     nombre_actifs: int
     emprise_geojson: dict | None = None
+
+
+class AgentZonesRead(BaseModel):
+    """Zones de périmètre affectées à un agent (§7)."""
+
+    utilisateur_id: UUID
+    codes: list[str]
+
+
+class AgentZonesUpdate(BaseModel):
+    """Remplace l'ensemble des zones affectées (codes de perimetre_zones)."""
+
+    codes: list[str] = Field(default_factory=list, description="Codes de zones, ex. estuaire")

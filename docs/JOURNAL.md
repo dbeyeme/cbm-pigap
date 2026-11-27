@@ -5,6 +5,22 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Sécurité — vue agent par zone et écriture GPS
+
+**Ce qui a été construit :**
+- Écriture GPS limitée à pêcheur + admin (agent/autorité/chercheur : lecture)
+- Table `agent_zones` + API admin `PUT /perimetre/agents/{id}/zones` et `GET /perimetre/moi/zones`
+- Lectures positions/alertes filtrées pour l'agent : intersection zones affectées ∩ zones actives (§7)
+- Tests `test_agent_zones.py` ; migration `a1b2c3d4e580`
+
+**Pourquoi :** cahier §7 (agent voit sa zone) ; clôture réserves gate sécurité (vue agent, écriture staff)
+
+**Tests réalisés :** `pytest` agent_zones + lot8 + m2 + security_redblue → 35 passed
+
+**Points ouverts :** UI portail pour affecter les zones aux agents ; LogAcces
+
+---
+
 ## [2026-11-27] Sécurité red/blue — docs prod, FO, chercheur GPS
 
 **Ce qui a été construit :**

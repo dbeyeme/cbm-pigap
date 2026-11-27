@@ -58,7 +58,7 @@ async def etats_de_traitement(_: AlertesReader) -> EtatsRead:
 async def list_alertes(
     response: Response,
     db: DbSession,
-    _: AlertesReader,
+    user: AlertesReader,
     type_alerte: Annotated[TypeAlerte | None, Query(alias="type")] = None,
     statut: StatutAlerte | None = None,
     embarcation_id: UUID | None = None,
@@ -74,6 +74,7 @@ async def list_alertes(
     renvoyé dans l'en-tête `X-Total-Count`."""
     alertes, total = await service.list_alertes(
         db,
+        user,
         type_alerte=type_alerte,
         statut=statut,
         embarcation_id=embarcation_id,

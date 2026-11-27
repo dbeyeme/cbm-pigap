@@ -27,3 +27,13 @@ Référentiel de zones activables (pays, province, ville, côte, fleuve) pour ca
 ```bash
 cd backend && pytest app/tests/test_lot8_perimetre.py -q
 ```
+
+## Affectation agent (§7)
+
+| Méthode | Chemin | Rôle |
+|---------|--------|------|
+| GET | `/api/v1/perimetre/moi/zones` | agent |
+| GET | `/api/v1/perimetre/agents/{id}/zones` | admin |
+| PUT | `/api/v1/perimetre/agents/{id}/zones` | admin (corps `{ "codes": ["estuaire"] }`) |
+
+Lecture GPS/alertes : union des zones **affectées et actives**. Nouvel agent : toutes les zones seed par défaut.

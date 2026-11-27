@@ -83,12 +83,12 @@ def _unique_when(offset_days: int = 0) -> datetime:
 
 @pytest.mark.asyncio
 async def test_sortie_limite_geographique_positif_et_negatif(
-    client: AsyncClient, agent_headers: dict
+    client: AsyncClient, admin_headers: dict
 ) -> None:
     suffix = uuid.uuid4().hex[:6]
     zone = await client.post(
         "/api/v1/zones",
-        headers=agent_headers,
+        headers=admin_headers,
         json={
             "nom": f"Zone autorisée estuaire {suffix}",
             "type": "autorisee",
@@ -100,47 +100,47 @@ async def test_sortie_limite_geographique_positif_et_negatif(
     when = _unique_when()
 
     # Dans la zone autorisée : aucune alerte de limite
-    emb_in = await _boat(client, agent_headers, "in")
-    await _position(client, agent_headers, emb_in, ESTUAIRE, when)
+    emb_in = await _boat(client, admin_headers, "in")
+    await _position(client, admin_headers, emb_in, ESTUAIRE, when)
     assert (
-        await _alertes_regle(client, agent_headers, "sortie_limite_geographique", emb=emb_in) == []
+        await _alertes_regle(client, admin_headers, "sortie_limite_geographique", emb=emb_in) == []
     )
 
     # Au large, hors de toute zone autorisée : alerte critique
-    emb_out = await _boat(client, agent_headers, "out")
-    await _position(client, agent_headers, emb_out, LARGE_PORT_GENTIL, when)
-    found = await _alertes_regle(client, agent_headers, "sortie_limite_geographique", emb=emb_out)
+    emb_out = await _boat(client, admin_headers, "out")
+    await _position(client, admin_headers, emb_out, LARGE_PORT_GENTIL, when)
+    found = await _alertes_regle(client, admin_headers, "sortie_limite_geographique", emb=emb_out)
     assert len(found) == 1, found
     assert found[0]["niveau_gravite"] == "critique"
     assert found[0]["declencheur"]["limite"] == "zones_autorisees"
 
     # Anti-doublon : une seconde position le même jour n'ajoute pas d'alerte
-    await _position(client, agent_headers, emb_out, LARGE_PORT_GENTIL, when + timedelta(minutes=10))
+    await _position(client, admin_headers, emb_out, LARGE_PORT_GENTIL, when + timedelta(minutes=10))
     assert (
-        len(await _alertes_regle(client, agent_headers, "sortie_limite_geographique", emb=emb_out))
+        len(await _alertes_regle(client, admin_headers, "sortie_limite_geographique", emb=emb_out))
         == 1
     )
 
 
 @pytest.mark.asyncio
 async def test_concentration_zone_positif_et_negatif(
-    client: AsyncClient, agent_headers: dict, monkeypatch
+    client: AsyncClient, admin_headers: dict, monkeypatch
 ) -> None:
     monkeypatch.setattr(settings, "alerte_concentration_seuil", 3)
     when = _unique_when()
 
-    boats = [await _boat(client, agent_headers, f"c{i}") for i in range(3)]
+    boats = [await _boat(client, admin_headers, f"c{i}") for i in range(3)]
     # Deux embarcations : sous le seuil
-    await _position(client, agent_headers, boats[0], ESTUAIRE, when)
-    await _position(client, agent_headers, boats[1], [9.201, 0.421], when + timedelta(minutes=5))
-    avant = await _alertes_regle(client, agent_headers, "concentration_zone", emb=None)
+    await _position(client, admin_headers, boats[0], ESTUAIRE, when)
+    await _position(client, admin_headers, boats[1], [9.201, 0.421], when + timedelta(minutes=5))
+    avant = await _alertes_regle(client, admin_headers, "concentration_zone", emb=None)
     assert not any(
         a["declencheur"]["horodatage"].startswith(when.date().isoformat()) for a in avant
     )
 
     # Troisième embarcation dans le rayon et la fenêtre : alerte d'attention
-    await _position(client, agent_headers, boats[2], [9.202, 0.419], when + timedelta(minutes=8))
-    apres = await _alertes_regle(client, agent_headers, "concentration_zone", emb=None)
+    await _position(client, admin_headers, boats[2], [9.202, 0.419], when + timedelta(minutes=8))
+    apres = await _alertes_regle(client, admin_headers, "concentration_zone", emb=None)
     hits = [a for a in apres if a["declencheur"]["horodatage"].startswith(when.date().isoformat())]
     assert len(hits) == 1, hits
     assert hits[0]["niveau_gravite"] == "attention"
