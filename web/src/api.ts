@@ -2641,3 +2641,19 @@ export function patchPerimetre(token: string, id: string, data: { actif: boolean
     body: JSON.stringify(data),
   });
 }
+
+export type AgentZones = {
+  utilisateur_id: string;
+  codes: string[];
+};
+
+export function getAgentZones(token: string, utilisateurId: string) {
+  return request<AgentZones>(`/api/v1/perimetre/agents/${utilisateurId}/zones`, token);
+}
+
+export function putAgentZones(token: string, utilisateurId: string, codes: string[]) {
+  return request<AgentZones>(`/api/v1/perimetre/agents/${utilisateurId}/zones`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ codes }),
+  });
+}

@@ -5,6 +5,22 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Portail affectation agents + LogAcces élargi
+
+**Ce qui a été construit :**
+- Page Périmètre : panneau admin pour affecter les zones aux agents (API déjà en place)
+- Helper `app/core/log_acces.py` ; journalisation login échoué, dossier licence, trajectoire staff, liste alertes
+- Correctif remplacement zones agent (delete + flush avant insert)
+- Tests `test_log_acces_securite.py` ; `tsc` portail OK
+
+**Pourquoi :** §7 journalisation + UX pour la vue agent par zone
+
+**Tests réalisés :** pytest log_acces + agent_zones → 6 passed ; `npx tsc --noEmit` web OK
+
+**Points ouverts :** GFW_API_TOKEN Railway ; consultation live flotte (LogAcces) encore partielle
+
+---
+
 ## [2026-11-27] Sécurité — vue agent par zone et écriture GPS
 
 **Ce qui a été construit :**

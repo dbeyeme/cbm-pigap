@@ -5,6 +5,7 @@ from typing import Annotated
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.errors import bad_request, conflict, forbidden
+from app.core.log_acces import enregistrer as journaliser_acces
 from app.core.rate_limit import login_limiter
 from app.core.security import create_access_token, verify_password
 from app.db.enums import RoleUtilisateur
@@ -53,6 +54,15 @@ async def login(
     result = await db.execute(select(Utilisateur).where(or_(*clauses)))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(payload.mot_de_passe, user.mot_de_passe_hash):
+        ident = str(payload.email or payload.telephone or "?")
+        await journaliser_acces(
+            db,
+            utilisateur_id=user.id if user is not None else None,
+            ressource="auth",
+            action="login_echec",
+            detail=f"ip={client};identifiant={ident}",
+            commit=True,
+        )
         raise bad_request("Identifiants invalides", "INVALID_CREDENTIALS")
 
     # Un appareil, un seul compte pêcheur : contrôlé une fois les identifiants vérifiés

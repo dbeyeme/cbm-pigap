@@ -15,7 +15,7 @@
 | **Prochain jalon** | GFW env (local + production) → APK → Phase 3 terrain → commit / publier / déployer |
 | **Bloqueurs** | `GFW_API_TOKEN` absent sur Railway (`cbm-pigap`) : à poser avant `GFW_ENABLED=true` |
 | **Chantier en cours** | Lots 7 et 8 livrés en code (ADR-014, ADR-015) ; GFW à activer via variables d'environnement seulement. |
-| **Note récente** | 2026-11-27 : vue agent par zone + GPS write pêcheur/admin ; lots 7–8 ; GFW en env |
+| **Note récente** | 2026-11-27 : UI affectation zones agents + LogAcces (login, dossier, trajectoire, alertes) |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

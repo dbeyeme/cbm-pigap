@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from geoalchemy2.functions import ST_AsGeoJSON
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import bad_request, not_found
@@ -104,11 +104,8 @@ async def remplacer_zones_agent(
         if zone is None:
             raise not_found(f"Zone de périmètre inconnue : {code}", "PERIMETRE_NOT_FOUND")
         zones.append(zone)
-    existants = (
-        await db.execute(select(AgentZone).where(AgentZone.utilisateur_id == utilisateur_id))
-    ).scalars().all()
-    for row in existants:
-        await db.delete(row)
+    await db.execute(delete(AgentZone).where(AgentZone.utilisateur_id == utilisateur_id))
+    await db.flush()
     for zone in zones:
         db.add(AgentZone(utilisateur_id=utilisateur_id, zone_id=zone.id))
     await db.commit()
