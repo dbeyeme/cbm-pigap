@@ -46,3 +46,12 @@ alembic upgrade head
 | GET | `/docs` | OpenAPI interactif |
 
 Contrats métier (Pydantic) : voir `docs/api-contracts.md`. Routes `/api/v1/...` à partir de la Phase 2.
+
+## Mise en ligne (Railway)
+
+Réglages portés par le service `cbm-pigap` lui-même depuis le 2026-11-27 (le fichier `railway.toml`
+n'est plus lu par Railway après le 2026-12-01) : construction par `Dockerfile`, contrôle de santé
+`/health` (120 s), redémarrage en cas d'échec (5 essais). La commande de démarrage est celle du
+`Dockerfile` : `alembic upgrade head` puis `uvicorn`. Mise en ligne depuis ce dossier :
+`railway up --detach --service cbm-pigap --environment production`.
+
