@@ -10,12 +10,12 @@
 | **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
-| **Branche active** | `feature/lot-11-sorties-zones-favorables` (PR) |
+| **Branche active** | `chore/lot11-mise-en-ligne-apk` (PR) · lot 11 fusionné dans `main` (PR #1, `b23e63d`) |
 | **Dernière mise à jour** | 2026-11-27 |
-| **Prochain jalon** | Fusion PR #1 → migration lot 11 → APK avec sync sorties → Phase 3 |
-| **Bloqueurs** | Aucun (GFW production vérifié ; APK 0.2.1 publiée hors lot 11) |
-| **Chantier en cours** | Lot 11 + sécurité en PR (conflits main résolus) ; règles ADR-016 « Proposé ». |
-| **Note récente** | 2026-11-27 : GFW OK ; APK 0.2.1 ; lot 11 sorties/zones favorables en revue |
+| **Prochain jalon** | Validation des seuils ADR-016 → Phase 3 terrain |
+| **Bloqueurs** | Aucun |
+| **Chantier en cours** | Lot 11 en production (serveur, portail) et dans l'APK 0.3.0 ; règles ADR-016 « Proposé ». |
+| **Note récente** | 2026-11-27 : PR #1 fusionnée ; serveur (migration des sorties) et portail mis en ligne ; APK 0.3.0 publiée |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)
@@ -81,7 +81,7 @@ Légende : ⬜ todo · 🔄 en cours · ✅ done · ⛔ bloqué
 - ~~Lot 8~~ : ADR-015 accepté (admin seul ; désactivation masque l'historique)
 - Lot 9 (alertes) : liste des états de traitement, à décider (questions posées le 2026-11-25)
 - Lot 10, un appareil, un seul compte pêcheur (ADR-012) : règle R1 décidée le 2026-11-25 ; règles R2 à R6 « Proposé » ; mise en service après fixation de la clé de signature de l'application
-- Lot 11 (ADR-016) : sorties, lieu de pêche, zones favorables — livré en code ; seuils « Proposé » à valider (Christian / expert / DGPA)
+- Lot 11 (ADR-016) : sorties, lieu de pêche, zones favorables : en production le 2026-11-27 et dans l'APK 0.3.0 ; seuils « Proposé » à valider (Christian, expert halieutique, DGPA)
 - Décidé le 2026-11-24 : commandes sans paiement en ligne (réservation gratuite indiquant le montant prévu), page de profil visible des comptes connectés et ouvrable au public par l'acteur, bannières du portail conservées · restent « Proposé » : informations d'inscription à ajouter, espèces du profil tirées des captures
 
 ## Comment mettre à jour
