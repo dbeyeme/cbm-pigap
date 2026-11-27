@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession, require_role
@@ -26,6 +26,7 @@ from app.modules.abonnements.schemas import (
     PaiementConfigRead,
     PaiementRead,
     PayeurRead,
+    WebhookAckRead,
     WebhookMobileMoneyRequest,
 )
 
@@ -59,6 +60,15 @@ def _paiement_read(p) -> PaiementRead:
         date_creation=p.date_creation,
         date_confirmation=p.date_confirmation,
         instructions=instructions,
+    )
+
+
+def _webhook_ack(p) -> WebhookAckRead:
+    """Accusé webhook sans MSISDN ni métadonnées sensibles."""
+    return WebhookAckRead(
+        paiement_id=p.id,
+        statut=p.statut,
+        reference_interne=p.reference_interne,
     )
 
 
@@ -244,7 +254,7 @@ async def confirmer_demo(
         RoleUtilisateur.organisation,
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
-    ab, paiement = await service.confirmer_demo(db, paiement_id, payload)
+    ab, paiement = await service.confirmer_demo(db, user, paiement_id, payload)
     return InitierResponse(
         abonnement=AbonnementRead.model_validate(ab),
         paiement=_paiement_read(paiement),
@@ -266,31 +276,36 @@ async def synchroniser_paiement(
         RoleUtilisateur.organisation,
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
-    ab, paiement = await service.synchroniser_paiement(db, paiement_id)
+    ab, paiement = await service.synchroniser_paiement(db, user, paiement_id)
     return InitierResponse(
         abonnement=AbonnementRead.model_validate(ab),
         paiement=_paiement_read(paiement),
     )
 
 
-@router.post("/webhook/mobile-money", response_model=PaiementRead)
+@router.post("/webhook/mobile-money", response_model=WebhookAckRead)
 async def webhook_mm(
     payload: WebhookMobileMoneyRequest,
     db: DbSession,
-) -> PaiementRead:
-    """Endpoint legacy (secret) — SingPay / tests manuels."""
+) -> WebhookAckRead:
+    """Endpoint legacy (secret) — SingPay / tests manuels. Réponse sans MSISDN."""
     paiement = await service.webhook_mobile_money(db, payload)
-    return _paiement_read(paiement)
+    return _webhook_ack(paiement)
 
 
-@router.post("/webhook/pawapay/deposits", response_model=PaiementRead)
+@router.post("/webhook/pawapay/deposits", response_model=WebhookAckRead)
 async def webhook_pawapay_deposits(
     payload: dict[str, Any],
     db: DbSession,
-) -> PaiementRead:
-    """Callback PawaPay (à configurer dans le dashboard PawaPay)."""
-    paiement = await service.webhook_pawapay_deposit(db, payload)
-    return _paiement_read(paiement)
+    authorization: Annotated[str | None, Header()] = None,
+) -> WebhookAckRead:
+    """Callback PawaPay (à configurer dans le dashboard PawaPay).
+
+    Auth Bearer obligatoire dès qu'un jeton/secret est configuré, ou en mode live.
+    Réponse sans MSISDN.
+    """
+    paiement = await service.webhook_pawapay_deposit(db, payload, authorization=authorization)
+    return _webhook_ack(paiement)
 
 
 @router.post("/{abonnement_id}/activer-manuel", response_model=AbonnementRead)

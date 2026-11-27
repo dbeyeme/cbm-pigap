@@ -107,6 +107,15 @@ class WebhookMobileMoneyRequest(BaseModel):
     secret: str | None = None
 
 
+class WebhookAckRead(BaseModel):
+    """Accusé d'un webhook : pas de MSISDN ni d'instructions (surface non authentifiée)."""
+
+    ok: bool = True
+    paiement_id: UUID
+    statut: StatutPaiement
+    reference_interne: str
+
+
 class CouvertureRead(BaseModel):
     """État d'accès usage pour un pêcheur (B2C ou flotte B2B)."""
 

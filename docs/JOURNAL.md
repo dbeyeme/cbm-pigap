@@ -5,6 +5,33 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Sécurité red/blue — correctifs Haute (abonnements)
+
+**Ce qui a été construit :**
+- Agent / skill `security-redblue` (attaque-défense : revue + correctifs, sans exploits)
+- Contrôle d'appartenance sur `confirmer-demo` et `synchroniser` (IDOR pêcheur/org → 404)
+- Accusés webhook Mobile Money / PawaPay sans MSISDN (`WebhookAckRead`)
+- Auth Bearer PawaPay aussi dès qu'un jeton/secret est configuré en mode démo
+- Suite audit : plafond batch GPS (500), fail-closed `MOBILE_MONEY_MODE=live` sans secret/jeton, JWT prod min 32 car., rate-limit login (20/min/IP)
+- Tests défensifs : `test_security_redblue.py` (+ alignement pawapay / abonnements)
+
+**Pourquoi (lien avec le cahier des charges / ce document) :**
+- §7 sécurité par conception ; suite exploration + audit `security-auditor` (GO réserves)
+- CORS joker et JWT défaut déjà refusés en production (`assert_production_security`)
+
+**Technologies / principes utilisés :**
+- Filtrage serveur (pas seulement UI) ; 404 hors périmètre ; hmac.compare_digest ; limiteur mémoire
+
+**Tests réalisés :**
+- `pytest app/tests/test_security_redblue.py` → 14 passed (+ abonnements / pawapay précédemment verts)
+
+**Points ouverts / dette technique :**
+- FO public (demandes licence, inscription commande, profil public, vérif quittance) : volontaire MVP
+- Écriture GPS staff encore large ; vue agent par zone (H3/H5) reportée
+- LogAcces incomplet ; `/docs` ouvert hors prod
+
+---
+
 ## [2026-11-27] Tableaux étroits : plus de mots coupés lettre à lettre
 
 **Ce qui a été construit :**

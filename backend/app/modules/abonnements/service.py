@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -18,6 +19,7 @@ from app.db.enums import (
     CodeOffreAbonnement,
     OperateurMobileMoney,
     PeriodeAbonnement,
+    RoleUtilisateur,
     StatutAbonnement,
     StatutPaiement,
 )
@@ -526,8 +528,32 @@ async def find_pecheur_for_user(db: AsyncSession, utilisateur_id: UUID) -> Peche
     return result.scalar_one_or_none()
 
 
+async def assert_acces_abonnement(db: AsyncSession, user: Utilisateur, abonnement: Abonnement) -> None:
+    """Staff : accès libre. Pêcheur / organisation : uniquement son abonnement.
+
+    Hors périmètre → 404 (pas 403) pour ne pas révéler l'existence d'un paiement tiers.
+    """
+    if user.role in (
+        RoleUtilisateur.admin,
+        RoleUtilisateur.agent_controle,
+        RoleUtilisateur.autorite,
+    ):
+        return
+    if user.role == RoleUtilisateur.pecheur:
+        pecheur = await find_pecheur_for_user(db, user.id)
+        if pecheur is not None and abonnement.pecheur_id == pecheur.id:
+            return
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Paiement introuvable")
+    if user.role == RoleUtilisateur.organisation:
+        if user.organisation_id and abonnement.organisation_id == user.organisation_id:
+            return
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Paiement introuvable")
+    raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Droits insuffisants")
+
+
 async def confirmer_demo(
     db: AsyncSession,
+    user: Utilisateur,
     paiement_id: UUID,
     data: ConfirmerDemoRequest | None = None,
 ) -> tuple[Abonnement, PaiementMobileMoney]:
@@ -541,18 +567,17 @@ async def confirmer_demo(
             status.HTTP_400_BAD_REQUEST,
             detail="Paiement de quittance : utilisez /redevances/paiements/{id}/confirmer-demo",
         )
+    abonnement = await db.get(Abonnement, paiement.abonnement_id)
+    if abonnement is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
+    await assert_acces_abonnement(db, user, abonnement)
     if paiement.statut == StatutPaiement.reussi:
-        ab = await db.get(Abonnement, paiement.abonnement_id)
-        assert ab is not None
-        return ab, paiement
+        return abonnement, paiement
     if settings.mobile_money_mode != "demo" and paiement.operateur != OperateurMobileMoney.demo:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             detail="Confirmation démo désactivée (MOBILE_MONEY_MODE=live)",
         )
-    abonnement = await db.get(Abonnement, paiement.abonnement_id)
-    if abonnement is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
     await _activer_apres_paiement(db, abonnement, paiement)
     await db.commit()
     await db.refresh(abonnement)
@@ -560,11 +585,26 @@ async def confirmer_demo(
     return abonnement, paiement
 
 
+def _exiger_secret_webhook_mobile_money(secret_fourni: str | None) -> None:
+    """Refuse un webhook non authentifié hors mode démo, ou si un secret est configuré."""
+    attendu = (settings.mobile_money_webhook_secret or "").strip()
+    mode = (settings.mobile_money_mode or "demo").strip().lower()
+    if mode != "demo" and not attendu:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook Mobile Money non configuré (MOBILE_MONEY_WEBHOOK_SECRET)",
+        )
+    if not attendu:
+        # Mode démo sans secret : toléré pour les tests locaux uniquement.
+        return
+    if not secret_fourni or not hmac.compare_digest(secret_fourni.strip(), attendu):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Secret webhook invalide")
+
+
 async def webhook_mobile_money(
     db: AsyncSession, data: WebhookMobileMoneyRequest
 ) -> PaiementMobileMoney:
-    if settings.mobile_money_webhook_secret and data.secret != settings.mobile_money_webhook_secret:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Secret webhook invalide")
+    _exiger_secret_webhook_mobile_money(data.secret)
     result = await db.execute(
         select(PaiementMobileMoney).where(
             PaiementMobileMoney.reference_interne == data.reference_interne
@@ -630,7 +670,38 @@ async def appliquer_statut_pawapay(
     return paiement
 
 
-async def webhook_pawapay_deposit(db: AsyncSession, payload: dict[str, Any]) -> PaiementMobileMoney:
+def _exiger_auth_webhook_pawapay(authorization: str | None) -> None:
+    """Auth Bearer : jeton PawaPay ou secret webhook.
+
+    Mode démo sans jeton/secret configuré : toléré (tests locaux).
+    Dès qu'un secret ou jeton est défini, ou en mode live : obligatoire.
+    """
+    mode = (settings.mobile_money_mode or "demo").strip().lower()
+    secret_mm = (settings.mobile_money_webhook_secret or "").strip()
+    token = (settings.pawapay_api_token or "").strip()
+    if mode == "demo" and not secret_mm and not token:
+        return
+    if not secret_mm and not token:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook PawaPay non configuré (jeton ou secret)",
+        )
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentification webhook requise")
+    fourni = authorization[7:].strip()
+    ok_secret = bool(secret_mm) and hmac.compare_digest(fourni, secret_mm)
+    ok_token = bool(token) and hmac.compare_digest(fourni, token)
+    if not (ok_secret or ok_token):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Jeton webhook invalide")
+
+
+async def webhook_pawapay_deposit(
+    db: AsyncSession,
+    payload: dict[str, Any],
+    *,
+    authorization: str | None = None,
+) -> PaiementMobileMoney:
+    _exiger_auth_webhook_pawapay(authorization)
     deposit_id_raw = payload.get("depositId") or (payload.get("data") or {}).get("depositId")
     if not deposit_id_raw:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="depositId manquant")
@@ -648,7 +719,7 @@ async def webhook_pawapay_deposit(db: AsyncSession, payload: dict[str, Any]) -> 
 
 
 async def synchroniser_paiement(
-    db: AsyncSession, paiement_id: UUID
+    db: AsyncSession, user: Utilisateur, paiement_id: UUID
 ) -> tuple[Abonnement, PaiementMobileMoney]:
     paiement = await db.get(PaiementMobileMoney, paiement_id)
     if paiement is None:
@@ -656,6 +727,7 @@ async def synchroniser_paiement(
     abonnement = await db.get(Abonnement, paiement.abonnement_id)
     if abonnement is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
+    await assert_acces_abonnement(db, user, abonnement)
 
     if (
         paiement.statut == StatutPaiement.en_attente

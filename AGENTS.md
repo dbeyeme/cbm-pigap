@@ -58,7 +58,8 @@ Un module n'est "done" que si :
 | `fisheries-halieutique` | Expert pêche artisanale gabonaise : corridors eau, sorties vs ZEE, réalisme trajectoires |
 | `mobile-offline` | App RN, SQLite, file de sync hors-ligne |
 | `web-dashboard` | Portail autorités, cartes, indicateurs |
-| `security-auditor` | Auth JWT, rôles, données sensibles, géoloc |
+| `security-auditor` | Auth JWT, rôles, données sensibles, géoloc (lecture seule) |
+| `security-redblue` | Attaque/défense : trouve puis corrige les failles API + web |
 | `journal-keeper` | Mettre à jour JOURNAL / STATUS / checklist |
 
 ## Skills projet
@@ -70,6 +71,7 @@ Un module n'est "done" que si :
 | `update-journal` | Ajouter une entrée de suivi |
 | `write-adr` | Décision technique structurante |
 | `pigap-status` | Point d'avancement / phase |
+| `security-redblue` | Durcir / corriger failles API + portail (cycle attaque-défense) |
 
 ## Setup (cible Phase 0)
 

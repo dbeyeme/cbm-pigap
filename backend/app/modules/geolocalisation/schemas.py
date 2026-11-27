@@ -19,8 +19,12 @@ class PositionCreate(BaseModel):
     source: SourcePosition = SourcePosition.mobile
 
 
+# Plafond sync offline (§5.2) : évite DoS / pollution de trajectoires (gate sécurité).
+POSITION_BATCH_MAX = 500
+
+
 class PositionBatchCreate(BaseModel):
-    positions: list[PositionCreate] = Field(..., min_length=1)
+    positions: list[PositionCreate] = Field(..., min_length=1, max_length=POSITION_BATCH_MAX)
 
 
 class PositionRead(OrmModel):

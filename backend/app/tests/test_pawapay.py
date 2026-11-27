@@ -84,6 +84,7 @@ async def test_initier_live_pawapay_puis_callback(client: AsyncClient, engine, m
 
     wh = await client.post(
         "/api/v1/abonnements/webhook/pawapay/deposits",
+        headers={"Authorization": "Bearer test-token"},
         json={
             "depositId": paiement_id,
             "status": "COMPLETED",
@@ -95,6 +96,8 @@ async def test_initier_live_pawapay_puis_callback(client: AsyncClient, engine, m
     )
     assert wh.status_code == 200, wh.text
     assert wh.json()["statut"] == "reussi"
+    assert wh.json()["ok"] is True
+    assert "msisdn" not in wh.json()
 
     cov = await client.get("/api/v1/abonnements/me", headers=headers)
     assert cov.status_code == 200

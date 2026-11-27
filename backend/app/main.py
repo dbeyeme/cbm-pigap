@@ -38,10 +38,58 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_JWT_SECRET_DEV = "change-me-in-production-use-openssl-rand-hex-32"
+_JWT_SECRET_MIN_LEN = 32
+
+
+def assert_production_security(env: str, jwt_secret: str, cors_origins: str) -> None:
+    """Refuse un démarrage production avec secret JWT faible/défaut ou CORS joker."""
+    if env != "production":
+        return
+    if not jwt_secret or jwt_secret == _JWT_SECRET_DEV:
+        raise RuntimeError(
+            "JWT_SECRET obligatoire en production (valeur distincte du défaut de développement)"
+        )
+    if len(jwt_secret) < _JWT_SECRET_MIN_LEN:
+        raise RuntimeError(
+            f"JWT_SECRET trop court en production (minimum {_JWT_SECRET_MIN_LEN} caractères)"
+        )
+    origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    if not origins or "*" in origins:
+        raise RuntimeError(
+            "CORS_ORIGINS obligatoire en production (liste d'origines, sans joker *)"
+        )
+
+
+def assert_live_payment_security(
+    mobile_money_mode: str,
+    webhook_secret: str | None,
+    pawapay_api_token: str | None,
+) -> None:
+    """Mode live : au moins un secret webhook ou jeton PawaPay (fail-closed au boot)."""
+    mode = (mobile_money_mode or "demo").strip().lower()
+    if mode != "live":
+        return
+    secret = (webhook_secret or "").strip()
+    token = (pawapay_api_token or "").strip()
+    if not secret and not token:
+        raise RuntimeError(
+            "MOBILE_MONEY_MODE=live exige MOBILE_MONEY_WEBHOOK_SECRET ou PAWAPAY_API_TOKEN"
+        )
+
+
+assert_production_security(settings.app_env, settings.jwt_secret, settings.cors_origins)
+assert_live_payment_security(
+    settings.mobile_money_mode,
+    settings.mobile_money_webhook_secret,
+    settings.pawapay_api_token,
+)
+
 _origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 _wildcard = "*" in _origins or not _origins
 if _wildcard and settings.app_env == "production":
-    logger.warning("cors_wildcard_in_production", hint="définir CORS_ORIGINS")
+    # Filet de sécurité : assert_production_security doit déjà avoir bloqué.
+    logger.error("cors_wildcard_in_production", hint="définir CORS_ORIGINS")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if _wildcard else _origins,

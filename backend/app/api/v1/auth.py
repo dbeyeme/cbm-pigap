@@ -5,6 +5,7 @@ from typing import Annotated
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.errors import bad_request, conflict, forbidden
+from app.core.rate_limit import login_limiter
 from app.core.security import create_access_token, verify_password
 from app.db.enums import RoleUtilisateur
 from app.db.models import Utilisateur
@@ -18,7 +19,7 @@ from app.schemas.auth import (
     TokenResponse,
     UtilisateurRead,
 )
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from sqlalchemy import or_, select
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -28,10 +29,18 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def login(
     payload: LoginRequest,
     db: DbSession,
+    request: Request,
     x_appareil_id: Annotated[str | None, Header(alias=appareils_service.ENTETE)] = None,
 ) -> TokenResponse:
     """Connexion. Pour un pêcheur, l'en-tête `X-Appareil-Id` rattache l'appareil au compte
     ou fait refuser la connexion (ADR-012) ; les autres rôles ne sont pas concernés."""
+    client = request.client.host if request.client else "unknown"
+    if not login_limiter.allow(f"login:{client}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Trop de tentatives de connexion ; réessayez dans une minute",
+        )
+
     if not payload.email and not payload.telephone:
         raise bad_request("Fournir un e-mail ou un téléphone", "LOGIN_IDENTIFIER_REQUIRED")
 

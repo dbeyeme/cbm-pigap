@@ -164,6 +164,8 @@ async def test_webhook_active_abonnement(
     )
     assert wh.status_code == 200
     assert wh.json()["statut"] == "reussi"
+    assert wh.json()["ok"] is True
+    assert "msisdn" not in wh.json()
 
 
 @pytest.mark.asyncio
