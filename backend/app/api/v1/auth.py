@@ -129,7 +129,8 @@ async def update_mon_telephone(
     """
     if user.role != RoleUtilisateur.pecheur:
         raise forbidden(
-            "Seul un pêcheur modifie son propre numéro ; les autres comptes passent par l'administration",
+            "Seul un pêcheur modifie son propre numéro ; "
+            "les autres comptes passent par l'administration",
             "PHONE_SELF_SERVICE_PECHEUR_ONLY",
         )
     telephone = f"+{normalize_gabon_msisdn(payload.telephone)}"

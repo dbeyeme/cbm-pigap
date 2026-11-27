@@ -197,9 +197,7 @@ async def test_l6_courbes_anonymat_et_parametrage(
 
 
 @pytest.mark.asyncio
-async def test_l6_courbe_globale_ponderee(
-    client: AsyncClient, agent_headers: dict, engine
-) -> None:
+async def test_l6_courbe_globale_ponderee(client: AsyncClient, agent_headers: dict, engine) -> None:
     t0 = instant_isole()
     for i in range(3):
         p = await creer_pecheur(client, agent_headers, tag=f"L6G{i}")
@@ -272,7 +270,10 @@ async def test_l6_carnet_roles_rendement_sans_charges(
     propre = await client.get(
         CARNET,
         headers=moi,
-        params={"debut": (t0 - timedelta(hours=1)).isoformat(), "fin": (t0 + timedelta(days=1)).isoformat()},
+        params={
+            "debut": (t0 - timedelta(hours=1)).isoformat(),
+            "fin": (t0 + timedelta(days=1)).isoformat(),
+        },
     )
     assert propre.status_code == 200, propre.text
     body = propre.json()
@@ -304,7 +305,9 @@ async def test_l6_carnet_roles_rendement_sans_charges(
     assert courbes_chercheur.status_code == 200
 
     # Le chercheur ne relit pas le prix nominatif d'une déclaration
-    detail_agent = await client.get(f"{CAPTURES}", headers=agent_headers, params={"pecheur_id": p["id"]})
+    detail_agent = await client.get(
+        f"{CAPTURES}", headers=agent_headers, params={"pecheur_id": p["id"]}
+    )
     assert any(c["prix_fcfa_kg"] == 600 for c in detail_agent.json())
     detail_chercheur = await client.get(
         f"{CAPTURES}", headers=h_chercheur, params={"pecheur_id": p["id"]}

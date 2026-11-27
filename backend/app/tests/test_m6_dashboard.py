@@ -178,14 +178,11 @@ async def test_dashboard_alertes_actives_et_zone_activite(
     alert_match = [
         a
         for a in body["alertes_actives"]
-        if a["type"] == "depassement_quota"
-        and a["declencheur"].get("quota_id") == quota_id
+        if a["type"] == "depassement_quota" and a["declencheur"].get("quota_id") == quota_id
     ]
     assert alert_match, body["alertes_actives"]
 
-    zone_match = [
-        z for z in body["zones_forte_activite"] if z["label"] == zone.json()["nom"]
-    ]
+    zone_match = [z for z in body["zones_forte_activite"] if z["label"] == zone.json()["nom"]]
     assert zone_match, body["zones_forte_activite"]
     assert zone_match[0]["nb_captures"] == 1
     assert zone_match[0]["volume_kg"] == 3.0
@@ -193,9 +190,7 @@ async def test_dashboard_alertes_actives_et_zone_activite(
 
 
 @pytest.mark.asyncio
-async def test_dashboard_refuse_pecheur(
-    client: AsyncClient, agent_headers: dict
-) -> None:
+async def test_dashboard_refuse_pecheur(client: AsyncClient, agent_headers: dict) -> None:
     suffix = uuid.uuid4().hex[:8]
     email = f"pecheur.dash.{suffix}@example.com"
     created = await client.post(

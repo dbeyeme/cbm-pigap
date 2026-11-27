@@ -9,9 +9,7 @@ import pytest
 from httpx import AsyncClient
 
 
-async def _create_pecheur_embarcation(
-    client: AsyncClient, headers: dict
-) -> tuple[str, str]:
+async def _create_pecheur_embarcation(client: AsyncClient, headers: dict) -> tuple[str, str]:
     suffix = uuid.uuid4().hex[:8]
     pecheur = await client.post(
         "/api/v1/pecheurs",
@@ -170,18 +168,14 @@ async def test_alerte_100_pct_et_pas_de_doublon_90(
     assert cap.status_code == 201, cap.text
 
     alertes = await client.get("/api/v1/quotas/alertes", headers=agent_headers)
-    rows = [
-        a for a in alertes.json() if a["declencheur"].get("quota_id") == quota_id
-    ]
+    rows = [a for a in alertes.json() if a["declencheur"].get("quota_id") == quota_id]
     seuils = sorted(float(a["declencheur"]["seuil"]) for a in rows)
     assert 0.9 in seuils
     assert 1.0 in seuils
 
     # Recapture ne doit pas dupliquer les seuils
     day = date.fromisoformat(debut)
-    capture_at2 = datetime(
-        day.year, day.month, day.day, 18, 0, tzinfo=UTC
-    ).isoformat()
+    capture_at2 = datetime(day.year, day.month, day.day, 18, 0, tzinfo=UTC).isoformat()
     cap2 = await client.post(
         "/api/v1/captures",
         headers=agent_headers,
@@ -197,16 +191,12 @@ async def test_alerte_100_pct_et_pas_de_doublon_90(
     )
     assert cap2.status_code == 201, cap2.text
     alertes2 = await client.get("/api/v1/quotas/alertes", headers=agent_headers)
-    rows2 = [
-        a for a in alertes2.json() if a["declencheur"].get("quota_id") == quota_id
-    ]
+    rows2 = [a for a in alertes2.json() if a["declencheur"].get("quota_id") == quota_id]
     assert len(rows2) == 2
 
 
 @pytest.mark.asyncio
-async def test_pecheur_ne_gere_pas_quotas(
-    client: AsyncClient, agent_headers: dict
-) -> None:
+async def test_pecheur_ne_gere_pas_quotas(client: AsyncClient, agent_headers: dict) -> None:
     suffix = uuid.uuid4().hex[:8]
     email = f"pecheur.quota.{suffix}@example.com"
     created = await client.post(

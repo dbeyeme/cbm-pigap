@@ -528,7 +528,9 @@ async def find_pecheur_for_user(db: AsyncSession, utilisateur_id: UUID) -> Peche
     return result.scalar_one_or_none()
 
 
-async def assert_acces_abonnement(db: AsyncSession, user: Utilisateur, abonnement: Abonnement) -> None:
+async def assert_acces_abonnement(
+    db: AsyncSession, user: Utilisateur, abonnement: Abonnement
+) -> None:
     """Staff : accès libre. Pêcheur / organisation : uniquement son abonnement.
 
     Hors périmètre → 404 (pas 403) pour ne pas révéler l'existence d'un paiement tiers.

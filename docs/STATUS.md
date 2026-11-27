@@ -10,12 +10,12 @@
 | **Phase** | Phase 2 — Prototype (clôturée) · préparation Phase 3 |
 | **Module courant** | M7 — Alertes intelligentes |
 | **Statut module** | ✅ done |
-| **Branche active** | `feature/lot-11-sorties-zones-favorables` (PR) · `main` à jour hors lot 11 |
+| **Branche active** | `feature/lot-11-sorties-zones-favorables` (PR) |
 | **Dernière mise à jour** | 2026-11-27 |
-| **Prochain jalon** | Fusion PR lot 11 + sécurité → APK → Phase 3 terrain |
-| **Bloqueurs** | Aucun (GFW production vérifié) |
-| **Chantier en cours** | Lot 11 livré en code (tests 20 passed) ; règles ADR-016 encore « Proposé ». |
-| **Note récente** | 2026-11-27 : sorties / lieu-de-peche / zones favorables + durcissement sécurité sur la même PR |
+| **Prochain jalon** | Fusion PR #1 → migration lot 11 → APK avec sync sorties → Phase 3 |
+| **Bloqueurs** | Aucun (GFW production vérifié ; APK 0.2.1 publiée hors lot 11) |
+| **Chantier en cours** | Lot 11 + sécurité en PR (conflits main résolus) ; règles ADR-016 « Proposé ». |
+| **Note récente** | 2026-11-27 : GFW OK ; APK 0.2.1 ; lot 11 sorties/zones favorables en revue |
 | **Dernière validation humaine** | Phase 1 validée + M1 livré |
 
 ## Tableau des modules (Phase 2)

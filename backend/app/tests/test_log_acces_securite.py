@@ -23,13 +23,17 @@ async def test_login_echec_journalise(client: AsyncClient, engine) -> None:
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         rows = (
-            await session.execute(
-                select(LogAcces)
-                .where(LogAcces.ressource == "auth", LogAcces.action == "login_echec")
-                .order_by(LogAcces.horodatage.desc())
-                .limit(1)
+            (
+                await session.execute(
+                    select(LogAcces)
+                    .where(LogAcces.ressource == "auth", LogAcces.action == "login_echec")
+                    .order_by(LogAcces.horodatage.desc())
+                    .limit(1)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert rows
     assert "inconnu.audit@example.com" in (rows[0].detail or "")
 
@@ -63,14 +67,18 @@ async def test_dossier_licence_journalise_staff(
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         rows = (
-            await session.execute(
-                select(LogAcces).where(
-                    LogAcces.ressource == "geoloc_dossier",
-                    LogAcces.action == "consultation",
-                    LogAcces.detail.contains(licence),
+            (
+                await session.execute(
+                    select(LogAcces).where(
+                        LogAcces.ressource == "geoloc_dossier",
+                        LogAcces.action == "consultation",
+                        LogAcces.detail.contains(licence),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert rows
 
 
@@ -125,13 +133,17 @@ async def test_trajectoire_journalise_staff(
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         rows = (
-            await session.execute(
-                select(LogAcces).where(
-                    LogAcces.ressource == "geoloc_trajectoire",
-                    LogAcces.detail.contains(emb_id),
+            (
+                await session.execute(
+                    select(LogAcces).where(
+                        LogAcces.ressource == "geoloc_trajectoire",
+                        LogAcces.detail.contains(emb_id),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert rows
 
 

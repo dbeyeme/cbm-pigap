@@ -39,7 +39,6 @@ from app.db.enums import (
     StatutAbonnement,
     StatutAlerte,
     StatutCommande,
-    TypePerimetre,
     StatutDemandeLicence,
     StatutMission,
     StatutPaiement,
@@ -48,6 +47,7 @@ from app.db.enums import (
     TaxeStatut,
     TypeAlerte,
     TypeDemandeLicence,
+    TypePerimetre,
     TypeZone,
 )
 
@@ -988,7 +988,9 @@ class PerimetreZone(Base):
         Enum(TypePerimetre, name="type_perimetre", native_enum=True),
         nullable=False,
     )
-    actif: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    actif: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     emprise = mapped_column(
         Geometry(geometry_type="POLYGON", srid=4326),
         nullable=False,

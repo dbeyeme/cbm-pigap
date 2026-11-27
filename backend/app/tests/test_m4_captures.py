@@ -9,9 +9,7 @@ import pytest
 from httpx import AsyncClient
 
 
-async def _create_pecheur_embarcation(
-    client: AsyncClient, headers: dict
-) -> tuple[str, str]:
+async def _create_pecheur_embarcation(client: AsyncClient, headers: dict) -> tuple[str, str]:
     suffix = uuid.uuid4().hex[:8]
     pecheur = await client.post(
         "/api/v1/pecheurs",
@@ -173,9 +171,7 @@ async def test_sync_batch_partial_accept_and_reject(
         json={
             "captures": [
                 _capture_payload(pecheur_id, emb_id, client_id=good_id, espece="merou"),
-                _capture_payload(
-                    pecheur_id, fake_emb, client_id=bad_id, espece="barracuda"
-                ),
+                _capture_payload(pecheur_id, fake_emb, client_id=bad_id, espece="barracuda"),
             ]
         },
     )
@@ -191,9 +187,7 @@ async def test_sync_batch_partial_accept_and_reject(
 
 
 @pytest.mark.asyncio
-async def test_create_idempotent_by_client_id(
-    client: AsyncClient, agent_headers: dict
-) -> None:
+async def test_create_idempotent_by_client_id(client: AsyncClient, agent_headers: dict) -> None:
     pecheur_id, emb_id = await _create_pecheur_embarcation(client, agent_headers)
     client_id = str(uuid.uuid4())
     payload = _capture_payload(pecheur_id, emb_id, client_id=client_id)
@@ -219,9 +213,7 @@ async def test_captures_require_auth(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_agent_web_create_patch_delete(
-    client: AsyncClient, agent_headers: dict
-) -> None:
+async def test_agent_web_create_patch_delete(client: AsyncClient, agent_headers: dict) -> None:
     """Chemin web agent : POST création + PATCH correction + DELETE hard."""
     pecheur_id, emb_id = await _create_pecheur_embarcation(client, agent_headers)
 
@@ -258,22 +250,16 @@ async def test_agent_web_create_patch_delete(
     )
     assert bad_patch.status_code == 422
 
-    deleted = await client.delete(
-        f"/api/v1/captures/{capture_id}", headers=agent_headers
-    )
+    deleted = await client.delete(f"/api/v1/captures/{capture_id}", headers=agent_headers)
     assert deleted.status_code == 200, deleted.text
     assert "supprimée" in deleted.json()["detail"].lower()
 
-    missing = await client.get(
-        f"/api/v1/captures/{capture_id}", headers=agent_headers
-    )
+    missing = await client.get(f"/api/v1/captures/{capture_id}", headers=agent_headers)
     assert missing.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_patch_delete_require_auth(
-    client: AsyncClient, agent_headers: dict
-) -> None:
+async def test_patch_delete_require_auth(client: AsyncClient, agent_headers: dict) -> None:
     pecheur_id, emb_id = await _create_pecheur_embarcation(client, agent_headers)
     created = await client.post(
         "/api/v1/captures",
@@ -283,9 +269,7 @@ async def test_patch_delete_require_auth(
     assert created.status_code == 201
     capture_id = created.json()["id"]
 
-    no_auth_patch = await client.patch(
-        f"/api/v1/captures/{capture_id}", json={"quantite_kg": 1.0}
-    )
+    no_auth_patch = await client.patch(f"/api/v1/captures/{capture_id}", json={"quantite_kg": 1.0})
     assert no_auth_patch.status_code in (401, 403)
 
     no_auth_del = await client.delete(f"/api/v1/captures/{capture_id}")

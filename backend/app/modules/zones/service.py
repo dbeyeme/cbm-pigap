@@ -44,9 +44,10 @@ def _to_read(zone: ZoneReglementee, geojson_raw: str | None) -> ZoneRead:
 
 async def _fetch_read(db: AsyncSession, zone_id: UUID) -> ZoneRead:
     result = await db.execute(
-        select(ZoneReglementee, ST_AsGeoJSON(ZoneReglementee.geometrie).label("geom_geojson")).where(
-            ZoneReglementee.id == zone_id
-        )
+        select(
+            ZoneReglementee,
+            ST_AsGeoJSON(ZoneReglementee.geometrie).label("geom_geojson"),
+        ).where(ZoneReglementee.id == zone_id)
     )
     row = result.one_or_none()
     if row is None:
@@ -143,9 +144,10 @@ async def list_zones(
     actif: bool | None = None,
     type_zone: TypeZone | None = None,
 ) -> list[ZoneRead]:
-    stmt = select(ZoneReglementee, ST_AsGeoJSON(ZoneReglementee.geometrie).label("geom_geojson")).order_by(
-        ZoneReglementee.nom
-    )
+    stmt = select(
+        ZoneReglementee,
+        ST_AsGeoJSON(ZoneReglementee.geometrie).label("geom_geojson"),
+    ).order_by(ZoneReglementee.nom)
     if actif is not None:
         stmt = stmt.where(ZoneReglementee.actif.is_(actif))
     if type_zone is not None:

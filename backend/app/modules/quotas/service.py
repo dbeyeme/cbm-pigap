@@ -198,9 +198,7 @@ async def _emit_threshold_alerts(db: AsyncSession, quota: Quota) -> list[Alerte]
     return created
 
 
-async def refresh_quotas_for_especes(
-    db: AsyncSession, especes: set[str]
-) -> list[Alerte]:
+async def refresh_quotas_for_especes(db: AsyncSession, especes: set[str]) -> list[Alerte]:
     """Recalcule tous les quotas touchés par un ensemble d'espèces (après capture)."""
     if not especes:
         return []

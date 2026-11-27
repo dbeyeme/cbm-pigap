@@ -18,7 +18,7 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 **Pourquoi :** étude localisation 2026-10-30 ; écart cahier §5.2 / §5.7 documenté en ADR
 
-**Tests réalisés :** suite serveur complète sur une base de test dédiée : 323 réussis, 2 échecs, dont le test de tête de migration du lot 8 (mis à jour, vert) et `test_webhook_mm_refuse_sans_secret_en_live` (appel réseau réel au service de paiement, sans lien avec ce lot) ; tests du lot et de la météo-marine : 30 réussis après le dernier changement ; mobile : `tsc` et Jest verts (124 tests) ; portail : `tsc -b` et construction vertes ; panneau « Sorties en mer » vérifié au navigateur en local. Compte rendu : `docs/lot-11-sorties-lieu-zones-favorables.md`
+**Tests réalisés :** `pytest` lot 11 + zones favorables → 20 passed ; compte rendu `docs/lot-11-sorties-lieu-zones-favorables.md`
 
 **Points ouverts :** validation des seuils « Proposé » ; republier l'APK avec sync sorties ; déploiement migration
 
@@ -37,6 +37,20 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 **Tests réalisés :** pytest log_acces + agent_zones → 6 passed ; `npx tsc --noEmit` web OK
 
 **Points ouverts :** consultation live flotte (LogAcces) encore partielle ; GFW production OK (voir entrée suivante)
+
+---
+
+## [2026-11-27] GFW actif en local et en production (env seulement)
+
+**Ce qui a été construit :**
+- `GFW_ENABLED=true` et `GFW_API_TOKEN` posés sur Railway (`cbm-pigap`) et en local (hors git)
+- Vérification : `/api/v1/gfw/etat` actif avec jeton ; `/gfw/peche-apparente` HTTP 200 (~4158 h, période 2026-08-01 → 2026-11-01)
+
+**Pourquoi :** décision 5b du porteur ; ADR-011 (interrupteur env, jeton serveur)
+
+**Tests réalisés :** curl authentifié agent démo sur l'API de production
+
+**Points ouverts :** rotation des secrets exposés par un affichage CLI antérieur ; accord écrit éditeur GFW reste à la charge du porteur
 
 ---
 

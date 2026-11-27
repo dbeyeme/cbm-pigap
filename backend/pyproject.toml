@@ -17,6 +17,8 @@ src = ["app"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008 : FastAPI utilise Query()/Depends() dans les valeurs par défaut des paramètres.
+ignore = ["B008"]
 
 [tool.black]
 line-length = 100

@@ -358,7 +358,11 @@ async def bilan_pdf(
                 q.espece,
                 _kg(q.volume_autorise_kg),
                 _kg(q.volume_consomme_kg),
-                f"{(q.volume_consomme_kg / q.volume_autorise_kg * 100) if q.volume_autorise_kg else 0:.1f} %",
+                (
+                    f"{(q.volume_consomme_kg / q.volume_autorise_kg * 100):.1f} %"
+                    if q.volume_autorise_kg
+                    else "0.0 %"
+                ),
             ]
             for q in quotas_rel
         ],

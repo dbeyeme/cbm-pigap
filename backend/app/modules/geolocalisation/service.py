@@ -17,11 +17,6 @@ from app.db.enums import RoleUtilisateur, SourcePosition
 from app.db.models import Embarcation, Pecheur, Position, Utilisateur
 from app.modules.geolocalisation.gabon_routes import is_on_water, segment_stays_on_water
 from app.modules.geolocalisation.geo import geojson_text_to_point, point_to_wkt
-from app.modules.perimetre.filtre import (
-    agent_id_pour_filtre,
-    au_moins_une_zone_active,
-    clause_point_dans_emprise_active,
-)
 from app.modules.geolocalisation.schemas import (
     BaliseIngestPayload,
     BaliseIngestResult,
@@ -32,6 +27,11 @@ from app.modules.geolocalisation.schemas import (
     PositionCreate,
     PositionRead,
     TrajectorySegmentRead,
+)
+from app.modules.perimetre.filtre import (
+    agent_id_pour_filtre,
+    au_moins_une_zone_active,
+    clause_point_dans_emprise_active,
 )
 from app.schemas.common import PointGeoJSON
 

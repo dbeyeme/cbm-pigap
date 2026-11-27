@@ -98,11 +98,7 @@ async def test_regle_zone_interdite_positif_et_negatif(
         params={"type": "zone_interdite", "embarcation_id": emb},
     )
     assert alertes.status_code == 200, alertes.text
-    hit = [
-        a
-        for a in alertes.json()
-        if a["declencheur"].get("zone_id") == zone["id"]
-    ]
+    hit = [a for a in alertes.json() if a["declencheur"].get("zone_id") == zone["id"]]
     assert hit, alertes.json()
     assert hit[0]["declencheur"].get("regle") == "intrusion_zone_interdite"
 
@@ -190,9 +186,7 @@ async def test_regle_depassement_quota_positif_et_negatif(
             "quantite_kg": 45.0,
             "methode": "ligne",
             "point_debarquement": "Port-Gentil",
-            "date_capture": datetime(
-                day.year, day.month, day.day, 18, 0, tzinfo=UTC
-            ).isoformat(),
+            "date_capture": datetime(day.year, day.month, day.day, 18, 0, tzinfo=UTC).isoformat(),
         },
     )
     assert high.status_code == 201, high.text
@@ -211,9 +205,7 @@ async def test_regle_depassement_quota_positif_et_negatif(
 
 
 @pytest.mark.asyncio
-async def test_regle_tendance_positif_et_negatif(
-    client: AsyncClient, agent_headers: dict
-) -> None:
+async def test_regle_tendance_positif_et_negatif(client: AsyncClient, agent_headers: dict) -> None:
     pid, emb = await _boat(client, agent_headers)
     # Historique bien avant la fenêtre 7j : 4 × 10 kg sur 4 semaines lointaines
     # → moyenne hist ≈ 10 kg / 7j

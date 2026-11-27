@@ -72,15 +72,11 @@ async def test_l7_parcours_complet_et_prix_facultatif(
     assert acceptee.json()["statut"] == StatutCommande.acceptee.value
     assert acceptee.json()["date_acceptee"] is not None
 
-    vendeur = await client.post(
-        f"{BASE}/{commande_id}/confirmer-vendeur", headers=pecheur_headers
-    )
+    vendeur = await client.post(f"{BASE}/{commande_id}/confirmer-vendeur", headers=pecheur_headers)
     assert vendeur.status_code == 200
     assert vendeur.json()["statut"] == StatutCommande.confirmee_vendeur.value
 
-    livree = await client.post(
-        f"{BASE}/{commande_id}/confirmer-client", headers=client_headers
-    )
+    livree = await client.post(f"{BASE}/{commande_id}/confirmer-client", headers=client_headers)
     assert livree.status_code == 200
     assert livree.json()["statut"] == StatutCommande.confirmee_client.value
     assert livree.json()["date_confirmee_client"] is not None

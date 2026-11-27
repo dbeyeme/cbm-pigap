@@ -871,9 +871,11 @@ async def emettre_alertes(db: AsyncSession, bulletin: BulletinMeteoMarine) -> in
         row = await _create(
             db,
             type_alerte=TypeAlerte.anomalie,
-            gravite=NiveauGravite.critique
-            if s.risque.niveau_navire == "rouge"
-            else NiveauGravite.attention,
+            gravite=(
+                NiveauGravite.critique
+                if s.risque.niveau_navire == "rouge"
+                else NiveauGravite.attention
+            ),
             embarcation_id=None,
             declencheur={
                 "regle": "meteo_marine",
