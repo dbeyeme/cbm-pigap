@@ -18,7 +18,7 @@ import HelpTip from '../components/HelpTip';
 import PageBanner from '../components/PageBanner';
 import KpiCard from '../components/KpiCard';
 import StatusPill from '../components/StatusPill';
-import { IconAlert, IconCheckCircle, IconPlus, IconSearch, IconShield, IconXCircle } from '../components/Icons';
+import { IconAlert, IconCheckCircle, IconClipboard, IconPlus, IconSearch, IconShield, IconXCircle } from '../components/Icons';
 
 type Props = {
   token: string;
@@ -186,7 +186,7 @@ export default function ControlesPage({ token, onError }: Props) {
 
       <div className="ds-kpi-row ds-rise-in">
         <KpiCard label="Missions" value={missions.length} hint={`${missions.filter((m) => m.statut === 'en_cours').length} en cours`} icon={<IconShield size={22} />} />
-        <KpiCard label="Contrôles" value={controles.length} icon={<IconSearch size={22} />} />
+        <KpiCard label="Contrôles" value={controles.length} icon={<IconClipboard size={22} />} />
         <KpiCard label="Infractions" value={infractions} tone={infractions ? 'danger' : 'ok'} icon={<IconAlert size={22} />} />
       </div>
 

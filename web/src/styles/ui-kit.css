@@ -1664,7 +1664,7 @@ summary:focus-visible {
   margin: 0;
   color: var(--ink);
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .vessel-section dd small {
@@ -2344,12 +2344,18 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
 }
 
 .modal-illustration {
-  border-radius: 12px;
-  background: rgba(27, 108, 168, 0.06);
+  border-radius: 16px;
+  background: none;
 }
 
 .pigap-illustration {
   display: block;
+}
+
+.pigap-illustration--pictogram {
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(11, 31, 58, 0.16);
+  flex: 0 0 auto;
 }
 
 .form-panel {
@@ -2370,8 +2376,7 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
 }
 .form-panel-head .pigap-illustration {
   flex: 0 0 auto;
-  border-radius: 12px;
-  background: rgba(27, 108, 168, 0.08);
+  background: none;
 }
 .form-panel-head h2,
 .form-panel-head h3 {
@@ -2406,8 +2411,7 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
   padding: 8px 0 4px;
 }
 .wizard-choix-icone .pigap-illustration {
-  border-radius: 10px;
-  background: rgba(27, 108, 168, 0.08);
+  background: none;
 }
 
 /* ---- Abonnements ---- */
@@ -4058,7 +4062,7 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
 
 .fiche-table td {
   color: var(--ink);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .fiche-table--liste thead th {
@@ -4418,65 +4422,75 @@ button:has(> svg:first-child):not(.ds-nav-item):not(.ais-port-chip):not(.linkish
   vertical-align: middle;
 }
 
-/* Panneau de carte étroit : le tableau s'empile, indépendamment de la fenêtre. */
-.map-panel .ds-table.empilable {
+/* Panneau étroit (rail, carte) : une fiche libellée par ligne, quel que soit
+   le nombre de colonnes. overflow-wrap: anywhere est interdit ici : il autorise
+   une largeur d'une lettre (TYPE affiché verticalement). */
+.map-panel .ds-table.empilable,
+.dash-side-rail .ds-table.empilable {
   display: block;
   width: 100%;
   border-collapse: separate;
 }
-.map-panel .ds-table.empilable thead {
+.map-panel .ds-table.empilable thead,
+.dash-side-rail .ds-table.empilable thead {
   display: none;
 }
-.map-panel .ds-table.empilable tbody {
+.map-panel .ds-table.empilable tbody,
+.dash-side-rail .ds-table.empilable tbody {
   display: block;
 }
-.map-panel .ds-table.empilable tr {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  gap: 2px 10px;
-  align-items: start;
+.map-panel .ds-table.empilable tr,
+.dash-side-rail .ds-table.empilable tr {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
   background: transparent;
 }
-.map-panel .ds-table.empilable tr:last-child {
+.map-panel .ds-table.empilable tr:last-child,
+.dash-side-rail .ds-table.empilable tr:last-child {
   border-bottom: 0;
 }
-.map-panel .ds-table.empilable td {
-  display: block;
+.map-panel .ds-table.empilable td,
+.dash-side-rail .ds-table.empilable td {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 12px;
   height: auto;
   min-height: 0;
+  min-width: 0;
   padding: 0;
   border: 0;
-  overflow: hidden;
+  overflow: visible;
 }
-.map-panel .ds-table.empilable td:nth-child(1) {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  min-width: 0;
-  padding-right: 8px;
-}
-.map-panel .ds-table.empilable td:nth-child(2) {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
-  max-width: 11rem;
-}
-.map-panel .ds-table.empilable td:nth-child(3) {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
-  font-size: 0.72rem;
+.map-panel .ds-table.empilable td::before,
+.dash-side-rail .ds-table.empilable td::before {
+  content: attr(data-label);
+  flex: 0 1 7rem;
+  max-width: 42%;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--muted);
 }
-.map-panel .ds-table.empilable .etat-pastille {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.map-panel .ds-table.empilable td::before {
+.map-panel .ds-table.empilable td[data-label='']::before,
+.dash-side-rail .ds-table.empilable td[data-label='']::before {
   content: none;
+  display: none;
+}
+.map-panel .ds-table.empilable button.ligne-bouton,
+.dash-side-rail .ds-table.empilable button.ligne-bouton {
+  width: auto;
+  min-height: 0;
+  margin-left: auto;
+  text-align: right;
+}
+.map-panel .ds-table.empilable .etat-pastille,
+.dash-side-rail .ds-table.empilable .etat-pastille {
+  max-width: 100%;
 }
 
 /* Liste d'un groupe d'embarcations au même endroit */
@@ -4960,7 +4974,7 @@ button.vm-list-item:hover:not(:disabled) {
   margin: 0;
   font-size: 0.74rem;
   color: var(--ink);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .sea-motifs {
@@ -5193,7 +5207,7 @@ input.is-locked {
 @media (max-width: 1100px) {
   .redev-grid { grid-template-columns: 1fr; }
 }
-.redev-panel { padding: 14px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; overflow: hidden; }
+.redev-panel { padding: 14px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; overflow: auto; }
 .redev-filter { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
 .redev-filter label, .redev-panel .login-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
 .redev-total { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(14, 165, 163, 0.08); border: 1px solid rgba(14, 165, 163, 0.25); }
@@ -5477,8 +5491,11 @@ input.is-locked {
   margin: 2px 0 0;
   font-size: 0.68rem;
   color: var(--muted);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   line-height: 1.25;
+}
+.cellule-serree {
+  white-space: nowrap;
 }
 .table-defile,
 .table-scroll {
@@ -5646,11 +5663,15 @@ button.ligne-bouton:hover:not(:disabled) {
 .registre-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .registre-corps .fiche-tuiles { border: 1px solid var(--border); border-radius: var(--radius-sm); }
 
-/* Tableaux empilés sur téléphone : chaque ligne devient un bloc libellé. */
+/* Tableaux empilés sur téléphone : même fiche libellée que le rail et la carte. */
 @media (max-width: 640px) {
   .ds-table.registre-table,
   .ds-table.appareils-table,
-  .ds-table.empilable { display: block; }
+  .ds-table.empilable {
+    display: block;
+    width: 100%;
+    border-collapse: separate;
+  }
   .ds-table.registre-table thead,
   .ds-table.appareils-table thead,
   .ds-table.empilable thead { display: none; }
@@ -5660,26 +5681,46 @@ button.ligne-bouton:hover:not(:disabled) {
   .ds-table.registre-table tr,
   .ds-table.appareils-table tr,
   .ds-table.empilable tr {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
     padding: 10px 4px;
     border-bottom: 1px solid var(--border);
   }
   .ds-table.registre-table td,
   .ds-table.appareils-table td,
-  .ds-table.empilable td { display: block; height: auto; padding: 0; border: 0; }
+  .ds-table.empilable td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px 12px;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .ds-table.registre-table td::before,
   .ds-table.appareils-table td::before,
   .ds-table.empilable td::before {
     content: attr(data-label);
-    display: block;
+    flex: 0 1 7rem;
+    max-width: 42%;
     font-size: 0.66rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--muted);
   }
-  .ds-table.empilable td[data-label='']::before { display: none; }
+  .ds-table.empilable td[data-label='']::before,
+  .ds-table.registre-table td[data-label='']::before,
+  .ds-table.appareils-table td[data-label='']::before { display: none; }
+  .ds-table.empilable button.ligne-bouton,
+  .ds-table.registre-table button.ligne-bouton {
+    width: auto;
+    min-height: 0;
+    margin-left: auto;
+    text-align: right;
+  }
 }
 
 /* Appareils (ADR-012). */

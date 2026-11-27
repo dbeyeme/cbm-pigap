@@ -5,6 +5,22 @@ Chaque module terminé = une entrée. Langage clair pour le porteur de projet.
 
 ---
 
+## [2026-11-27] Tableaux étroits : plus de mots coupés lettre à lettre
+
+**Ce qui a été construit :**
+- `overflow-wrap: anywhere` retiré des cellules de tableau : cette règle autorisait une colonne large comme une lettre (TYPE et Pirogue affichés à la verticale dans Signaux)
+- Rail du tableau de bord et listes de la carte : une fiche libellée par ligne (embarcation, type, état, régularité, âge)
+- Dates d'alertes en format court `24/11 15:39`, sans coupure
+- Pictogrammes de formulaire : un sujet plein par action (poisson, jauge, quittance, épingle), lisibles à 44 px
+
+**Pourquoi :** le porteur a signalé le tableau Signaux et les dates tronquées ; la même cause existait partout où un tableau tenait dans un panneau étroit
+
+**Tests réalisés :** `npx tsc --noEmit` ; contrôle navigateur du rail Signaux / Alertes (mots entiers, dates lisibles)
+
+**Points ouverts :** lots 7 et 8 reportés ; Global Fishing Watch à l'arrêt en production (ADR-011)
+
+---
+
 ## [2026-11-27] Formulaires illustrés, épingles d'alertes cliquables
 
 **Ce qui a été construit :**

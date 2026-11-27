@@ -47,11 +47,12 @@ export function IconDashboard(p: IconProps) {
   );
 }
 
-/** Acteurs — pêcheur + organisation. */
+/** Acteurs — pêcheur (chapeau) + second profil. */
 export function IconUsers(p: IconProps) {
   return (
     <Svg {...p}>
-      <circle cx="9" cy="7.5" r="2.8" />
+      <ellipse cx="9" cy="4.6" rx="3.6" ry="1.15" />
+      <circle cx="9" cy="8" r="2.5" />
       <path d="M3.2 19c.7-3.2 2.8-4.8 5.8-4.8s5.1 1.6 5.8 4.8" />
       <circle cx="17.2" cy="9" r="2.1" />
       <path d="M14.2 19c.35-1.7 1.5-2.7 3.1-2.7 1.1 0 2 .45 2.5 1.3" />
@@ -71,15 +72,14 @@ export function IconShip(p: IconProps) {
   );
 }
 
-/** Captures / poissons. */
+/** Captures / poisson côtier (tête à gauche, nageoire dorsale). */
 export function IconFish(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M3.5 12s3.2-4.8 8.5-4.8S20.5 12 20.5 12s-3.2 4.8-8.5 4.8S3.5 12 3.5 12Z" />
-      <circle cx="16.2" cy="12" r="0.9" fill="currentColor" stroke="none" />
-      <path d="M3.5 12h3" />
-      <path d="M5.8 9.8 3.8 8" />
-      <path d="M5.8 14.2 3.8 16" />
+      <path d="M2.6 12c3.8-5.4 9.6-7 15.2-4.4 3.4 1.6 5.8 3.8 6.8 4.4-1 1-3.4 3-6.8 4.4C12.2 19 6.4 17.4 2.6 12Z" />
+      <path d="M16.6 12l5.8-4.4v8.8Z" />
+      <path d="M11.2 7.2 13.6 4.4" />
+      <circle cx="8" cy="11" r="0.95" fill="currentColor" stroke="none" />
     </Svg>
   );
 }
@@ -97,13 +97,55 @@ export function IconRadar(p: IconProps) {
   );
 }
 
-/** Alerte triangle. */
+/** Alerte triangle (refus, infraction). */
 export function IconAlert(p: IconProps) {
   return (
     <Svg {...p}>
       <path d="M12 3.8 21 19.2H3L12 3.8Z" />
       <path d="M12 10v4" />
       <circle cx="12" cy="16.6" r="0.85" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+/** Épingle d'alerte (même lecture que la carte). */
+export function IconPin(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 3.4c-3.7 0-6.6 2.9-6.6 6.5 0 4.9 6.6 12.7 6.6 12.7s6.6-7.8 6.6-12.7c0-3.6-2.9-6.5-6.6-6.5Z" />
+      <circle cx="12" cy="9.6" r="2.15" />
+    </Svg>
+  );
+}
+
+/** Quota / jauge de consommation. */
+export function IconGauge(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M5 17.2a8.6 8.6 0 1 1 14 0" />
+      <circle cx="12" cy="17.2" r="1.35" fill="currentColor" stroke="none" />
+      <path d="M12 17.2 16.8 10.4" />
+    </Svg>
+  );
+}
+
+/** Contrôle / bordereau. */
+export function IconClipboard(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="6" y="5.2" width="12" height="15.6" rx="1.8" />
+      <rect x="9" y="3.2" width="6" height="3.4" rx="1" />
+      <path d="M9 11h6M9 14.4h4" />
+    </Svg>
+  );
+}
+
+/** Montant / valeur estimée. */
+export function IconCoin(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7.6v8.8M9.4 9.4h4.4c1.2 0 1.9.7 1.9 1.6s-.7 1.6-1.9 1.6H10" />
     </Svg>
   );
 }
@@ -265,12 +307,14 @@ export function IconPlus(p: IconProps) {
   );
 }
 
-/** Pirogue artisanale (distinct du navire). */
+/** Pirogue artisanale (pêcheur à bord, distinct du navire). */
 export function IconPirogue(p: IconProps) {
   return (
     <Svg {...p}>
-      <path d="M2.6 12.6c3 5.2 14.4 5.4 18.8-1.6-3.4 3.2-14.2 3.4-18.8 1.6Z" />
-      <path d="M3.6 12.8V9.6h2.2v3.6" />
+      <circle cx="9" cy="7.6" r="1.7" />
+      <path d="M9 9.4v3.4" />
+      <path d="M2.6 14.4c3.2 4.6 14.6 4.8 18.8-1.4-3.4 2.8-14.2 3-18.8 1.4Z" />
+      <path d="M14.2 7.2 17.6 4.6" />
       <path d="M3.4 20.4q1.5-1.1 3 0t3 0 3 0 3 0 3 0 2.2 0" opacity="0.55" />
     </Svg>
   );
@@ -282,7 +326,7 @@ export const NAV_ICONS = {
   navires: IconShip,
   peches: IconFish,
   surveillance: IconRadar,
-  alertes: IconAlert,
+  alertes: IconPin,
   rapports: IconReport,
   cartographie: IconMap,
   admin: IconSettings,

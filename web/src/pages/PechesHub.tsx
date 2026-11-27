@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import HubTabs from '../components/HubTabs';
 import PageBanner from '../components/PageBanner';
-import { IconFish, IconReceipt, IconReport } from '../components/Icons';
+import { IconFish, IconGauge, IconReceipt } from '../components/Icons';
 import CapturesPage from './CapturesPage';
 import QuotasPage from './QuotasPage';
 import RedevancesPage from './RedevancesPage';
@@ -35,7 +35,7 @@ export default function PechesHub({ token, onError, initialTab = 'captures' }: P
       <HubTabs
         tabs={[
           { id: 'captures', label: 'Captures', icon: IconFish },
-          { id: 'quotas', label: 'Quotas', icon: IconReport },
+          { id: 'quotas', label: 'Quotas', icon: IconGauge },
           { id: 'redevances', label: 'Redevances', icon: IconReceipt },
         ]}
         active={tab}

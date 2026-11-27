@@ -4609,7 +4609,7 @@ button.linkish {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .ds-table th {
@@ -4617,6 +4617,7 @@ button.linkish {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .ds-table .zone-actions,

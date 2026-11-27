@@ -22,13 +22,13 @@ import PredictionStrip from '../components/PredictionStrip';
 import StatusPill from '../components/StatusPill';
 import TrendCharts from '../components/TrendCharts';
 import {
-  IconAlert,
   IconCalendar,
-  IconCard,
   IconCoast,
+  IconCoin,
   IconEstuary,
   IconFish,
   IconHotspot,
+  IconPin,
   IconPirogue,
   IconRadar,
   IconReceipt,
@@ -115,6 +115,17 @@ function formatAge(sec: number): string {
   if (sec < 60) return `${sec} s`;
   if (sec < 3600) return `${Math.round(sec / 60)} min`;
   return `${Math.round(sec / 3600)} h`;
+}
+
+function formatHorodatageCourt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 const SIGNAL_LABEL: Record<string, string> = {
@@ -442,7 +453,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
           value={alertCount || '—'}
           tone={alertCount > 0 ? 'danger' : 'ok'}
           hint={alertCount > 0 ? 'À traiter en priorité' : 'Situation calme'}
-          icon={<IconAlert size={22} />}
+          icon={<IconPin size={22} />}
         />
       </div>
 
@@ -461,7 +472,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
               ? `Prix déclaré, sinon référence 2024 · ${data.valeur_estimee_couverture_pct ?? 0} % du volume couvert`
               : undefined
           }
-          icon={<IconCard size={22} />}
+          icon={<IconCoin size={22} />}
         />
         <KpiCard
           label="Taxe à la production"
@@ -551,7 +562,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
               <IconShip size={14} /> Chaloupe / navire
             </span>
             <span className="dash-map-key">
-              <IconAlert size={14} /> Épingles rouges : alertes {geoAlertCount}
+              <IconPin size={14} /> Épingles rouges : alertes {geoAlertCount}
             </span>
             <span className="dash-map-key muted">{sectorHint}</span>
           </div>
@@ -620,7 +631,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
           <div className="ds-panel">
             <div className="dash-panel-head">
               <h2>
-                <IconAlert size={16} /> Alertes
+                <IconPin size={16} /> Alertes
               </h2>
             </div>
             {(data?.alertes_actives ?? []).length === 0 ? (
@@ -652,7 +663,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
                           tone={graviteTone(a.niveau_gravite)}
                         />
                       </td>
-                      <td data-label="Date">{new Date(a.horodatage).toLocaleString('fr-FR')}</td>
+                      <td data-label="Date" className="cellule-serree">{formatHorodatageCourt(a.horodatage)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -706,7 +717,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
             [
               ['foyers', 'Foyers', IconHotspot],
               ['especes', 'Espèces', IconFish],
-              ['alertes', 'Journal alertes', IconAlert],
+              ['alertes', 'Journal alertes', IconPin],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -723,6 +734,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
           ))}
         </div>
         {recordsTab === 'alertes' ? (
+          <div className="table-defile">
           <table className="ds-table">
             <thead>
               <tr>
@@ -735,7 +747,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
             <tbody>
               {(data?.alertes_actives ?? []).slice(0, 8).map((a) => (
                 <tr key={a.id}>
-                  <td>{new Date(a.horodatage).toLocaleString('fr-FR')}</td>
+                  <td className="cellule-serree">{formatHorodatageCourt(a.horodatage)}</td>
                   <td>{alertTypeLabel(a.type)}</td>
                   <td>
                     <StatusPill label={graviteLabel(a.niveau_gravite)} tone={graviteTone(a.niveau_gravite)} />
@@ -750,8 +762,10 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
               ) : null}
             </tbody>
           </table>
+          </div>
         ) : null}
         {recordsTab === 'foyers' ? (
+          <div className="table-defile">
           <table className="ds-table">
             <thead>
               <tr>
@@ -775,8 +789,10 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
               ) : null}
             </tbody>
           </table>
+          </div>
         ) : null}
         {recordsTab === 'especes' ? (
+          <div className="table-defile">
           <table className="ds-table">
             <thead>
               <tr>
@@ -798,6 +814,7 @@ export default function DashboardPage({ token, onError, onNavigate, peutVoirRapp
               ) : null}
             </tbody>
           </table>
+          </div>
         ) : null}
         {data ? (
           <p className="traj-meta" style={{ marginTop: 12 }}>

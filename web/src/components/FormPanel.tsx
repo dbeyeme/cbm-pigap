@@ -28,7 +28,7 @@ export default function FormPanel({
       className={`form-panel${compact ? ' form-panel--compact' : ''}${className ? ` ${className}` : ''}`}
     >
       <header className="form-panel-head">
-        <Illustration name={illustration} size={compact ? 52 : 72} />
+        <Illustration name={illustration} size={compact ? 44 : 56} variant="pictogram" />
         <div>
           <h2>{title}</h2>
           {lede ? <p>{lede}</p> : null}
